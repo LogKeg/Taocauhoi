@@ -4,10 +4,10 @@
     { "src": "api/index.py", "use": "@vercel/python" },
     { "src": "api/blob/list.js", "use": "@vercel/node" },
     { "src": "api/blob/delete.js", "use": "@vercel/node" },
-    { "src": "api/blob/upload.mjs", "use": "@vercel/edge" }
+    { "src": "api/blob/upload.js", "use": "@vercel/node" }
   ],
   "routes": [
-    { "src": "/api/blob/upload", "dest": "/api/blob/upload.mjs" },
+    { "src": "/api/blob/upload", "dest": "/api/blob/upload.js" },
     { "src": "/api/blob/(.*)", "dest": "/api/blob/$1" },
     { "src": "/static/(.*)", "dest": "/api/index.py" },
     { "src": "/(.*)", "dest": "/api/index.py" }
