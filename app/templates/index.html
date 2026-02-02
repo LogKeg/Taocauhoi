@@ -12,6 +12,7 @@
         <div>
           <h1>Tạo câu hỏi tự động</h1>
           <p>Tạo câu hỏi tương tự từ mẫu, hoặc sinh câu hỏi theo chủ đề.</p>
+          <p class="build" id="buildInfo"></p>
         </div>
       </header>
 
@@ -129,6 +130,7 @@
       const blobCount = document.getElementById('blobCount');
       const blobSize = document.getElementById('blobSize');
       const genStatus = document.getElementById('genStatus');
+      const buildInfo = document.getElementById('buildInfo');
 
       let templatesByTopic = {};
       let currentQuestions = [];
@@ -150,6 +152,18 @@
           return acc;
         }, {});
         renderTemplates();
+      }
+
+      async function loadBuildInfo() {
+        try {
+          const res = await fetch('/version');
+          const data = await res.json();
+          if (data.commit) {
+            buildInfo.textContent = `Build: ${data.commit.slice(0, 7)}`;
+          }
+        } catch (err) {
+          buildInfo.textContent = '';
+        }
       }
 
       async function fetchBlobList(prefix = '') {
@@ -495,6 +509,7 @@
       loadSampleFolders().then(() => {
         autoSubject.innerHTML = sampleSubject.innerHTML;
       });
+      loadBuildInfo();
       sampleSubject.addEventListener('change', loadSampleFiles);
     </script>
   </body>

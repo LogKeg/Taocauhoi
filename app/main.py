@@ -741,6 +741,14 @@ def list_templates() -> dict:
     }
 
 
+@app.get("/version")
+def version() -> dict:
+    return {
+        "commit": os.getenv("VERCEL_GIT_COMMIT_SHA", ""),
+        "time": os.getenv("VERCEL_GIT_COMMIT_MESSAGE", ""),
+    }
+
+
 @app.get("/sample-folders")
 def list_sample_folders() -> dict:
     if SAMPLE_DIR is None or not SAMPLE_DIR.exists():
