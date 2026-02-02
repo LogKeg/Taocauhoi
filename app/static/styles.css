@@ -210,6 +210,38 @@ ol {
   color: var(--ink);
 }
 
+.blob-meta {
+  display: flex;
+  gap: 16px;
+  color: var(--muted);
+  margin: 8px 0 14px;
+}
+
+.blob-list {
+  display: grid;
+  gap: 10px;
+}
+
+.blob-row {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  gap: 12px;
+  align-items: center;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: #fffdf9;
+}
+
+.blob-name {
+  word-break: break-word;
+}
+
+.blob-size {
+  color: var(--muted);
+  font-size: 14px;
+}
+
 @media (max-width: 900px) {
   .grid {
     grid-template-columns: 1fr;

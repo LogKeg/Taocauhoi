@@ -93,6 +93,21 @@
         </div>
         <ol id="output"></ol>
       </section>
+
+      <section class="panel" id="blobManager" hidden>
+        <div class="output-header">
+          <h2>Quản lý đề mẫu (Blob)</h2>
+          <div class="actions">
+            <button id="refreshBlob">Làm mới</button>
+            <button id="exportBlobCsv">Xuất CSV</button>
+          </div>
+        </div>
+        <div class="blob-meta">
+          <span id="blobCount">0 file</span>
+          <span id="blobSize">0 KB</span>
+        </div>
+        <div class="blob-list" id="blobList"></div>
+      </section>
     </main>
 
     <script type="module">
@@ -108,6 +123,10 @@
       const uploadFile = document.getElementById('uploadFile');
       const uploadStatus = document.getElementById('uploadStatus');
       const autoSubject = document.getElementById('autoSubject');
+      const blobManager = document.getElementById('blobManager');
+      const blobList = document.getElementById('blobList');
+      const blobCount = document.getElementById('blobCount');
+      const blobSize = document.getElementById('blobSize');
 
       let templatesByTopic = {};
       let currentQuestions = [];
@@ -161,6 +180,7 @@
         sampleSubject.innerHTML = folders.map((f) => `<option value="${f}">${f}</option>`).join('');
         autoSubject.innerHTML = sampleSubject.innerHTML;
         await loadSampleFiles();
+        renderBlobManager(blobs);
       }
 
       async function loadSampleFolders() {
@@ -170,9 +190,11 @@
         if (!folders.length) {
           useBlob = true;
           await loadBlobIndex();
+          blobManager.hidden = false;
           return;
         }
         useBlob = false;
+        blobManager.hidden = true;
         sampleSubject.innerHTML = folders.map((f) => `<option value="${f}">${f}</option>`).join('');
         autoSubject.innerHTML = sampleSubject.innerHTML;
         await loadSampleFiles();
@@ -395,6 +417,66 @@
         const res = await fetch('/auto-generate', { method: 'POST', body: formData });
         const data = await res.json();
         renderQuestions(data.questions || []);
+      });
+
+      function humanSize(bytes) {
+        if (!bytes) return '0 KB';
+        const units = ['B', 'KB', 'MB', 'GB'];
+        let size = bytes;
+        let idx = 0;
+        while (size >= 1024 && idx < units.length - 1) {
+          size /= 1024;
+          idx += 1;
+        }
+        return `${size.toFixed(size < 10 && idx > 0 ? 1 : 0)} ${units[idx]}`;
+      }
+
+      function renderBlobManager(blobs) {
+        if (!useBlob) return;
+        const total = blobs.reduce((sum, b) => sum + (b.size || 0), 0);
+        blobCount.textContent = `${blobs.length} file`;
+        blobSize.textContent = humanSize(total);
+        blobList.innerHTML = blobs
+          .map((item) => {
+            return `
+              <div class="blob-row">
+                <div class="blob-name">${item.pathname}</div>
+                <div class="blob-size">${humanSize(item.size || 0)}</div>
+                <button data-url="${item.url}" class="blob-del">Xóa</button>
+              </div>`;
+          })
+          .join('');
+        blobList.querySelectorAll('.blob-del').forEach((btn) => {
+          btn.addEventListener('click', async () => {
+            const url = btn.dataset.url;
+            await fetch('/api/blob/delete', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ url }),
+            });
+            await loadBlobIndex();
+          });
+        });
+      }
+
+      document.getElementById('refreshBlob').addEventListener('click', async () => {
+        if (!useBlob) return;
+        await loadBlobIndex();
+      });
+
+      document.getElementById('exportBlobCsv').addEventListener('click', async () => {
+        if (!useBlob) return;
+        const blobs = await fetchBlobList();
+        const header = 'pathname,size,url';
+        const rows = blobs.map((b) => `${b.pathname},${b.size || 0},${b.url}`);
+        const content = [header, ...rows].join('\n');
+        const blob = new Blob([content], { type: 'text/csv' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'blob_samples.csv';
+        a.click();
+        URL.revokeObjectURL(url);
       });
 
       loadTopics();
