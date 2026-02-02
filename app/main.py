@@ -609,6 +609,21 @@ def list_sample_folders() -> dict:
     return {"folders": folders}
 
 
+@app.get("/debug-samples")
+def debug_samples() -> dict:
+    entries = []
+    for entry in BASE_DIR.iterdir():
+        entries.append(
+            {
+                "name": entry.name,
+                "is_dir": entry.is_dir(),
+                "normalized": _normalize_name(entry.name),
+            }
+        )
+    sample_path = str(SAMPLE_DIR) if SAMPLE_DIR else ""
+    return {"base_dir": str(BASE_DIR), "sample_dir": sample_path, "entries": entries}
+
+
 @app.get("/sample-files")
 def list_sample_files(subject: str) -> dict:
     if SAMPLE_DIR is None or not subject or not SAMPLE_DIR.exists():
