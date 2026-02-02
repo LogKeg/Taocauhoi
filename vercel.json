@@ -2,8 +2,9 @@
   "version": 2,
   "builds": [
     { "src": "api/index.py", "use": "@vercel/python" },
-    { "src": "api/blob/*.js", "use": "@vercel/node" },
-    { "src": "api/blob/*.mjs", "use": "@vercel/edge" }
+    { "src": "api/blob/list.js", "use": "@vercel/node" },
+    { "src": "api/blob/delete.js", "use": "@vercel/node" },
+    { "src": "api/blob/upload.mjs", "use": "@vercel/edge" }
   ],
   "routes": [
     { "src": "/api/blob/upload", "dest": "/api/blob/upload.mjs" },
