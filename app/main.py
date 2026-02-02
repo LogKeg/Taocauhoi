@@ -354,7 +354,7 @@ def _read_sample_file(path: Path) -> str:
     if suffix == ".docx":
         doc = Document(str(path))
         lines = [p.text.strip() for p in doc.paragraphs if p.text.strip()]
-        return "\n".join(lines)
+        return "\n\n".join(lines)
     return path.read_text(encoding="utf-8", errors="ignore")
 
 
@@ -367,22 +367,39 @@ def _read_sample_url(url: str) -> str:
     if suffix == ".docx":
         doc = Document(io.BytesIO(data))
         lines = [p.text.strip() for p in doc.paragraphs if p.text.strip()]
-        return "\n".join(lines)
+        return "\n\n".join(lines)
     return data.decode("utf-8", errors="ignore")
 
 
 def _split_questions(text: str) -> List[str]:
-    lines = [ln.strip() for ln in text.splitlines() if ln.strip()]
+    normalized = text.replace("\r\n", "\n")
+    blocks = [b.strip() for b in re.split(r"\n\\s*\n", normalized) if b.strip()]
     questions: List[str] = []
-    buffer: List[str] = []
-    for line in lines:
-        if re.match(r"^\\d+[\\).\\-\\:]\\s+", line) and buffer:
-            questions.append(" ".join(buffer).strip())
-            buffer = [re.sub(r"^\\d+[\\).\\-\\:]\\s+", "", line)]
+    for block in blocks:
+        lines = [ln.strip() for ln in block.splitlines() if ln.strip()]
+        if not lines:
+            continue
+
+        numbered_lines = [ln for ln in lines if re.match(r"^\\d{1,3}[\\).\\-\\:]\\s+", ln)]
+        if numbered_lines:
+            buffer: List[str] = []
+            for line in lines:
+                if re.match(r"^\\d{1,3}[\\).\\-\\:]\\s+", line):
+                    if buffer:
+                        questions.append(" ".join(buffer).strip())
+                        buffer = []
+                    line = re.sub(r"^\\d{1,3}[\\).\\-\\:]\\s+", "", line)
+                buffer.append(line)
+            if buffer:
+                questions.append(" ".join(buffer).strip())
+            continue
+
+        joined = " ".join(lines).strip()
+        parts = [p.strip() for p in re.split(r"(?<=[\\?？])\\s+", joined) if p.strip()]
+        if len(parts) > 1:
+            questions.extend(parts)
         else:
-            buffer.append(line)
-    if buffer:
-        questions.append(" ".join(buffer).strip())
+            questions.append(joined)
     return questions
 
 
