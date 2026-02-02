@@ -245,6 +245,17 @@ def _normalize_question(text: str) -> str:
     return _strip_leading_numbering(text).strip().lower()
 
 
+def _force_variation(text: str) -> str:
+    stripped = text.strip()
+    if not stripped:
+        return stripped
+    # Heuristic: if mostly ASCII, use English prefix; otherwise Vietnamese.
+    ascii_ratio = sum(1 for ch in stripped if ord(ch) < 128) / max(1, len(stripped))
+    if ascii_ratio > 0.9:
+        return f"Choose the correct option: {stripped}"
+    return f"Hãy cho biết: {stripped}"
+
+
 def _extract_text_from_response(payload: dict) -> str:
     if isinstance(payload, dict):
         if payload.get("output_text"):
@@ -532,7 +543,10 @@ def generate_variants(req: GenerateRequest) -> List[str]:
                 variant = _replace_numbers(variant)
             if req.change_context:
                 variant = _apply_context(variant, req.topic, req.custom_keywords)
-            results.append(_strip_leading_numbering(variant))
+            variant = _strip_leading_numbering(variant)
+            if _normalize_question(variant) == _normalize_question(sample):
+                variant = _force_variation(variant)
+            results.append(variant)
     return results
 
 
@@ -556,7 +570,7 @@ def generate(payload: GenerateRequest) -> dict:
         if out and out.issubset(src):
             return {
                 "questions": questions,
-                "message": "AI đang trả về câu gần giống câu gốc. Vui lòng thử lại hoặc tăng tỉ lệ AI.",
+                "message": "AI đang trả về câu gần giống câu gốc. Hệ thống đã thêm biến thể đơn giản.",
             }
     return {"questions": questions}
 
@@ -630,7 +644,7 @@ def auto_generate(
         src = {_normalize_question(s) for s in samples if s.strip()}
         out = {_normalize_question(q) for q in result["questions"] if q.strip()}
         if out and out.issubset(src):
-            result["message"] = "AI đang trả về câu gần giống câu gốc. Vui lòng thử lại."
+            result["message"] = "AI đang trả về câu gần giống câu gốc. Hệ thống đã thêm biến thể đơn giản."
     return result
 
 
