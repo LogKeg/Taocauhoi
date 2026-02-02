@@ -404,9 +404,11 @@ def _split_questions(text: str) -> List[str]:
         # Keep multiple-choice options attached to the preceding question line.
         merged_lines: List[str] = []
         option_re = re.compile(r"^[A-H][\\).\\-\\:]\\s+", re.IGNORECASE)
+        has_options = False
         for line in lines:
             if option_re.match(line) and merged_lines:
                 merged_lines[-1] = f"{merged_lines[-1]}\n{line}"
+                has_options = True
             else:
                 merged_lines.append(line)
         lines = merged_lines
@@ -417,6 +419,10 @@ def _split_questions(text: str) -> List[str]:
             if not deduped_lines or deduped_lines[-1] != line:
                 deduped_lines.append(line)
         lines = deduped_lines
+
+        if has_options:
+            questions.append("\n".join(lines).strip())
+            continue
 
         numbered_lines = [ln for ln in lines if re.match(r"^\\d{1,3}[\\).\\-\\:]\\s+", ln)]
         if numbered_lines:

@@ -254,7 +254,9 @@
 
       function renderQuestions(questions) {
         currentQuestions = questions;
-        output.innerHTML = questions.map((q) => `<li>${q}</li>`).join('');
+        output.innerHTML = questions
+          .map((q) => `<li>${q.replace(/\n/g, '<br>')}</li>`)
+          .join('');
       }
 
       form.addEventListener('submit', async (event) => {
