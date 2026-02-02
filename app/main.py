@@ -175,6 +175,7 @@ SYNONYMS = {
 
 NUMBER_RE = re.compile(r"\b\d+\b")
 LEADING_NUM_RE = re.compile(r"^\s*\d{1,3}[\).\-:]\s+")
+MCQ_OPTION_RE = re.compile(r"^[A-H][\).\-:]\s+", re.IGNORECASE)
 
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
 OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
@@ -254,6 +255,46 @@ def _force_variation(text: str) -> str:
     if ascii_ratio > 0.9:
         return f"Choose the correct option: {stripped}"
     return f"Hãy cho biết: {stripped}"
+
+
+def _rewrite_english_question(question: str) -> str:
+    q = question.strip()
+    if not q:
+        return q
+    pattern = re.compile(
+        r"^The\s+\.\.\.\s+you\s+try,\s+the\s+more\s+likely\s+you\s+are\s+to\s+be\s+successful\.?$",
+        re.IGNORECASE,
+    )
+    if pattern.match(q):
+        return "The more ... you attempt, the higher your chance of success."
+
+    candidates = [
+        (r"\bmore likely\b", "more probable"),
+        (r"\byou are to be successful\b", "you will succeed"),
+        (r"\bthe more\b", "the greater"),
+        (r"\btry\b", "attempt"),
+    ]
+    rewritten = q
+    for src, dst in candidates:
+        rewritten = re.sub(src, dst, rewritten, flags=re.IGNORECASE)
+    if _normalize_question(rewritten) != _normalize_question(q):
+        return rewritten
+    return q
+
+
+def _rewrite_mcq_block(block: str) -> str:
+    lines = block.splitlines()
+    if len(lines) < 2:
+        return block
+    if not MCQ_OPTION_RE.match(lines[1]):
+        return block
+    question = lines[0]
+    ascii_ratio = sum(1 for ch in question if ord(ch) < 128) / max(1, len(question))
+    if ascii_ratio > 0.9:
+        rewritten = _rewrite_english_question(question)
+    else:
+        rewritten = question
+    return "\n".join([rewritten] + lines[1:])
 
 
 def _extract_text_from_response(payload: dict) -> str:
@@ -511,12 +552,13 @@ def generate_variants(req: GenerateRequest) -> List[str]:
             while attempts < 2:
                 attempts += 1
                 text = _call_openai(prompt)
-                if text:
-                    lines = [_strip_leading_numbering(line) for line in _normalize_ai_lines(text)]
-                    if sample:
-                        lines = [ln for ln in lines if ln.strip().lower() != sample.strip().lower()]
-                    if lines:
-                        generated.extend(lines[: req.variants_per_question])
+            if text:
+                lines = [_strip_leading_numbering(line) for line in _normalize_ai_lines(text)]
+                if sample:
+                    lines = [ln for ln in lines if ln.strip().lower() != sample.strip().lower()]
+                if lines:
+                        for ln in lines[: req.variants_per_question]:
+                            generated.append(_rewrite_mcq_block(ln))
                         break
                 prompt = prompt + "\nNếu câu trả về trùng câu gốc, hãy viết lại hoàn toàn khác.\n"
         if generated:
@@ -544,6 +586,7 @@ def generate_variants(req: GenerateRequest) -> List[str]:
             if req.change_context:
                 variant = _apply_context(variant, req.topic, req.custom_keywords)
             variant = _strip_leading_numbering(variant)
+            variant = _rewrite_mcq_block(variant)
             if _normalize_question(variant) == _normalize_question(sample):
                 variant = _force_variation(variant)
             results.append(variant)
