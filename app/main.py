@@ -241,6 +241,10 @@ def _strip_leading_numbering(text: str) -> str:
     return LEADING_NUM_RE.sub("", text).strip()
 
 
+def _normalize_question(text: str) -> str:
+    return _strip_leading_numbering(text).strip().lower()
+
+
 def _extract_text_from_response(payload: dict) -> str:
     if isinstance(payload, dict):
         if payload.get("output_text"):
@@ -249,7 +253,10 @@ def _extract_text_from_response(payload: dict) -> str:
         for item in output:
             if item.get("type") == "message":
                 content = item.get("content", [])
-                parts = [c.get("text", "") for c in content if c.get("type") == "output_text"]
+                parts = []
+                for c in content:
+                    if c.get("type") in {"output_text", "text"} and c.get("text"):
+                        parts.append(c.get("text", ""))
                 if parts:
                     return "\n".join(parts).strip()
     return ""
@@ -285,7 +292,9 @@ def _build_ai_prompt(
             f"- Chủ đề: {topic.get('label', topic_key)}\n"
             f"- Từ khóa gợi ý: {kw_text}\n"
             f"- Hướng dẫn: {guide}\n"
-            "Yêu cầu bắt buộc: viết khác câu gốc (không lặp nguyên văn), không đánh số đầu dòng.\n"
+            "Yêu cầu bắt buộc: viết khác câu gốc (không lặp nguyên văn), đổi cấu trúc câu, dùng từ đồng nghĩa.\n"
+            "Nếu là trắc nghiệm, giữ định dạng đáp án A/B/C nhưng có thể thay nội dung câu hỏi.\n"
+            "Không đánh số đầu dòng.\n"
             "Trả về mỗi câu trên một dòng, không thêm giải thích.\n"
             f"Câu mẫu: {sample}\n"
         )
@@ -305,7 +314,12 @@ def _call_openai(prompt: str) -> Optional[str]:
         return None
     url = f"{OPENAI_API_BASE}/responses"
     headers = {"Authorization": f"Bearer {OPENAI_API_KEY}"}
-    payload = {"model": OPENAI_MODEL, "input": prompt}
+    payload = {
+        "model": OPENAI_MODEL,
+        "input": prompt,
+        "text": {"format": {"type": "text"}},
+        "max_output_tokens": 400,
+    }
     with httpx.Client(timeout=30) as client:
         response = client.post(url, json=payload, headers=headers)
         if response.status_code != 200:
@@ -474,7 +488,19 @@ def generate_variants(req: GenerateRequest) -> List[str]:
             text = _call_openai(prompt)
             if text:
                 lines = [_strip_leading_numbering(line) for line in _normalize_ai_lines(text)]
+                if sample:
+                    lines = [ln for ln in lines if ln.strip().lower() != sample.strip().lower()]
                 generated.extend(lines[: req.variants_per_question])
+
+            if sample and not generated:
+                retry_prompt = prompt + "\nNếu câu trả về trùng câu gốc, hãy viết lại hoàn toàn khác.\n"
+                retry_text = _call_openai(retry_prompt)
+                if retry_text:
+                    retry_lines = [_strip_leading_numbering(line) for line in _normalize_ai_lines(retry_text)]
+                    retry_lines = [
+                        ln for ln in retry_lines if ln.strip().lower() != sample.strip().lower()
+                    ]
+                    generated.extend(retry_lines[: req.variants_per_question])
         if generated:
             # De-duplicate while preserving order
             seen = set()
@@ -516,7 +542,16 @@ def generate(payload: GenerateRequest) -> dict:
             "questions": generate_variants(payload),
             "message": "Chưa cấu hình OPENAI_API_KEY nên AI không được dùng.",
         }
-    return {"questions": generate_variants(payload)}
+    questions = generate_variants(payload)
+    if payload.use_ai and OPENAI_API_KEY:
+        src = {_normalize_question(s) for s in payload.samples if s.strip()}
+        out = {_normalize_question(q) for q in questions if q.strip()}
+        if out and out.issubset(src):
+            return {
+                "questions": questions,
+                "message": "AI đang trả về câu gần giống câu gốc. Vui lòng thử lại hoặc tăng tỉ lệ AI.",
+            }
+    return {"questions": questions}
 
 
 @app.post("/auto-generate")
@@ -583,7 +618,13 @@ def auto_generate(
             questions.extend(ai_questions[:ai_count])
 
     random.shuffle(questions)
-    return {"questions": questions[:count]}
+    result = {"questions": questions[:count]}
+    if use_ai and OPENAI_API_KEY:
+        src = {_normalize_question(s) for s in samples if s.strip()}
+        out = {_normalize_question(q) for q in result["questions"] if q.strip()}
+        if out and out.issubset(src):
+            result["message"] = "AI đang trả về câu gần giống câu gốc. Vui lòng thử lại."
+    return result
 
 
 @app.post("/export")
