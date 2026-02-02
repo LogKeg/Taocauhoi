@@ -380,6 +380,16 @@ def _split_questions(text: str) -> List[str]:
         if not lines:
             continue
 
+        # Keep multiple-choice options attached to the preceding question line.
+        merged_lines: List[str] = []
+        option_re = re.compile(r"^[A-H][\\).\\-\\:]\\s+", re.IGNORECASE)
+        for line in lines:
+            if option_re.match(line) and merged_lines:
+                merged_lines[-1] = f"{merged_lines[-1]}\n{line}"
+            else:
+                merged_lines.append(line)
+        lines = merged_lines
+
         numbered_lines = [ln for ln in lines if re.match(r"^\\d{1,3}[\\).\\-\\:]\\s+", ln)]
         if numbered_lines:
             buffer: List[str] = []
