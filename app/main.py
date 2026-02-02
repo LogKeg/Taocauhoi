@@ -390,6 +390,13 @@ def _split_questions(text: str) -> List[str]:
                 merged_lines.append(line)
         lines = merged_lines
 
+        # Remove consecutive duplicate lines caused by copy/paste or formatting issues.
+        deduped_lines: List[str] = []
+        for line in lines:
+            if not deduped_lines or deduped_lines[-1] != line:
+                deduped_lines.append(line)
+        lines = deduped_lines
+
         numbered_lines = [ln for ln in lines if re.match(r"^\\d{1,3}[\\).\\-\\:]\\s+", ln)]
         if numbered_lines:
             buffer: List[str] = []
@@ -410,7 +417,19 @@ def _split_questions(text: str) -> List[str]:
             questions.extend(parts)
         else:
             questions.append(joined)
-    return questions
+
+    # Final de-duplication while preserving order.
+    seen = set()
+    unique_questions: List[str] = []
+    for q in questions:
+        key = q.strip()
+        if not key:
+            continue
+        if key in seen:
+            continue
+        seen.add(key)
+        unique_questions.append(q)
+    return unique_questions
 
 
 def _load_questions_from_subject(subject: str) -> List[str]:
@@ -519,6 +538,12 @@ def auto_generate(
         use_ai=False,
     )
     questions = generate_variants(req)
+
+    if use_ai and ai_count > 0 and not OPENAI_API_KEY:
+        return {
+            "questions": questions[:count],
+            "message": "Chưa cấu hình OPENAI_API_KEY nên AI không được dùng.",
+        }
 
     if use_ai and ai_count > 0:
         ai_req = GenerateRequest(

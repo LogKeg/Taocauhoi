@@ -264,6 +264,9 @@
           body: JSON.stringify(payload),
         });
         const data = await res.json();
+        if (data.message) {
+          uploadStatus.textContent = data.message;
+        }
         renderQuestions(data.questions || []);
       });
 
