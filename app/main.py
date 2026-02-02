@@ -33,6 +33,9 @@ class GenerateRequest(BaseModel):
     use_ai: bool = False
 
 
+class ParseSamplesRequest(BaseModel):
+    urls: List[str]
+
 TOPICS = {
     "toan_hoc": {
         "label": "Toán học",
@@ -355,6 +358,19 @@ def _read_sample_file(path: Path) -> str:
     return path.read_text(encoding="utf-8", errors="ignore")
 
 
+def _read_sample_url(url: str) -> str:
+    suffix = Path(url.split("?")[0]).suffix.lower()
+    with httpx.Client(timeout=30) as client:
+        resp = client.get(url)
+        resp.raise_for_status()
+        data = resp.content
+    if suffix == ".docx":
+        doc = Document(io.BytesIO(data))
+        lines = [p.text.strip() for p in doc.paragraphs if p.text.strip()]
+        return "\n".join(lines)
+    return data.decode("utf-8", errors="ignore")
+
+
 def _split_questions(text: str) -> List[str]:
     lines = [ln.strip() for ln in text.splitlines() if ln.strip()]
     questions: List[str] = []
@@ -446,8 +462,12 @@ def auto_generate(
     change_numbers: bool = Form(True),
     change_context: bool = Form(True),
     use_ai: bool = Form(False),
+    samples_text: str = Form(""),
 ) -> dict:
-    samples = _load_questions_from_subject(subject)
+    if samples_text.strip():
+        samples = _split_questions(samples_text)
+    else:
+        samples = _load_questions_from_subject(subject)
     if not samples:
         return {"questions": [], "message": "Không tìm thấy câu hỏi mẫu."}
     count = max(1, min(200, count))
@@ -609,19 +629,6 @@ def list_sample_folders() -> dict:
     return {"folders": folders}
 
 
-@app.get("/debug-samples")
-def debug_samples() -> dict:
-    entries = []
-    for entry in BASE_DIR.iterdir():
-        entries.append(
-            {
-                "name": entry.name,
-                "is_dir": entry.is_dir(),
-                "normalized": _normalize_name(entry.name),
-            }
-        )
-    sample_path = str(SAMPLE_DIR) if SAMPLE_DIR else ""
-    return {"base_dir": str(BASE_DIR), "sample_dir": sample_path, "entries": entries}
 
 
 @app.get("/sample-files")
@@ -654,6 +661,20 @@ def sample_content(subject: str, filename: str) -> dict:
         return {"content": ""}
     content = _read_sample_file(target)
     return {"content": content}
+
+
+@app.post("/parse-sample-urls")
+def parse_sample_urls(payload: ParseSamplesRequest) -> dict:
+    contents: List[str] = []
+    for url in payload.urls:
+        if not url:
+            continue
+        try:
+            contents.append(_read_sample_url(url))
+        except Exception:
+            continue
+    merged = "\n".join(contents)
+    return {"content": merged, "samples": _split_questions(merged)}
 
 
 @app.post("/upload-sample")

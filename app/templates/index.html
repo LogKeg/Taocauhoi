@@ -95,7 +95,9 @@
       </section>
     </main>
 
-    <script>
+    <script type="module">
+      import { upload } from 'https://esm.sh/@vercel/blob/client';
+
       const topicSelect = document.getElementById('topic');
       const output = document.getElementById('output');
       const form = document.getElementById('gen-form');
@@ -109,6 +111,8 @@
 
       let templatesByTopic = {};
       let currentQuestions = [];
+      let useBlob = false;
+      let blobIndex = {};
 
       async function loadTopics() {
         const [topicsRes, templatesRes] = await Promise.all([
@@ -127,16 +131,50 @@
         renderTemplates();
       }
 
+      async function fetchBlobList(prefix = '') {
+        const url = prefix ? `/api/blob/list?prefix=${encodeURIComponent(prefix)}` : '/api/blob/list';
+        const res = await fetch(url);
+        if (!res.ok) return [];
+        const data = await res.json();
+        return data.blobs || [];
+      }
+
+      async function loadBlobIndex() {
+        const blobs = await fetchBlobList();
+        const grouped = {};
+        blobs.forEach((item) => {
+          const pathname = item.pathname || '';
+          const parts = pathname.split('/');
+          if (parts.length < 2) return;
+          const subject = parts[0];
+          const file = parts.slice(1).join('/');
+          if (!grouped[subject]) grouped[subject] = [];
+          grouped[subject].push({ ...item, file });
+        });
+        blobIndex = grouped;
+        const folders = Object.keys(blobIndex).sort();
+        if (!folders.length) {
+          sampleSubject.innerHTML = '<option value="">Không có thư mục mẫu</option>';
+          sampleFile.innerHTML = '';
+          return;
+        }
+        sampleSubject.innerHTML = folders.map((f) => `<option value="${f}">${f}</option>`).join('');
+        autoSubject.innerHTML = sampleSubject.innerHTML;
+        await loadSampleFiles();
+      }
+
       async function loadSampleFolders() {
         const res = await fetch('/sample-folders');
         const data = await res.json();
         const folders = data.folders || [];
         if (!folders.length) {
-          sampleSubject.innerHTML = '<option value=\"\">Không có thư mục mẫu</option>';
-          sampleFile.innerHTML = '';
+          useBlob = true;
+          await loadBlobIndex();
           return;
         }
+        useBlob = false;
         sampleSubject.innerHTML = folders.map((f) => `<option value="${f}">${f}</option>`).join('');
+        autoSubject.innerHTML = sampleSubject.innerHTML;
         await loadSampleFiles();
       }
 
@@ -145,12 +183,15 @@
           sampleFile.innerHTML = '';
           return;
         }
+        if (useBlob) {
+          const files = (blobIndex[sampleSubject.value] || []).map((item) => item.file);
+          sampleFile.innerHTML = files.map((f) => `<option value="${f}">${f}</option>`).join('');
+          return;
+        }
         const res = await fetch(`/sample-files?subject=${encodeURIComponent(sampleSubject.value)}`);
         const data = await res.json();
         const files = data.files || [];
-        sampleFile.innerHTML = files
-          .map((f) => `<option value="${f}">${f}</option>`)
-          .join('');
+        sampleFile.innerHTML = files.map((f) => `<option value="${f}">${f}</option>`).join('');
       }
 
       function renderTemplates() {
@@ -259,6 +300,23 @@
 
       document.getElementById('loadSample').addEventListener('click', async () => {
         if (!sampleSubject.value || !sampleFile.value) return;
+        if (useBlob) {
+          const items = blobIndex[sampleSubject.value] || [];
+          const match = items.find((item) => item.file === sampleFile.value);
+          if (!match) return;
+          const res = await fetch('/parse-sample-urls', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ urls: [match.url] }),
+          });
+          const data = await res.json();
+          if (data.content) {
+            const textarea = document.getElementById('samples');
+            const prefix = textarea.value && !textarea.value.endsWith('\n') ? '\n' : '';
+            textarea.value = `${textarea.value}${prefix}${data.content}`;
+          }
+          return;
+        }
         const res = await fetch(
           `/sample-content?subject=${encodeURIComponent(sampleSubject.value)}&filename=${encodeURIComponent(sampleFile.value)}`
         );
@@ -278,6 +336,23 @@
         }
         if (!uploadFile.files.length) {
           uploadStatus.textContent = 'Vui lòng chọn file.';
+          return;
+        }
+        if (useBlob) {
+          try {
+            await upload(uploadFile.files[0].name, uploadFile.files[0], {
+              access: 'public',
+              handleUploadUrl: '/api/blob/upload',
+              pathname: `${uploadSubject.value.trim()}/${uploadFile.files[0].name}`,
+            });
+            uploadStatus.textContent = 'Đã tải lên Blob';
+            await loadBlobIndex();
+            sampleSubject.value = uploadSubject.value.trim();
+            await loadSampleFiles();
+            autoSubject.value = uploadSubject.value.trim();
+          } catch (err) {
+            uploadStatus.textContent = 'Upload thất bại';
+          }
           return;
         }
         const formData = new FormData();
@@ -304,6 +379,19 @@
         formData.append('change_numbers', document.getElementById('numbers').checked);
         formData.append('change_context', document.getElementById('context').checked);
         formData.append('use_ai', document.getElementById('useAI').checked);
+
+        if (useBlob) {
+          const items = blobIndex[autoSubject.value] || [];
+          const urls = items.map((item) => item.url);
+          const parsed = await fetch('/parse-sample-urls', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ urls }),
+          });
+          const parsedData = await parsed.json();
+          formData.append('samples_text', parsedData.content || '');
+        }
+
         const res = await fetch('/auto-generate', { method: 'POST', body: formData });
         const data = await res.json();
         renderQuestions(data.questions || []);

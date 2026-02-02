@@ -1,0 +1,8 @@
+{
+  "name": "taocauhoi",
+  "private": true,
+  "type": "commonjs",
+  "dependencies": {
+    "@vercel/blob": "^1.0.0"
+  }
+}

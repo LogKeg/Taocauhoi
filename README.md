@@ -39,6 +39,17 @@ File can thiet da co:
 - `api/index.py` (entrypoint)
 - `vercel.json`
 
+## De mau tren Vercel Blob
+
+Do Vercel khong dong goi file lon trong serverless, nen thu muc `de mau` tren repo
+co the khong duoc doc day du khi deploy. Cach on dinh nhat la dung Vercel Blob:
+
+- Tao Blob Store trong Vercel
+- Set env: `BLOB_READ_WRITE_TOKEN`
+- Upload file mau ngay tren UI (se luu vao Blob)
+
+Khi khong tim thay thu muc mau local, he thong tu dong chuyen sang Blob.
+
 ## Tinh nang
 
 - Nhap cau hoi mau (moi dong 1 cau)
