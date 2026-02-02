@@ -2,6 +2,7 @@ import io
 import os
 import random
 import re
+import unicodedata
 from pathlib import Path
 from typing import List, Optional, Tuple
 
@@ -175,7 +176,29 @@ OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
 OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
 OPENAI_API_BASE = os.getenv("OPENAI_API_BASE", "https://api.openai.com/v1")
 BASE_DIR = Path(__file__).resolve().parent.parent
-SAMPLE_DIR = BASE_DIR / "đề mẫu"
+
+
+def _normalize_name(value: str) -> str:
+    text = unicodedata.normalize("NFD", value)
+    text = "".join(ch for ch in text if unicodedata.category(ch) != "Mn")
+    return re.sub(r"\\s+", " ", text).strip().lower()
+
+
+def _resolve_sample_dir() -> Optional[Path]:
+    env_dir = os.getenv("SAMPLE_DIR")
+    if env_dir:
+        path = Path(env_dir).expanduser().resolve()
+        if path.exists() and path.is_dir():
+            return path
+
+    target = _normalize_name("đề mẫu")
+    for entry in BASE_DIR.iterdir():
+        if entry.is_dir() and _normalize_name(entry.name) == target:
+            return entry
+    return None
+
+
+SAMPLE_DIR = _resolve_sample_dir()
 
 
 def _replace_numbers(text: str) -> str:
@@ -348,6 +371,8 @@ def _split_questions(text: str) -> List[str]:
 
 
 def _load_questions_from_subject(subject: str) -> List[str]:
+    if SAMPLE_DIR is None:
+        return []
     subject_dir = (SAMPLE_DIR / subject).resolve()
     if not SAMPLE_DIR.exists() or SAMPLE_DIR not in subject_dir.parents:
         return []
@@ -577,7 +602,7 @@ def list_templates() -> dict:
 
 @app.get("/sample-folders")
 def list_sample_folders() -> dict:
-    if not SAMPLE_DIR.exists():
+    if SAMPLE_DIR is None or not SAMPLE_DIR.exists():
         return {"folders": []}
     folders = [p.name for p in SAMPLE_DIR.iterdir() if p.is_dir()]
     folders.sort()
@@ -586,7 +611,7 @@ def list_sample_folders() -> dict:
 
 @app.get("/sample-files")
 def list_sample_files(subject: str) -> dict:
-    if not subject or not SAMPLE_DIR.exists():
+    if SAMPLE_DIR is None or not subject or not SAMPLE_DIR.exists():
         return {"files": []}
     subject_dir = (SAMPLE_DIR / subject).resolve()
     if SAMPLE_DIR not in subject_dir.parents or not subject_dir.exists():
@@ -604,6 +629,8 @@ def list_sample_files(subject: str) -> dict:
 def sample_content(subject: str, filename: str) -> dict:
     if not subject or not filename:
         return {"content": ""}
+    if SAMPLE_DIR is None:
+        return {"content": ""}
     subject_dir = (SAMPLE_DIR / subject).resolve()
     if not SAMPLE_DIR.exists() or SAMPLE_DIR not in subject_dir.parents:
         return {"content": ""}
@@ -618,6 +645,8 @@ def sample_content(subject: str, filename: str) -> dict:
 def upload_sample(subject: str = Form(...), file: UploadFile = Form(...)) -> dict:
     if not subject.strip():
         return {"ok": False, "message": "Thiếu tên môn"}
+    if SAMPLE_DIR is None:
+        return {"ok": False, "message": "Không tìm thấy thư mục đề mẫu"}
     if not SAMPLE_DIR.exists():
         SAMPLE_DIR.mkdir(parents=True, exist_ok=True)
     subject_dir = (SAMPLE_DIR / subject.strip()).resolve()

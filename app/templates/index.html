@@ -131,9 +131,12 @@
         const res = await fetch('/sample-folders');
         const data = await res.json();
         const folders = data.folders || [];
-        sampleSubject.innerHTML = folders
-          .map((f) => `<option value="${f}">${f}</option>`)
-          .join('');
+        if (!folders.length) {
+          sampleSubject.innerHTML = '<option value=\"\">Không có thư mục mẫu</option>';
+          sampleFile.innerHTML = '';
+          return;
+        }
+        sampleSubject.innerHTML = folders.map((f) => `<option value="${f}">${f}</option>`).join('');
         await loadSampleFiles();
       }
 
