@@ -62,6 +62,26 @@
       </section>
 
       <section class="panel">
+        <h2>Tự tạo từ thư mục đề mẫu</h2>
+        <div class="auto-grid">
+          <div>
+            <label for="autoSubject">Môn (lấy câu từ thư mục đề mẫu)</label>
+            <select id="autoSubject"></select>
+          </div>
+          <div>
+            <label for="autoCount">Số câu cần tạo</label>
+            <input id="autoCount" type="number" min="1" max="200" value="20" />
+          </div>
+          <div>
+            <label for="autoRatio">Tỉ lệ AI (%)</label>
+            <input id="autoRatio" type="number" min="0" max="100" value="30" />
+          </div>
+          <button id="autoGenerate" type="button">Tự tạo đề</button>
+        </div>
+        <small>Hệ thống sẽ lấy câu hỏi mẫu theo môn → tạo bộ câu hỏi mới theo số lượng và tỉ lệ AI.</small>
+      </section>
+
+      <section class="panel">
         <div class="output-header">
           <h2>Kết quả</h2>
           <div class="actions">
@@ -85,8 +105,10 @@
       const uploadSubject = document.getElementById('uploadSubject');
       const uploadFile = document.getElementById('uploadFile');
       const uploadStatus = document.getElementById('uploadStatus');
+      const autoSubject = document.getElementById('autoSubject');
 
       let templatesByTopic = {};
+      let currentQuestions = [];
 
       async function loadTopics() {
         const [topicsRes, templatesRes] = await Promise.all([
@@ -163,6 +185,7 @@
       }
 
       function renderQuestions(questions) {
+        currentQuestions = questions;
         output.innerHTML = questions.map((q) => `<li>${q}</li>`).join('');
       }
 
@@ -180,16 +203,27 @@
 
       document.querySelectorAll('[data-export]').forEach((btn) => {
         btn.addEventListener('click', async () => {
-          const payload = readPayload();
           const formData = new FormData();
-          formData.append('samples', payload.samples.join('\n'));
-          formData.append('topic', payload.topic);
-          formData.append('custom_keywords', payload.custom_keywords.join(','));
-          formData.append('paraphrase', payload.paraphrase);
-          formData.append('change_numbers', payload.change_numbers);
-          formData.append('change_context', payload.change_context);
-          formData.append('variants_per_question', payload.variants_per_question);
-          formData.append('use_ai', payload.use_ai);
+          if (currentQuestions.length) {
+            formData.append('samples', currentQuestions.join('\n'));
+            formData.append('topic', topicSelect.value);
+            formData.append('custom_keywords', document.getElementById('customKeywords').value);
+            formData.append('paraphrase', false);
+            formData.append('change_numbers', false);
+            formData.append('change_context', false);
+            formData.append('variants_per_question', 1);
+            formData.append('use_ai', false);
+          } else {
+            const payload = readPayload();
+            formData.append('samples', payload.samples.join('\n'));
+            formData.append('topic', payload.topic);
+            formData.append('custom_keywords', payload.custom_keywords.join(','));
+            formData.append('paraphrase', payload.paraphrase);
+            formData.append('change_numbers', payload.change_numbers);
+            formData.append('change_context', payload.change_context);
+            formData.append('variants_per_question', payload.variants_per_question);
+            formData.append('use_ai', payload.use_ai);
+          }
           formData.append('fmt', btn.dataset.export);
           const res = await fetch('/export', { method: 'POST', body: formData });
           const blob = await res.blob();
@@ -252,10 +286,30 @@
         await loadSampleFolders();
         sampleSubject.value = uploadSubject.value.trim();
         await loadSampleFiles();
+        autoSubject.value = uploadSubject.value.trim();
+      });
+
+      document.getElementById('autoGenerate').addEventListener('click', async () => {
+        if (!autoSubject.value) return;
+        const formData = new FormData();
+        formData.append('subject', autoSubject.value);
+        formData.append('count', document.getElementById('autoCount').value || 20);
+        formData.append('ai_ratio', document.getElementById('autoRatio').value || 30);
+        formData.append('topic', topicSelect.value);
+        formData.append('custom_keywords', document.getElementById('customKeywords').value);
+        formData.append('paraphrase', document.getElementById('paraphrase').checked);
+        formData.append('change_numbers', document.getElementById('numbers').checked);
+        formData.append('change_context', document.getElementById('context').checked);
+        formData.append('use_ai', document.getElementById('useAI').checked);
+        const res = await fetch('/auto-generate', { method: 'POST', body: formData });
+        const data = await res.json();
+        renderQuestions(data.questions || []);
       });
 
       loadTopics();
-      loadSampleFolders();
+      loadSampleFolders().then(() => {
+        autoSubject.innerHTML = sampleSubject.innerHTML;
+      });
       sampleSubject.addEventListener('change', loadSampleFiles);
     </script>
   </body>

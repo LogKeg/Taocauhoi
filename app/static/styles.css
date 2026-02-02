@@ -163,6 +163,17 @@ textarea {
   color: var(--ink);
 }
 
+.auto-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  align-items: end;
+}
+
+.auto-grid button {
+  height: 42px;
+}
+
 button {
   background: var(--accent);
   border: none;
@@ -207,5 +218,8 @@ ol {
     flex-direction: column;
     align-items: flex-start;
     gap: 8px;
+  }
+  .auto-grid {
+    grid-template-columns: 1fr;
   }
 }

@@ -332,6 +332,35 @@ def _read_sample_file(path: Path) -> str:
     return path.read_text(encoding="utf-8", errors="ignore")
 
 
+def _split_questions(text: str) -> List[str]:
+    lines = [ln.strip() for ln in text.splitlines() if ln.strip()]
+    questions: List[str] = []
+    buffer: List[str] = []
+    for line in lines:
+        if re.match(r"^\\d+[\\).\\-\\:]\\s+", line) and buffer:
+            questions.append(" ".join(buffer).strip())
+            buffer = [re.sub(r"^\\d+[\\).\\-\\:]\\s+", "", line)]
+        else:
+            buffer.append(line)
+    if buffer:
+        questions.append(" ".join(buffer).strip())
+    return questions
+
+
+def _load_questions_from_subject(subject: str) -> List[str]:
+    subject_dir = (SAMPLE_DIR / subject).resolve()
+    if not SAMPLE_DIR.exists() or SAMPLE_DIR not in subject_dir.parents:
+        return []
+    if not subject_dir.exists() or not subject_dir.is_dir():
+        return []
+    questions: List[str] = []
+    for path in subject_dir.iterdir():
+        if path.is_file() and path.suffix.lower() in {".txt", ".docx", ".md"}:
+            content = _read_sample_file(path)
+            questions.extend(_split_questions(content))
+    return [q for q in questions if q]
+
+
 def generate_variants(req: GenerateRequest) -> List[str]:
     if req.use_ai and OPENAI_API_KEY:
         generated: List[str] = []
@@ -379,6 +408,63 @@ def index() -> HTMLResponse:
 @app.post("/generate")
 def generate(payload: GenerateRequest) -> dict:
     return {"questions": generate_variants(payload)}
+
+
+@app.post("/auto-generate")
+def auto_generate(
+    subject: str = Form(...),
+    count: int = Form(10),
+    ai_ratio: int = Form(30),
+    topic: str = Form(""),
+    custom_keywords: str = Form(""),
+    paraphrase: bool = Form(True),
+    change_numbers: bool = Form(True),
+    change_context: bool = Form(True),
+    use_ai: bool = Form(False),
+) -> dict:
+    samples = _load_questions_from_subject(subject)
+    if not samples:
+        return {"questions": [], "message": "Không tìm thấy câu hỏi mẫu."}
+    count = max(1, min(200, count))
+    ai_ratio = max(0, min(100, ai_ratio))
+    ai_count = int(round(count * (ai_ratio / 100)))
+    rule_count = count - ai_count
+
+    random.shuffle(samples)
+    selected = samples[: min(len(samples), max(1, rule_count))]
+    if len(selected) < rule_count:
+        selected = selected * (rule_count // max(1, len(selected)) + 1)
+        selected = selected[:rule_count]
+
+    req = GenerateRequest(
+        samples=selected,
+        topic=topic or subject,
+        custom_keywords=[s for s in custom_keywords.split(",") if s.strip()],
+        paraphrase=paraphrase,
+        change_numbers=change_numbers,
+        change_context=change_context,
+        variants_per_question=1,
+        use_ai=False,
+    )
+    questions = generate_variants(req)
+
+    if use_ai and ai_count > 0:
+        ai_req = GenerateRequest(
+            samples=[random.choice(samples)] if samples else [],
+            topic=topic or subject,
+            custom_keywords=[s for s in custom_keywords.split(",") if s.strip()],
+            paraphrase=paraphrase,
+            change_numbers=change_numbers,
+            change_context=change_context,
+            variants_per_question=max(1, ai_count),
+            use_ai=True,
+        )
+        ai_questions = generate_variants(ai_req)
+        if ai_questions:
+            questions.extend(ai_questions[:ai_count])
+
+    random.shuffle(questions)
+    return {"questions": questions[:count]}
 
 
 @app.post("/export")
