@@ -174,6 +174,7 @@ SYNONYMS = {
 }
 
 NUMBER_RE = re.compile(r"\b\d+\b")
+LEADING_NUM_RE = re.compile(r"^\s*\d{1,3}[\).\-:]\s+")
 
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
 OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
@@ -236,6 +237,10 @@ def _apply_context(text: str, topic_key: str, custom_keywords: List[str]) -> str
     return out
 
 
+def _strip_leading_numbering(text: str) -> str:
+    return LEADING_NUM_RE.sub("", text).strip()
+
+
 def _extract_text_from_response(payload: dict) -> str:
     if isinstance(payload, dict):
         if payload.get("output_text"):
@@ -280,6 +285,7 @@ def _build_ai_prompt(
             f"- Chủ đề: {topic.get('label', topic_key)}\n"
             f"- Từ khóa gợi ý: {kw_text}\n"
             f"- Hướng dẫn: {guide}\n"
+            "Yêu cầu bắt buộc: viết khác câu gốc (không lặp nguyên văn), không đánh số đầu dòng.\n"
             "Trả về mỗi câu trên một dòng, không thêm giải thích.\n"
             f"Câu mẫu: {sample}\n"
         )
@@ -289,6 +295,7 @@ def _build_ai_prompt(
         f"- Chủ đề: {topic.get('label', topic_key)}\n"
         f"- Từ khóa gợi ý: {kw_text}\n"
         f"- Hướng dẫn: {guide}\n"
+        "Yêu cầu bắt buộc: không đánh số đầu dòng.\n"
         "Trả về mỗi câu trên một dòng, không thêm giải thích.\n"
     )
 
@@ -453,6 +460,8 @@ def generate_variants(req: GenerateRequest) -> List[str]:
         generated: List[str] = []
         samples = req.samples or [None]
         for sample in samples:
+            if sample:
+                sample = _strip_leading_numbering(sample)
             prompt = _build_ai_prompt(
                 sample,
                 req.topic,
@@ -464,16 +473,24 @@ def generate_variants(req: GenerateRequest) -> List[str]:
             )
             text = _call_openai(prompt)
             if text:
-                lines = _normalize_ai_lines(text)
+                lines = [_strip_leading_numbering(line) for line in _normalize_ai_lines(text)]
                 generated.extend(lines[: req.variants_per_question])
         if generated:
-            return generated
+            # De-duplicate while preserving order
+            seen = set()
+            unique = []
+            for q in generated:
+                if q and q not in seen:
+                    seen.add(q)
+                    unique.append(q)
+            return unique
 
     results: List[str] = []
     for sample in req.samples:
         sample = sample.strip()
         if not sample:
             continue
+        sample = _strip_leading_numbering(sample)
         for _ in range(req.variants_per_question):
             variant = sample
             if req.paraphrase:
@@ -482,7 +499,7 @@ def generate_variants(req: GenerateRequest) -> List[str]:
                 variant = _replace_numbers(variant)
             if req.change_context:
                 variant = _apply_context(variant, req.topic, req.custom_keywords)
-            results.append(variant)
+            results.append(_strip_leading_numbering(variant))
     return results
 
 
@@ -494,6 +511,11 @@ def index() -> HTMLResponse:
 
 @app.post("/generate")
 def generate(payload: GenerateRequest) -> dict:
+    if payload.use_ai and not OPENAI_API_KEY:
+        return {
+            "questions": generate_variants(payload),
+            "message": "Chưa cấu hình OPENAI_API_KEY nên AI không được dùng.",
+        }
     return {"questions": generate_variants(payload)}
 
 

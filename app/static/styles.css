@@ -242,6 +242,11 @@ ol {
   font-size: 14px;
 }
 
+.gen-status {
+  color: var(--muted);
+  margin: 8px 0 0;
+}
+
 @media (max-width: 900px) {
   .grid {
     grid-template-columns: 1fr;

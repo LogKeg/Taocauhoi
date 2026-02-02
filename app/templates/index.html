@@ -91,6 +91,7 @@
             <button data-export="pdf">Xuất PDF</button>
           </div>
         </div>
+        <div id="genStatus" class="gen-status"></div>
         <ol id="output"></ol>
       </section>
 
@@ -127,6 +128,7 @@
       const blobList = document.getElementById('blobList');
       const blobCount = document.getElementById('blobCount');
       const blobSize = document.getElementById('blobSize');
+      const genStatus = document.getElementById('genStatus');
 
       let templatesByTopic = {};
       let currentQuestions = [];
@@ -257,6 +259,7 @@
 
       form.addEventListener('submit', async (event) => {
         event.preventDefault();
+        genStatus.textContent = '';
         const payload = readPayload();
         const res = await fetch('/generate', {
           method: 'POST',
@@ -265,7 +268,7 @@
         });
         const data = await res.json();
         if (data.message) {
-          uploadStatus.textContent = data.message;
+          genStatus.textContent = data.message;
         }
         renderQuestions(data.questions || []);
       });
@@ -394,6 +397,7 @@
 
       document.getElementById('autoGenerate').addEventListener('click', async () => {
         if (!autoSubject.value) return;
+        genStatus.textContent = '';
         const formData = new FormData();
         formData.append('subject', autoSubject.value);
         formData.append('count', document.getElementById('autoCount').value || 20);
@@ -419,6 +423,9 @@
 
         const res = await fetch('/auto-generate', { method: 'POST', body: formData });
         const data = await res.json();
+        if (data.message) {
+          genStatus.textContent = data.message;
+        }
         renderQuestions(data.questions || []);
       });
 
