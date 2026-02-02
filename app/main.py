@@ -295,6 +295,10 @@ def _build_ai_prompt(
             "Yêu cầu bắt buộc: viết khác câu gốc (không lặp nguyên văn), đổi cấu trúc câu, dùng từ đồng nghĩa.\n"
             "Nếu là trắc nghiệm, giữ định dạng đáp án A/B/C nhưng có thể thay nội dung câu hỏi.\n"
             "Không đánh số đầu dòng.\n"
+            "Ví dụ KHÔNG được làm:\n"
+            "- The ... you try, the more likely you are to be successful.\n"
+            "Ví dụ ĐƯỢC làm:\n"
+            "- The more ... you attempt, the higher your chance of success becomes.\n"
             "Trả về mỗi câu trên một dòng, không thêm giải thích.\n"
             f"Câu mẫu: {sample}\n"
         )
@@ -319,6 +323,7 @@ def _call_openai(prompt: str) -> Optional[str]:
         "input": prompt,
         "text": {"format": {"type": "text"}},
         "max_output_tokens": 400,
+        "temperature": 0.8,
     }
     with httpx.Client(timeout=30) as client:
         response = client.post(url, json=payload, headers=headers)
@@ -491,22 +496,18 @@ def generate_variants(req: GenerateRequest) -> List[str]:
                 req.change_context,
                 req.variants_per_question,
             )
-            text = _call_openai(prompt)
-            if text:
-                lines = [_strip_leading_numbering(line) for line in _normalize_ai_lines(text)]
-                if sample:
-                    lines = [ln for ln in lines if ln.strip().lower() != sample.strip().lower()]
-                generated.extend(lines[: req.variants_per_question])
-
-            if sample and not generated:
-                retry_prompt = prompt + "\nNếu câu trả về trùng câu gốc, hãy viết lại hoàn toàn khác.\n"
-                retry_text = _call_openai(retry_prompt)
-                if retry_text:
-                    retry_lines = [_strip_leading_numbering(line) for line in _normalize_ai_lines(retry_text)]
-                    retry_lines = [
-                        ln for ln in retry_lines if ln.strip().lower() != sample.strip().lower()
-                    ]
-                    generated.extend(retry_lines[: req.variants_per_question])
+            attempts = 0
+            while attempts < 2:
+                attempts += 1
+                text = _call_openai(prompt)
+                if text:
+                    lines = [_strip_leading_numbering(line) for line in _normalize_ai_lines(text)]
+                    if sample:
+                        lines = [ln for ln in lines if ln.strip().lower() != sample.strip().lower()]
+                    if lines:
+                        generated.extend(lines[: req.variants_per_question])
+                        break
+                prompt = prompt + "\nNếu câu trả về trùng câu gốc, hãy viết lại hoàn toàn khác.\n"
         if generated:
             # De-duplicate while preserving order
             seen = set()
