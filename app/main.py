@@ -2,10 +2,11 @@ import io
 import os
 import random
 import re
+from pathlib import Path
 from typing import List, Optional, Tuple
 
 import httpx
-from fastapi import FastAPI, Form
+from fastapi import FastAPI, Form, UploadFile
 from fastapi.responses import FileResponse, HTMLResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
@@ -173,6 +174,8 @@ NUMBER_RE = re.compile(r"\b\d+\b")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
 OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
 OPENAI_API_BASE = os.getenv("OPENAI_API_BASE", "https://api.openai.com/v1")
+BASE_DIR = Path(__file__).resolve().parent.parent
+SAMPLE_DIR = BASE_DIR / "đề mẫu"
 
 
 def _replace_numbers(text: str) -> str:
@@ -318,6 +321,15 @@ def _wrap_text(text: str, max_width: float, font_name: str, font_size: int) -> L
             current = word
     lines.append(current)
     return lines
+
+
+def _read_sample_file(path: Path) -> str:
+    suffix = path.suffix.lower()
+    if suffix == ".docx":
+        doc = Document(str(path))
+        lines = [p.text.strip() for p in doc.paragraphs if p.text.strip()]
+        return "\n".join(lines)
+    return path.read_text(encoding="utf-8", errors="ignore")
 
 
 def generate_variants(req: GenerateRequest) -> List[str]:
@@ -475,3 +487,63 @@ def list_templates() -> dict:
             for key in TEMPLATES.keys()
         ]
     }
+
+
+@app.get("/sample-folders")
+def list_sample_folders() -> dict:
+    if not SAMPLE_DIR.exists():
+        return {"folders": []}
+    folders = [p.name for p in SAMPLE_DIR.iterdir() if p.is_dir()]
+    folders.sort()
+    return {"folders": folders}
+
+
+@app.get("/sample-files")
+def list_sample_files(subject: str) -> dict:
+    if not subject or not SAMPLE_DIR.exists():
+        return {"files": []}
+    subject_dir = (SAMPLE_DIR / subject).resolve()
+    if SAMPLE_DIR not in subject_dir.parents or not subject_dir.exists():
+        return {"files": []}
+    files = [
+        p.name
+        for p in subject_dir.iterdir()
+        if p.is_file() and p.suffix.lower() in {".txt", ".docx", ".md"}
+    ]
+    files.sort()
+    return {"files": files}
+
+
+@app.get("/sample-content")
+def sample_content(subject: str, filename: str) -> dict:
+    if not subject or not filename:
+        return {"content": ""}
+    subject_dir = (SAMPLE_DIR / subject).resolve()
+    if not SAMPLE_DIR.exists() or SAMPLE_DIR not in subject_dir.parents:
+        return {"content": ""}
+    target = (subject_dir / filename).resolve()
+    if subject_dir not in target.parents or not target.exists() or not target.is_file():
+        return {"content": ""}
+    content = _read_sample_file(target)
+    return {"content": content}
+
+
+@app.post("/upload-sample")
+def upload_sample(subject: str = Form(...), file: UploadFile = Form(...)) -> dict:
+    if not subject.strip():
+        return {"ok": False, "message": "Thiếu tên môn"}
+    if not SAMPLE_DIR.exists():
+        SAMPLE_DIR.mkdir(parents=True, exist_ok=True)
+    subject_dir = (SAMPLE_DIR / subject.strip()).resolve()
+    if SAMPLE_DIR not in subject_dir.parents:
+        return {"ok": False, "message": "Đường dẫn không hợp lệ"}
+    subject_dir.mkdir(parents=True, exist_ok=True)
+    filename = Path(file.filename or "").name
+    if not filename:
+        return {"ok": False, "message": "Tên file không hợp lệ"}
+    if Path(filename).suffix.lower() not in {".txt", ".docx", ".md"}:
+        return {"ok": False, "message": "Chỉ hỗ trợ .txt, .docx, .md"}
+    target = subject_dir / filename
+    with target.open("wb") as f:
+        f.write(file.file.read())
+    return {"ok": True, "message": "Đã tải lên", "filename": filename, "subject": subject.strip()}

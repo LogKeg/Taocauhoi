@@ -96,6 +96,37 @@ textarea {
   margin: 12px 0 16px;
 }
 
+.sample-loader {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+}
+
+.sample-loader select {
+  flex: 1;
+  min-width: 220px;
+}
+
+.sample-loader button {
+  padding: 8px 12px;
+}
+
+.upload-box {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.upload-box input[type="text"],
+.upload-box input[type="file"] {
+  width: 100%;
+}
+
+.upload-box small {
+  color: var(--muted);
+}
+
 .template-box {
   margin-top: 16px;
   padding: 12px;

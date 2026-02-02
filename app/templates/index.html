@@ -20,6 +20,17 @@
           <div class="grid">
             <div class="field">
               <label for="samples">Câu hỏi mẫu (mỗi dòng một câu)</label>
+              <div class="sample-loader">
+                <select id="sampleSubject"></select>
+                <select id="sampleFile"></select>
+                <button type="button" id="loadSample">Nạp từ thư mục đề mẫu</button>
+              </div>
+              <div class="upload-box">
+                <input id="uploadSubject" type="text" placeholder="Tên môn (vd: Toan, Vat_ly)" />
+                <input id="uploadFile" type="file" accept=".txt,.docx,.md" />
+                <button type="button" id="uploadSample">Tải file mẫu lên</button>
+                <small id="uploadStatus"></small>
+              </div>
               <textarea id="samples" rows="7" placeholder="Ví dụ: Một hình chữ nhật có chiều dài 12cm và rộng 8cm. Tính diện tích?\nBài 2: ..."></textarea>
               <div class="template-box">
                 <div class="template-header">
@@ -69,6 +80,11 @@
       const output = document.getElementById('output');
       const form = document.getElementById('gen-form');
       const templateList = document.getElementById('templateList');
+      const sampleSubject = document.getElementById('sampleSubject');
+      const sampleFile = document.getElementById('sampleFile');
+      const uploadSubject = document.getElementById('uploadSubject');
+      const uploadFile = document.getElementById('uploadFile');
+      const uploadStatus = document.getElementById('uploadStatus');
 
       let templatesByTopic = {};
 
@@ -87,6 +103,29 @@
           return acc;
         }, {});
         renderTemplates();
+      }
+
+      async function loadSampleFolders() {
+        const res = await fetch('/sample-folders');
+        const data = await res.json();
+        const folders = data.folders || [];
+        sampleSubject.innerHTML = folders
+          .map((f) => `<option value="${f}">${f}</option>`)
+          .join('');
+        await loadSampleFiles();
+      }
+
+      async function loadSampleFiles() {
+        if (!sampleSubject.value) {
+          sampleFile.innerHTML = '';
+          return;
+        }
+        const res = await fetch(`/sample-files?subject=${encodeURIComponent(sampleSubject.value)}`);
+        const data = await res.json();
+        const files = data.files || [];
+        sampleFile.innerHTML = files
+          .map((f) => `<option value="${f}">${f}</option>`)
+          .join('');
       }
 
       function renderTemplates() {
@@ -181,7 +220,43 @@
         });
       });
 
+      document.getElementById('loadSample').addEventListener('click', async () => {
+        if (!sampleSubject.value || !sampleFile.value) return;
+        const res = await fetch(
+          `/sample-content?subject=${encodeURIComponent(sampleSubject.value)}&filename=${encodeURIComponent(sampleFile.value)}`
+        );
+        const data = await res.json();
+        if (data.content) {
+          const textarea = document.getElementById('samples');
+          const prefix = textarea.value && !textarea.value.endsWith('\n') ? '\n' : '';
+          textarea.value = `${textarea.value}${prefix}${data.content}`;
+        }
+      });
+
+      document.getElementById('uploadSample').addEventListener('click', async () => {
+        uploadStatus.textContent = '';
+        if (!uploadSubject.value.trim()) {
+          uploadStatus.textContent = 'Vui lòng nhập tên môn.';
+          return;
+        }
+        if (!uploadFile.files.length) {
+          uploadStatus.textContent = 'Vui lòng chọn file.';
+          return;
+        }
+        const formData = new FormData();
+        formData.append('subject', uploadSubject.value.trim());
+        formData.append('file', uploadFile.files[0]);
+        const res = await fetch('/upload-sample', { method: 'POST', body: formData });
+        const data = await res.json();
+        uploadStatus.textContent = data.message || 'Đã tải lên';
+        await loadSampleFolders();
+        sampleSubject.value = uploadSubject.value.trim();
+        await loadSampleFiles();
+      });
+
       loadTopics();
+      loadSampleFolders();
+      sampleSubject.addEventListener('change', loadSampleFiles);
     </script>
   </body>
 </html>
