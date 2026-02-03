@@ -284,6 +284,9 @@ def _rewrite_english_question(question: str) -> str:
             "Only Johnson failed to give maximum effort. Complete the sentence: Johnson did not ... his best.",
             "Everyone except Johnson gave their best; Johnson did not ... his best.",
             "Johnson was the only player who didn't perform to his best. Choose the correct completion.",
+            "All the other players performed at their peak. Johnson, however, did not ... his best.",
+            "Unlike the rest of the team, Johnson didn't ... his best. Select the best completion.",
+            "The entire squad tried their hardest, but Johnson did not ... his best. Choose the correct option.",
         ]
         return random.choice(variants)
 
@@ -324,6 +327,10 @@ def _rewrite_mcq_block(block: str) -> str:
         rewritten = question
     if _normalize_question(rewritten) == _normalize_question(question):
         rewritten = f"Complete the sentence: {question}"
+    # Context swap for English MCQ to force stronger change.
+    if ascii_ratio > 0.9 and re.search(r"players|team|squad", rewritten, re.IGNORECASE):
+        rewritten = re.sub(r"players", "athletes", rewritten, flags=re.IGNORECASE)
+        rewritten = re.sub(r"team|squad", "group", rewritten, flags=re.IGNORECASE)
     new_prefix = "Select the best completion"
     if re.match(r"^(Choose|Select|Complete)\\b", rewritten, re.IGNORECASE):
         qline = rewritten
