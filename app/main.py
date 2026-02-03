@@ -280,7 +280,12 @@ def _rewrite_english_question(question: str) -> str:
         re.IGNORECASE,
     )
     if pattern2.match(q):
-        return "Except for Johnson, every player did their best. Johnson did not ... his best."
+        variants = [
+            "Only Johnson failed to give maximum effort. Complete the sentence: Johnson did not ... his best.",
+            "Everyone except Johnson gave their best; Johnson did not ... his best.",
+            "Johnson was the only player who didn't perform to his best. Choose the correct completion.",
+        ]
+        return random.choice(variants)
 
     candidates = [
         (r"\bapart from\b", "except for"),
@@ -320,7 +325,10 @@ def _rewrite_mcq_block(block: str) -> str:
     if _normalize_question(rewritten) == _normalize_question(question):
         rewritten = f"Complete the sentence: {question}"
     new_prefix = "Select the best completion"
-    qline = f"{new_prefix}: {rewritten}" if new_prefix else rewritten
+    if re.match(r"^(Choose|Select|Complete)\\b", rewritten, re.IGNORECASE):
+        qline = rewritten
+    else:
+        qline = f"{new_prefix}: {rewritten}"
     return "\n".join([qline] + lines[1:])
 
 
