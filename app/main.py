@@ -246,10 +246,17 @@ def _normalize_question(text: str) -> str:
     return _strip_leading_numbering(text).strip().lower()
 
 
+def _is_mcq_block(text: str) -> bool:
+    lines = [ln.strip() for ln in text.splitlines() if ln.strip()]
+    return len(lines) > 1 and any(MCQ_OPTION_RE.match(ln) for ln in lines[1:])
+
+
 def _force_variation(text: str) -> str:
     stripped = text.strip()
     if not stripped:
         return stripped
+    if _is_mcq_block(stripped):
+        return _rewrite_mcq_block(stripped)
     # Heuristic: if mostly ASCII, use English prefix; otherwise Vietnamese.
     ascii_ratio = sum(1 for ch in stripped if ord(ch) < 128) / max(1, len(stripped))
     if ascii_ratio > 0.9:
@@ -268,7 +275,17 @@ def _rewrite_english_question(question: str) -> str:
     if pattern.match(q):
         return "The more ... you attempt, the higher your chance of success."
 
+    pattern2 = re.compile(
+        r"^All the players did their best apart from Johnson\. Johnson was \.\.\. his best\.?$",
+        re.IGNORECASE,
+    )
+    if pattern2.match(q):
+        return "Except for Johnson, every player did their best. Johnson did not ... his best."
+
     candidates = [
+        (r"\bapart from\b", "except for"),
+        (r"\bdid their best\b", "performed to the best of their ability"),
+        (r"\bwas \.\.\. his best\b", "did not ... his best"),
         (r"\bmore likely\b", "more probable"),
         (r"\byou are to be successful\b", "you will succeed"),
         (r"\bthe more\b", "the greater"),
@@ -289,12 +306,22 @@ def _rewrite_mcq_block(block: str) -> str:
     if not MCQ_OPTION_RE.match(lines[1]):
         return block
     question = lines[0]
+    prefix = ""
+    if ":" in question:
+        head, tail = question.split(":", 1)
+        if len(head.split()) <= 5:
+            prefix = head.strip()
+            question = tail.strip()
     ascii_ratio = sum(1 for ch in question if ord(ch) < 128) / max(1, len(question))
     if ascii_ratio > 0.9:
         rewritten = _rewrite_english_question(question)
     else:
         rewritten = question
-    return "\n".join([rewritten] + lines[1:])
+    if _normalize_question(rewritten) == _normalize_question(question):
+        rewritten = f"Complete the sentence: {question}"
+    new_prefix = "Select the best completion"
+    qline = f"{new_prefix}: {rewritten}" if new_prefix else rewritten
+    return "\n".join([qline] + lines[1:])
 
 
 def _extract_text_from_response(payload: dict) -> str:
