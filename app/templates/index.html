@@ -83,6 +83,30 @@
       </section>
 
       <section class="panel">
+        <h2>Tạo theo chủ đề (AI)</h2>
+        <div class="auto-grid">
+          <div>
+            <label for="topicSubject">Môn học</label>
+            <select id="topicSubject"></select>
+          </div>
+          <div>
+            <label for="topicGrade">Lớp</label>
+            <select id="topicGrade"></select>
+          </div>
+          <div>
+            <label for="topicType">Dạng câu hỏi</label>
+            <select id="topicType"></select>
+          </div>
+          <div>
+            <label for="topicCount">Số câu</label>
+            <input id="topicCount" type="number" min="1" max="50" value="10" />
+          </div>
+          <button id="topicGenerate" type="button">Tạo theo chủ đề</button>
+        </div>
+        <small>AI sẽ tự tạo câu hỏi theo môn, lớp và dạng câu hỏi bạn chọn.</small>
+      </section>
+
+      <section class="panel">
         <div class="output-header">
           <h2>Kết quả</h2>
           <div class="actions">
@@ -131,6 +155,9 @@
       const blobSize = document.getElementById('blobSize');
       const genStatus = document.getElementById('genStatus');
       const buildInfo = document.getElementById('buildInfo');
+      const topicSubject = document.getElementById('topicSubject');
+      const topicGrade = document.getElementById('topicGrade');
+      const topicType = document.getElementById('topicType');
 
       let templatesByTopic = {};
       let currentQuestions = [];
@@ -152,6 +179,20 @@
           return acc;
         }, {});
         renderTemplates();
+      }
+
+      async function loadSubjects() {
+        const res = await fetch('/subjects');
+        const data = await res.json();
+        topicSubject.innerHTML = (data.subjects || [])
+          .map((s) => `<option value="${s.key}">${s.label}</option>`)
+          .join('');
+        topicType.innerHTML = (data.question_types || [])
+          .map((t) => `<option value="${t.key}">${t.label}</option>`)
+          .join('');
+        topicGrade.innerHTML = (data.grades || [])
+          .map((g) => `<option value="${g}">${g}</option>`)
+          .join('');
       }
 
       async function loadBuildInfo() {
@@ -448,6 +489,21 @@
         renderQuestions(data.questions || []);
       });
 
+      document.getElementById('topicGenerate').addEventListener('click', async () => {
+        genStatus.textContent = '';
+        const formData = new FormData();
+        formData.append('subject', topicSubject.value);
+        formData.append('grade', topicGrade.value);
+        formData.append('qtype', topicType.value);
+        formData.append('count', document.getElementById('topicCount').value || 10);
+        const res = await fetch('/generate-topic', { method: 'POST', body: formData });
+        const data = await res.json();
+        if (data.message) {
+          genStatus.textContent = data.message;
+        }
+        renderQuestions(data.questions || []);
+      });
+
       function humanSize(bytes) {
         if (!bytes) return '0 KB';
         const units = ['B', 'KB', 'MB', 'GB'];
@@ -512,6 +568,7 @@
       loadSampleFolders().then(() => {
         autoSubject.innerHTML = sampleSubject.innerHTML;
       });
+      loadSubjects();
       loadBuildInfo();
       sampleSubject.addEventListener('change', loadSampleFiles);
     </script>

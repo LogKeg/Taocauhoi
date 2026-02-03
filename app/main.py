@@ -162,6 +162,18 @@ TOPIC_AI_GUIDE = {
     ),
 }
 
+SUBJECTS = {
+    "toan_hoc": {"label": "Toán học", "lang": "vi"},
+    "tieng_anh": {"label": "Tiếng Anh", "lang": "en"},
+    "khoa_hoc": {"label": "Khoa học", "lang": "vi"},
+}
+
+QUESTION_TYPES = {
+    "mcq": "Trắc nghiệm",
+    "blank": "Điền khuyết",
+    "essay": "Tự luận",
+}
+
 SYNONYMS = {
     "tính": ["xác định", "tìm"],
     "hãy": ["vui lòng", "mời"],
@@ -435,6 +447,53 @@ def _normalize_ai_lines(text: str) -> List[str]:
     return lines
 
 
+def _normalize_ai_blocks(text: str) -> List[str]:
+    normalized = text.replace("\r\n", "\n").strip()
+    blocks = [b.strip() for b in re.split(r"\n\s*\n", normalized) if b.strip()]
+    cleaned: List[str] = []
+    for block in blocks:
+        lines = block.splitlines()
+        if lines:
+            lines[0] = _strip_leading_numbering(lines[0])
+        cleaned.append("\n".join(lines).strip())
+    return cleaned
+
+
+def _build_topic_prompt(subject_key: str, grade: int, qtype: str, count: int) -> str:
+    subject = SUBJECTS.get(subject_key, {"label": subject_key, "lang": "vi"})
+    label = subject.get("label", subject_key)
+    lang = subject.get("lang", "vi")
+    if lang == "en":
+        grade_text = f"Grade {grade}"
+        type_text = {
+            "mcq": "multiple-choice",
+            "blank": "fill-in-the-blank",
+            "essay": "short-answer",
+        }.get(qtype, "multiple-choice")
+        return (
+            "You are an education content writer.\n"
+            f"Create {count} {type_text} questions for {label} ({grade_text}).\n"
+            "Rules:\n"
+            "- Do not number questions.\n"
+            "- Separate questions with a blank line.\n"
+            "- If multiple-choice, provide 4 options labeled A) B) C) D) on separate lines.\n"
+            "- If fill-in-the-blank, use \"...\" for the blank.\n"
+            "- Do not include answers.\n"
+        )
+    grade_text = f"Lớp {grade}"
+    type_text = QUESTION_TYPES.get(qtype, "Trắc nghiệm")
+    return (
+        "Bạn là người biên soạn câu hỏi học tập.\n"
+        f"Hãy tạo {count} câu hỏi dạng {type_text} cho môn {label} ({grade_text}).\n"
+        "Yêu cầu:\n"
+        "- Không đánh số đầu câu.\n"
+        "- Mỗi câu cách nhau bằng một dòng trống.\n"
+        "- Nếu trắc nghiệm, đưa 4 đáp án A) B) C) D) mỗi đáp án một dòng.\n"
+        "- Nếu điền khuyết, dùng \"...\" để thể hiện chỗ trống.\n"
+        "- Không kèm đáp án.\n"
+    )
+
+
 def _get_pdf_font() -> Tuple[str, Optional[str]]:
     candidates = [
         "/System/Library/Fonts/Supplemental/Times New Roman.ttf",
@@ -660,6 +719,26 @@ def generate(payload: GenerateRequest) -> dict:
     return {"questions": questions}
 
 
+@app.post("/generate-topic")
+def generate_topic(
+    subject: str = Form(...),
+    grade: int = Form(1),
+    qtype: str = Form("mcq"),
+    count: int = Form(10),
+) -> dict:
+    if not OPENAI_API_KEY:
+        return {"questions": [], "message": "Chưa cấu hình OPENAI_API_KEY nên AI không được dùng."}
+    count = max(1, min(50, count))
+    grade = max(1, min(12, grade))
+    prompt = _build_topic_prompt(subject, grade, qtype, count)
+    text = _call_openai(prompt)
+    if not text:
+        return {"questions": [], "message": "Không nhận được phản hồi từ AI."}
+    questions = _normalize_ai_blocks(text)
+    questions = [q for q in questions if q.strip()]
+    return {"questions": questions[:count]}
+
+
 @app.post("/auto-generate")
 def auto_generate(
     subject: str = Form(...),
@@ -824,6 +903,20 @@ def list_topics() -> dict:
             {"key": key, "label": value["label"], "keywords": value["keywords"]}
             for key, value in TOPICS.items()
         ]
+    }
+
+
+@app.get("/subjects")
+def list_subjects() -> dict:
+    return {
+        "subjects": [
+            {"key": key, "label": value["label"], "lang": value.get("lang", "vi")}
+            for key, value in SUBJECTS.items()
+        ],
+        "question_types": [
+            {"key": key, "label": value} for key, value in QUESTION_TYPES.items()
+        ],
+        "grades": list(range(1, 13)),
     }
 
 
