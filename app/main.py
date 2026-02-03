@@ -419,9 +419,9 @@ def _build_ai_prompt(
     )
 
 
-def _call_openai(prompt: str) -> Optional[str]:
+def _call_openai(prompt: str) -> Tuple[Optional[str], Optional[str]]:
     if not OPENAI_API_KEY:
-        return None
+        return None, "missing_api_key"
     url = f"{OPENAI_API_BASE}/responses"
     headers = {"Authorization": f"Bearer {OPENAI_API_KEY}"}
     payload = {
@@ -434,8 +434,13 @@ def _call_openai(prompt: str) -> Optional[str]:
     with httpx.Client(timeout=30) as client:
         response = client.post(url, json=payload, headers=headers)
         if response.status_code != 200:
-            return None
-        return _extract_text_from_response(response.json())
+            try:
+                data = response.json()
+                msg = data.get("error", {}).get("message", "")
+            except Exception:
+                msg = response.text[:200]
+            return None, f"{response.status_code}: {msg}"
+        return _extract_text_from_response(response.json()), None
 
 
 def _normalize_ai_lines(text: str) -> List[str]:
@@ -652,12 +657,12 @@ def generate_variants(req: GenerateRequest) -> List[str]:
             attempts = 0
             while attempts < 2:
                 attempts += 1
-                text = _call_openai(prompt)
-            if text:
-                lines = [_strip_leading_numbering(line) for line in _normalize_ai_lines(text)]
-                if sample:
-                    lines = [ln for ln in lines if ln.strip().lower() != sample.strip().lower()]
-                if lines:
+                text, err = _call_openai(prompt)
+                if text:
+                    lines = [_strip_leading_numbering(line) for line in _normalize_ai_lines(text)]
+                    if sample:
+                        lines = [ln for ln in lines if ln.strip().lower() != sample.strip().lower()]
+                    if lines:
                         for ln in lines[: req.variants_per_question]:
                             generated.append(_rewrite_mcq_block(ln))
                         break
@@ -731,9 +736,10 @@ def generate_topic(
     count = max(1, min(50, count))
     grade = max(1, min(12, grade))
     prompt = _build_topic_prompt(subject, grade, qtype, count)
-    text = _call_openai(prompt)
+    text, err = _call_openai(prompt)
     if not text:
-        return {"questions": [], "message": "Không nhận được phản hồi từ AI."}
+        msg = f"Không nhận được phản hồi từ AI. {err}" if err else "Không nhận được phản hồi từ AI."
+        return {"questions": [], "message": msg}
     questions = _normalize_ai_blocks(text)
     questions = [q for q in questions if q.strip()]
     return {"questions": questions[:count]}
