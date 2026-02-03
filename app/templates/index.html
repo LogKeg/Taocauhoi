@@ -247,10 +247,13 @@
       }
 
       function readPayload() {
-        const samples = document.getElementById('samples').value
-          .split('\n')
-          .map((s) => s.trim())
-          .filter(Boolean);
+        const raw = document.getElementById('samples').value.trim();
+        const samples = raw
+          ? raw
+              .split(/\n\s*\n/)
+              .map((s) => s.trim())
+              .filter(Boolean)
+          : [];
         return {
           samples,
           topic: topicSelect.value,
