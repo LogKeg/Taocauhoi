@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import List, Optional, Tuple
 
 import httpx
-from fastapi import FastAPI, Form, UploadFile
+from fastapi import FastAPI, Form, Request, UploadFile
 from fastapi.responses import FileResponse, HTMLResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
