@@ -7,145 +7,178 @@
     <link rel="stylesheet" href="/static/styles.css" />
   </head>
   <body>
-    <main class="shell">
-      <header class="hero">
-        <div>
-          <h1>Tạo câu hỏi tự động</h1>
-          <p>Tạo câu hỏi tương tự từ mẫu, hoặc sinh câu hỏi theo chủ đề.</p>
-          <p class="build" id="buildInfo"></p>
-        </div>
-      </header>
+    <header class="hero">
+      <div>
+        <h1>Tạo câu hỏi tự động</h1>
+        <p>Tạo câu hỏi tương tự từ mẫu, hoặc sinh câu hỏi theo chủ đề.</p>
+        <p class="build" id="buildInfo"></p>
+      </div>
+    </header>
 
-      <section class="panel">
-        <form id="gen-form">
-          <div class="grid">
-            <div class="field">
-              <label for="samples">Câu hỏi mẫu (mỗi dòng một câu)</label>
-              <div class="sample-loader">
-                <select id="sampleSubject"></select>
-                <select id="sampleFile"></select>
-                <button type="button" id="loadSample">Nạp từ thư mục đề mẫu</button>
-              </div>
-              <div class="upload-box">
-                <input id="uploadSubject" type="text" placeholder="Tên môn (vd: Toan, Vat_ly)" />
-                <input id="uploadFile" type="file" accept=".txt,.docx,.md" />
-                <button type="button" id="uploadSample">Tải file mẫu lên</button>
-                <small id="uploadStatus"></small>
-              </div>
-              <textarea id="samples" rows="7" placeholder="Ví dụ: Một hình chữ nhật có chiều dài 12cm và rộng 8cm. Tính diện tích?\nBài 2: ..."></textarea>
-              <div class="template-box">
-                <div class="template-header">
-                  <strong>Mẫu gợi ý theo chủ đề</strong>
-                  <button type="button" id="insertTemplates">Chèn mẫu</button>
+    <div class="app-layout">
+      <nav class="sidebar">
+        <button class="nav-item active" data-tab="tab-generate">Tạo từ mẫu</button>
+        <button class="nav-item" data-tab="tab-auto">Tự tạo từ đề mẫu</button>
+        <button class="nav-item" data-tab="tab-topic">Tạo theo chủ đề (AI)</button>
+        <button class="nav-item" data-tab="tab-result">Kết quả</button>
+        <button class="nav-item" data-tab="tab-blob" id="navBlob" hidden>Quản lý Blob</button>
+      </nav>
+
+      <main class="content">
+        <section class="tab-panel active" id="tab-generate">
+          <div class="panel">
+            <form id="gen-form">
+              <div class="grid">
+                <div class="field">
+                  <label for="samples">Câu hỏi mẫu (mỗi dòng một câu)</label>
+                  <div class="sample-loader">
+                    <select id="sampleSubject"></select>
+                    <select id="sampleFile"></select>
+                    <button type="button" id="loadSample">Nạp từ thư mục đề mẫu</button>
+                  </div>
+                  <div class="upload-box">
+                    <input id="uploadSubject" type="text" placeholder="Tên môn (vd: Toan, Vat_ly)" />
+                    <input id="uploadFile" type="file" accept=".txt,.docx,.md" />
+                    <button type="button" id="uploadSample">Tải file mẫu lên</button>
+                    <small id="uploadStatus"></small>
+                  </div>
+                  <textarea id="samples" rows="7" placeholder="Ví dụ: Một hình chữ nhật có chiều dài 12cm và rộng 8cm. Tính diện tích?\nBài 2: ..."></textarea>
+                  <div class="template-box">
+                    <div class="template-header">
+                      <strong>Mẫu gợi ý theo chủ đề</strong>
+                      <button type="button" id="insertTemplates">Chèn mẫu</button>
+                    </div>
+                    <div id="templateList" class="template-list"></div>
+                    <small>Nhấn "Chèn mẫu" để thêm các câu mẫu đã chọn vào ô bên trên.</small>
+                  </div>
                 </div>
-                <div id="templateList" class="template-list"></div>
-                <small>Nhấn “Chèn mẫu” để thêm các câu mẫu đã chọn vào ô bên trên.</small>
+                <div class="field">
+                  <label for="topic">Chủ đề</label>
+                  <select id="topic"></select>
+                  <small>Danh sách có sẵn + bạn có thể nhập thêm từ khóa.</small>
+                  <label for="customKeywords" class="mt">Từ khóa tự nhập (ngăn cách bởi dấu phẩy)</label>
+                  <input id="customKeywords" type="text" placeholder="vd: chu vi, hình tròn, ..." />
+                  <label class="mt">Biến thể cần tạo</label>
+                  <input id="variants" type="number" min="1" max="10" value="2" />
+                  <div class="checks">
+                    <label><input type="checkbox" id="paraphrase" checked /> Paraphrase</label>
+                    <label><input type="checkbox" id="numbers" checked /> Thay số liệu</label>
+                    <label><input type="checkbox" id="context" checked /> Đổi ngữ cảnh</label>
+                    <label><input type="checkbox" id="useAI" /> Dùng AI</label>
+                  </div>
+                  <div class="field ai-engine-field" id="aiEngineField" style="display:none">
+                    <label for="aiEngine">AI Engine</label>
+                    <select id="aiEngine"></select>
+                  </div>
+                  <button type="submit">Tạo câu hỏi</button>
+                </div>
+              </div>
+            </form>
+          </div>
+        </section>
+
+        <section class="tab-panel" id="tab-auto">
+          <div class="panel">
+            <h2>Tự tạo từ thư mục đề mẫu</h2>
+            <div class="auto-grid">
+              <div>
+                <label for="autoSubject">Môn (lấy câu từ thư mục đề mẫu)</label>
+                <select id="autoSubject"></select>
+              </div>
+              <div>
+                <label for="autoCount">Số câu cần tạo</label>
+                <input id="autoCount" type="number" min="1" max="200" value="20" />
+              </div>
+              <div>
+                <label for="autoRatio">Tỉ lệ AI (%)</label>
+                <input id="autoRatio" type="number" min="0" max="100" value="30" />
+              </div>
+              <button id="autoGenerate" type="button">Tự tạo đề</button>
+            </div>
+            <small>Hệ thống sẽ lấy câu hỏi mẫu theo môn → tạo bộ câu hỏi mới theo số lượng và tỉ lệ AI.</small>
+          </div>
+        </section>
+
+        <section class="tab-panel" id="tab-topic">
+          <div class="panel">
+            <h2>Tạo theo chủ đề (AI)</h2>
+            <div class="auto-grid">
+              <div>
+                <label for="topicSubject">Môn học</label>
+                <select id="topicSubject"></select>
+              </div>
+              <div>
+                <label for="topicGrade">Lớp</label>
+                <select id="topicGrade"></select>
+              </div>
+              <div>
+                <label for="topicType">Dạng câu hỏi</label>
+                <select id="topicType"></select>
+              </div>
+              <div>
+                <label for="topicCount">Số câu</label>
+                <input id="topicCount" type="number" min="1" max="50" value="10" />
+              </div>
+              <div>
+                <label for="topicEngine">AI Engine</label>
+                <select id="topicEngine"></select>
+              </div>
+              <button id="topicGenerate" type="button">Tạo theo chủ đề</button>
+            </div>
+            <small>AI sẽ tự tạo câu hỏi theo môn, lớp và dạng câu hỏi bạn chọn.</small>
+          </div>
+        </section>
+
+        <section class="tab-panel" id="tab-result">
+          <div class="panel">
+            <div class="output-header">
+              <h2>Kết quả</h2>
+              <div class="actions">
+                <button data-export="txt">Xuất TXT</button>
+                <button data-export="csv">Xuất CSV</button>
+                <button data-export="docx">Xuất DOCX</button>
+                <button data-export="pdf">Xuất PDF</button>
               </div>
             </div>
-            <div class="field">
-              <label for="topic">Chủ đề</label>
-              <select id="topic"></select>
-              <small>Danh sách có sẵn + bạn có thể nhập thêm từ khóa.</small>
-              <label for="customKeywords" class="mt">Từ khóa tự nhập (ngăn cách bởi dấu phẩy)</label>
-              <input id="customKeywords" type="text" placeholder="vd: chu vi, hình tròn, ..." />
-              <label class="mt">Biến thể cần tạo</label>
-              <input id="variants" type="number" min="1" max="10" value="2" />
-              <div class="checks">
-                <label><input type="checkbox" id="paraphrase" checked /> Paraphrase</label>
-                <label><input type="checkbox" id="numbers" checked /> Thay số liệu</label>
-                <label><input type="checkbox" id="context" checked /> Đổi ngữ cảnh</label>
-                <label><input type="checkbox" id="useAI" /> Dùng AI</label>
+            <div id="genStatus" class="gen-status"></div>
+            <ul id="output" class="output-list"></ul>
+          </div>
+        </section>
+
+        <section class="tab-panel" id="tab-blob">
+          <div class="panel" id="blobManager" hidden>
+            <div class="output-header">
+              <h2>Quản lý đề mẫu (Blob)</h2>
+              <div class="actions">
+                <button id="refreshBlob">Làm mới</button>
+                <button id="exportBlobCsv">Xuất CSV</button>
               </div>
-              <div class="field ai-engine-field" id="aiEngineField" style="display:none">
-                <label for="aiEngine">AI Engine</label>
-                <select id="aiEngine"></select>
-              </div>
-              <button type="submit">Tạo câu hỏi</button>
             </div>
+            <div class="blob-meta">
+              <span id="blobCount">0 file</span>
+              <span id="blobSize">0 KB</span>
+            </div>
+            <div class="blob-list" id="blobList"></div>
           </div>
-        </form>
-      </section>
-
-      <section class="panel">
-        <h2>Tự tạo từ thư mục đề mẫu</h2>
-        <div class="auto-grid">
-          <div>
-            <label for="autoSubject">Môn (lấy câu từ thư mục đề mẫu)</label>
-            <select id="autoSubject"></select>
-          </div>
-          <div>
-            <label for="autoCount">Số câu cần tạo</label>
-            <input id="autoCount" type="number" min="1" max="200" value="20" />
-          </div>
-          <div>
-            <label for="autoRatio">Tỉ lệ AI (%)</label>
-            <input id="autoRatio" type="number" min="0" max="100" value="30" />
-          </div>
-          <button id="autoGenerate" type="button">Tự tạo đề</button>
-        </div>
-        <small>Hệ thống sẽ lấy câu hỏi mẫu theo môn → tạo bộ câu hỏi mới theo số lượng và tỉ lệ AI.</small>
-      </section>
-
-      <section class="panel">
-        <h2>Tạo theo chủ đề (AI)</h2>
-        <div class="auto-grid">
-          <div>
-            <label for="topicSubject">Môn học</label>
-            <select id="topicSubject"></select>
-          </div>
-          <div>
-            <label for="topicGrade">Lớp</label>
-            <select id="topicGrade"></select>
-          </div>
-          <div>
-            <label for="topicType">Dạng câu hỏi</label>
-            <select id="topicType"></select>
-          </div>
-          <div>
-            <label for="topicCount">Số câu</label>
-            <input id="topicCount" type="number" min="1" max="50" value="10" />
-          </div>
-          <div>
-            <label for="topicEngine">AI Engine</label>
-            <select id="topicEngine"></select>
-          </div>
-          <button id="topicGenerate" type="button">Tạo theo chủ đề</button>
-        </div>
-        <small>AI sẽ tự tạo câu hỏi theo môn, lớp và dạng câu hỏi bạn chọn.</small>
-      </section>
-
-      <section class="panel">
-        <div class="output-header">
-          <h2>Kết quả</h2>
-          <div class="actions">
-            <button data-export="txt">Xuất TXT</button>
-            <button data-export="csv">Xuất CSV</button>
-            <button data-export="docx">Xuất DOCX</button>
-            <button data-export="pdf">Xuất PDF</button>
-          </div>
-        </div>
-        <div id="genStatus" class="gen-status"></div>
-        <ul id="output" class="output-list"></ul>
-      </section>
-
-      <section class="panel" id="blobManager" hidden>
-        <div class="output-header">
-          <h2>Quản lý đề mẫu (Blob)</h2>
-          <div class="actions">
-            <button id="refreshBlob">Làm mới</button>
-            <button id="exportBlobCsv">Xuất CSV</button>
-          </div>
-        </div>
-        <div class="blob-meta">
-          <span id="blobCount">0 file</span>
-          <span id="blobSize">0 KB</span>
-        </div>
-        <div class="blob-list" id="blobList"></div>
-      </section>
-    </main>
+        </section>
+      </main>
+    </div>
 
     <script type="module">
       import { upload } from 'https://esm.sh/@vercel/blob/client';
+
+      /* ---- Tab switching ---- */
+      const navItems = document.querySelectorAll('.nav-item');
+      const tabPanels = document.querySelectorAll('.tab-panel');
+      const navBlob = document.getElementById('navBlob');
+
+      function switchTab(tabId) {
+        navItems.forEach((btn) => btn.classList.toggle('active', btn.dataset.tab === tabId));
+        tabPanels.forEach((p) => p.classList.toggle('active', p.id === tabId));
+      }
+      navItems.forEach((btn) => {
+        btn.addEventListener('click', () => switchTab(btn.dataset.tab));
+      });
 
       const topicSelect = document.getElementById('topic');
       const output = document.getElementById('output');
@@ -285,10 +318,12 @@
           useBlob = true;
           await loadBlobIndex();
           blobManager.hidden = false;
+          navBlob.hidden = false;
           return;
         }
         useBlob = false;
         blobManager.hidden = true;
+        navBlob.hidden = true;
         sampleSubject.innerHTML = folders.map((f) => `<option value="${f}">${f}</option>`).join('');
         autoSubject.innerHTML = sampleSubject.innerHTML;
         await loadSampleFiles();
@@ -353,6 +388,7 @@
         output.innerHTML = questions
           .map((q) => `<li>${q.replace(/\n/g, '<br>')}</li>`)
           .join('');
+        if (questions.length) switchTab('tab-result');
       }
 
       form.addEventListener('submit', async (event) => {
