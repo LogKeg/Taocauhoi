@@ -17,67 +17,14 @@
 
     <div class="app-layout">
       <nav class="sidebar">
-        <button class="nav-item active" data-tab="tab-generate">Tạo từ mẫu</button>
-        <button class="nav-item" data-tab="tab-auto">Tự tạo từ đề mẫu</button>
+        <button class="nav-item active" data-tab="tab-auto">Tự tạo từ đề mẫu</button>
         <button class="nav-item" data-tab="tab-topic">Tạo theo chủ đề (AI)</button>
         <button class="nav-item" data-tab="tab-result">Kết quả</button>
         <button class="nav-item" data-tab="tab-blob" id="navBlob" hidden>Quản lý Blob</button>
       </nav>
 
       <main class="content">
-        <section class="tab-panel active" id="tab-generate">
-          <div class="panel">
-            <form id="gen-form">
-              <div class="grid">
-                <div class="field">
-                  <label for="samples">Câu hỏi mẫu (mỗi dòng một câu)</label>
-                  <div class="sample-loader">
-                    <select id="sampleSubject"></select>
-                    <select id="sampleFile"></select>
-                    <button type="button" id="loadSample">Nạp từ thư mục đề mẫu</button>
-                  </div>
-                  <div class="upload-box">
-                    <input id="uploadSubject" type="text" placeholder="Tên môn (vd: Toan, Vat_ly)" />
-                    <input id="uploadFile" type="file" accept=".txt,.docx,.md" />
-                    <button type="button" id="uploadSample">Tải file mẫu lên</button>
-                    <small id="uploadStatus"></small>
-                  </div>
-                  <textarea id="samples" rows="7" placeholder="Ví dụ: Một hình chữ nhật có chiều dài 12cm và rộng 8cm. Tính diện tích?\nBài 2: ..."></textarea>
-                  <div class="template-box">
-                    <div class="template-header">
-                      <strong>Mẫu gợi ý theo chủ đề</strong>
-                      <button type="button" id="insertTemplates">Chèn mẫu</button>
-                    </div>
-                    <div id="templateList" class="template-list"></div>
-                    <small>Nhấn "Chèn mẫu" để thêm các câu mẫu đã chọn vào ô bên trên.</small>
-                  </div>
-                </div>
-                <div class="field">
-                  <label for="topic">Chủ đề</label>
-                  <select id="topic"></select>
-                  <small>Danh sách có sẵn + bạn có thể nhập thêm từ khóa.</small>
-                  <label for="customKeywords" class="mt">Từ khóa tự nhập (ngăn cách bởi dấu phẩy)</label>
-                  <input id="customKeywords" type="text" placeholder="vd: chu vi, hình tròn, ..." />
-                  <label class="mt">Biến thể cần tạo</label>
-                  <input id="variants" type="number" min="1" max="10" value="2" />
-                  <div class="checks">
-                    <label><input type="checkbox" id="paraphrase" checked /> Paraphrase</label>
-                    <label><input type="checkbox" id="numbers" checked /> Thay số liệu</label>
-                    <label><input type="checkbox" id="context" checked /> Đổi ngữ cảnh</label>
-                    <label><input type="checkbox" id="useAI" /> Dùng AI</label>
-                  </div>
-                  <div class="field ai-engine-field" id="aiEngineField" style="display:none">
-                    <label for="aiEngine">AI Engine</label>
-                    <select id="aiEngine"></select>
-                  </div>
-                  <button type="submit">Tạo câu hỏi</button>
-                </div>
-              </div>
-            </form>
-          </div>
-        </section>
-
-        <section class="tab-panel" id="tab-auto">
+        <section class="tab-panel active" id="tab-auto">
           <div class="panel">
             <h2>Tự tạo từ thư mục đề mẫu</h2>
             <div class="auto-grid">
@@ -180,15 +127,7 @@
         btn.addEventListener('click', () => switchTab(btn.dataset.tab));
       });
 
-      const topicSelect = document.getElementById('topic');
       const output = document.getElementById('output');
-      const form = document.getElementById('gen-form');
-      const templateList = document.getElementById('templateList');
-      const sampleSubject = document.getElementById('sampleSubject');
-      const sampleFile = document.getElementById('sampleFile');
-      const uploadSubject = document.getElementById('uploadSubject');
-      const uploadFile = document.getElementById('uploadFile');
-      const uploadStatus = document.getElementById('uploadStatus');
       const autoSubject = document.getElementById('autoSubject');
       const blobManager = document.getElementById('blobManager');
       const blobList = document.getElementById('blobList');
@@ -199,32 +138,11 @@
       const topicSubject = document.getElementById('topicSubject');
       const topicGrade = document.getElementById('topicGrade');
       const topicType = document.getElementById('topicType');
-      const aiEngine = document.getElementById('aiEngine');
       const topicEngine = document.getElementById('topicEngine');
-      const aiEngineField = document.getElementById('aiEngineField');
-      const useAICheckbox = document.getElementById('useAI');
 
-      let templatesByTopic = {};
       let currentQuestions = [];
       let useBlob = false;
       let blobIndex = {};
-
-      async function loadTopics() {
-        const [topicsRes, templatesRes] = await Promise.all([
-          fetch('/topics'),
-          fetch('/templates'),
-        ]);
-        const data = await topicsRes.json();
-        const templates = await templatesRes.json();
-        topicSelect.innerHTML = data.topics
-          .map((t) => `<option value="${t.key}">${t.label}</option>`)
-          .join('');
-        templatesByTopic = (templates.templates || []).reduce((acc, item) => {
-          acc[item.key] = item.items || [];
-          return acc;
-        }, {});
-        renderTemplates();
-      }
 
       async function loadSubjects() {
         const res = await fetch('/subjects');
@@ -263,19 +181,12 @@
             return `<option value="${e.key}"${disabled}>${e.label}${suffix}</option>`;
           })
           .join('');
-        aiEngine.innerHTML = html;
         topicEngine.innerHTML = html;
-        // Auto-select the first available engine
         const first = engines.find((e) => e.available);
         if (first) {
-          aiEngine.value = first.key;
           topicEngine.value = first.key;
         }
       }
-
-      useAICheckbox.addEventListener('change', () => {
-        aiEngineField.style.display = useAICheckbox.checked ? '' : 'none';
-      });
 
       async function fetchBlobList(prefix = '') {
         const url = prefix ? `/api/blob/list?prefix=${encodeURIComponent(prefix)}` : '/api/blob/list';
@@ -300,13 +211,10 @@
         blobIndex = grouped;
         const folders = Object.keys(blobIndex).sort();
         if (!folders.length) {
-          sampleSubject.innerHTML = '<option value="">Không có thư mục mẫu</option>';
-          sampleFile.innerHTML = '';
+          autoSubject.innerHTML = '<option value="">Không có thư mục mẫu</option>';
           return;
         }
-        sampleSubject.innerHTML = folders.map((f) => `<option value="${f}">${f}</option>`).join('');
-        autoSubject.innerHTML = sampleSubject.innerHTML;
-        await loadSampleFiles();
+        autoSubject.innerHTML = folders.map((f) => `<option value="${f}">${f}</option>`).join('');
         renderBlobManager(blobs);
       }
 
@@ -324,63 +232,7 @@
         useBlob = false;
         blobManager.hidden = true;
         navBlob.hidden = true;
-        sampleSubject.innerHTML = folders.map((f) => `<option value="${f}">${f}</option>`).join('');
-        autoSubject.innerHTML = sampleSubject.innerHTML;
-        await loadSampleFiles();
-      }
-
-      async function loadSampleFiles() {
-        if (!sampleSubject.value) {
-          sampleFile.innerHTML = '';
-          return;
-        }
-        if (useBlob) {
-          const files = (blobIndex[sampleSubject.value] || []).map((item) => item.file);
-          sampleFile.innerHTML = files.map((f) => `<option value="${f}">${f}</option>`).join('');
-          return;
-        }
-        const res = await fetch(`/sample-files?subject=${encodeURIComponent(sampleSubject.value)}`);
-        const data = await res.json();
-        const files = data.files || [];
-        sampleFile.innerHTML = files.map((f) => `<option value="${f}">${f}</option>`).join('');
-      }
-
-      function renderTemplates() {
-        const topic = topicSelect.value;
-        const items = templatesByTopic[topic] || [];
-        templateList.innerHTML = items
-          .map((tpl, idx) => {
-            return `
-              <label class="template-item">
-                <input type="checkbox" value="${idx}" />
-                <span>${tpl}</span>
-              </label>`;
-          })
-          .join('');
-      }
-
-      function readPayload() {
-        const raw = document.getElementById('samples').value.trim();
-        const samples = raw
-          ? raw
-              .split(/\n\s*\n/)
-              .map((s) => s.trim())
-              .filter(Boolean)
-          : [];
-        return {
-          samples,
-          topic: topicSelect.value,
-          custom_keywords: document.getElementById('customKeywords').value
-            .split(',')
-            .map((s) => s.trim())
-            .filter(Boolean),
-          paraphrase: document.getElementById('paraphrase').checked,
-          change_numbers: document.getElementById('numbers').checked,
-          change_context: document.getElementById('context').checked,
-          variants_per_question: Number(document.getElementById('variants').value) || 1,
-          use_ai: document.getElementById('useAI').checked,
-          ai_engine: aiEngine.value || 'openai',
-        };
+        autoSubject.innerHTML = folders.map((f) => `<option value="${f}">${f}</option>`).join('');
       }
 
       function renderQuestions(questions) {
@@ -391,47 +243,19 @@
         if (questions.length) switchTab('tab-result');
       }
 
-      form.addEventListener('submit', async (event) => {
-        event.preventDefault();
-        genStatus.textContent = '';
-        const payload = readPayload();
-        const res = await fetch('/generate', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload),
-        });
-        const data = await res.json();
-        if (data.message) {
-          genStatus.textContent = data.message;
-        }
-        renderQuestions(data.questions || []);
-      });
-
       document.querySelectorAll('[data-export]').forEach((btn) => {
         btn.addEventListener('click', async () => {
+          if (!currentQuestions.length) return;
           const formData = new FormData();
-          if (currentQuestions.length) {
-            formData.append('samples', currentQuestions.join('\n'));
-            formData.append('topic', topicSelect.value);
-            formData.append('custom_keywords', document.getElementById('customKeywords').value);
-            formData.append('paraphrase', false);
-            formData.append('change_numbers', false);
-            formData.append('change_context', false);
-            formData.append('variants_per_question', 1);
-            formData.append('use_ai', false);
-            formData.append('ai_engine', aiEngine.value || 'openai');
-          } else {
-            const payload = readPayload();
-            formData.append('samples', payload.samples.join('\n'));
-            formData.append('topic', payload.topic);
-            formData.append('custom_keywords', payload.custom_keywords.join(','));
-            formData.append('paraphrase', payload.paraphrase);
-            formData.append('change_numbers', payload.change_numbers);
-            formData.append('change_context', payload.change_context);
-            formData.append('variants_per_question', payload.variants_per_question);
-            formData.append('use_ai', payload.use_ai);
-            formData.append('ai_engine', payload.ai_engine);
-          }
+          formData.append('samples', currentQuestions.join('\n'));
+          formData.append('topic', 'toan_hoc');
+          formData.append('custom_keywords', '');
+          formData.append('paraphrase', false);
+          formData.append('change_numbers', false);
+          formData.append('change_context', false);
+          formData.append('variants_per_question', 1);
+          formData.append('use_ai', false);
+          formData.append('ai_engine', topicEngine.value || 'openai');
           formData.append('fmt', btn.dataset.export);
           const res = await fetch('/export', { method: 'POST', body: formData });
           const blob = await res.blob();
@@ -445,92 +269,6 @@
         });
       });
 
-      topicSelect.addEventListener('change', renderTemplates);
-
-      document.getElementById('insertTemplates').addEventListener('click', () => {
-        const topic = topicSelect.value;
-        const items = templatesByTopic[topic] || [];
-        const selected = Array.from(templateList.querySelectorAll('input:checked'))
-          .map((input) => items[Number(input.value)])
-          .filter(Boolean);
-        if (!selected.length) return;
-        const textarea = document.getElementById('samples');
-        const prefix = textarea.value && !textarea.value.endsWith('\n') ? '\n' : '';
-        textarea.value = `${textarea.value}${prefix}${selected.join('\n')}`;
-        templateList.querySelectorAll('input:checked').forEach((input) => {
-          input.checked = false;
-        });
-      });
-
-      document.getElementById('loadSample').addEventListener('click', async () => {
-        if (!sampleSubject.value || !sampleFile.value) return;
-        if (useBlob) {
-          const items = blobIndex[sampleSubject.value] || [];
-          const match = items.find((item) => item.file === sampleFile.value);
-          if (!match) return;
-          const res = await fetch('/parse-sample-urls', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ urls: [match.url] }),
-          });
-          const data = await res.json();
-          if (data.content) {
-            const textarea = document.getElementById('samples');
-            const prefix = textarea.value && !textarea.value.endsWith('\n') ? '\n' : '';
-            textarea.value = `${textarea.value}${prefix}${data.content}`;
-          }
-          return;
-        }
-        const res = await fetch(
-          `/sample-content?subject=${encodeURIComponent(sampleSubject.value)}&filename=${encodeURIComponent(sampleFile.value)}`
-        );
-        const data = await res.json();
-        if (data.content) {
-          const textarea = document.getElementById('samples');
-          const prefix = textarea.value && !textarea.value.endsWith('\n') ? '\n' : '';
-          textarea.value = `${textarea.value}${prefix}${data.content}`;
-        }
-      });
-
-      document.getElementById('uploadSample').addEventListener('click', async () => {
-        uploadStatus.textContent = '';
-        if (!uploadSubject.value.trim()) {
-          uploadStatus.textContent = 'Vui lòng nhập tên môn.';
-          return;
-        }
-        if (!uploadFile.files.length) {
-          uploadStatus.textContent = 'Vui lòng chọn file.';
-          return;
-        }
-        if (useBlob) {
-          try {
-            await upload(uploadFile.files[0].name, uploadFile.files[0], {
-              access: 'public',
-              handleUploadUrl: '/api/blob/upload',
-              pathname: `${uploadSubject.value.trim()}/${uploadFile.files[0].name}`,
-            });
-            uploadStatus.textContent = 'Đã tải lên Blob';
-            await loadBlobIndex();
-            sampleSubject.value = uploadSubject.value.trim();
-            await loadSampleFiles();
-            autoSubject.value = uploadSubject.value.trim();
-          } catch (err) {
-            uploadStatus.textContent = 'Upload thất bại';
-          }
-          return;
-        }
-        const formData = new FormData();
-        formData.append('subject', uploadSubject.value.trim());
-        formData.append('file', uploadFile.files[0]);
-        const res = await fetch('/upload-sample', { method: 'POST', body: formData });
-        const data = await res.json();
-        uploadStatus.textContent = data.message || 'Đã tải lên';
-        await loadSampleFolders();
-        sampleSubject.value = uploadSubject.value.trim();
-        await loadSampleFiles();
-        autoSubject.value = uploadSubject.value.trim();
-      });
-
       document.getElementById('autoGenerate').addEventListener('click', async () => {
         if (!autoSubject.value) return;
         genStatus.textContent = '';
@@ -538,13 +276,13 @@
         formData.append('subject', autoSubject.value);
         formData.append('count', document.getElementById('autoCount').value || 20);
         formData.append('ai_ratio', document.getElementById('autoRatio').value || 30);
-        formData.append('topic', topicSelect.value);
-        formData.append('custom_keywords', document.getElementById('customKeywords').value);
-        formData.append('paraphrase', document.getElementById('paraphrase').checked);
-        formData.append('change_numbers', document.getElementById('numbers').checked);
-        formData.append('change_context', document.getElementById('context').checked);
-        formData.append('use_ai', document.getElementById('useAI').checked);
-        formData.append('ai_engine', aiEngine.value || 'openai');
+        formData.append('topic', 'toan_hoc');
+        formData.append('custom_keywords', '');
+        formData.append('paraphrase', true);
+        formData.append('change_numbers', true);
+        formData.append('change_context', true);
+        formData.append('use_ai', true);
+        formData.append('ai_engine', topicEngine.value || 'openai');
 
         if (useBlob) {
           const items = blobIndex[autoSubject.value] || [];
@@ -642,14 +380,10 @@
         URL.revokeObjectURL(url);
       });
 
-      loadTopics();
-      loadSampleFolders().then(() => {
-        autoSubject.innerHTML = sampleSubject.innerHTML;
-      });
+      loadSampleFolders();
       loadSubjects();
       loadBuildInfo();
       loadEngines();
-      sampleSubject.addEventListener('change', loadSampleFiles);
     </script>
   </body>
 </html>
