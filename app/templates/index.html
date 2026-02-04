@@ -54,7 +54,11 @@
                 <label><input type="checkbox" id="paraphrase" checked /> Paraphrase</label>
                 <label><input type="checkbox" id="numbers" checked /> Thay số liệu</label>
                 <label><input type="checkbox" id="context" checked /> Đổi ngữ cảnh</label>
-                <label><input type="checkbox" id="useAI" /> Dùng AI (OpenAI)</label>
+                <label><input type="checkbox" id="useAI" /> Dùng AI</label>
+              </div>
+              <div class="field ai-engine-field" id="aiEngineField" style="display:none">
+                <label for="aiEngine">AI Engine</label>
+                <select id="aiEngine"></select>
               </div>
               <button type="submit">Tạo câu hỏi</button>
             </div>
@@ -100,6 +104,10 @@
           <div>
             <label for="topicCount">Số câu</label>
             <input id="topicCount" type="number" min="1" max="50" value="10" />
+          </div>
+          <div>
+            <label for="topicEngine">AI Engine</label>
+            <select id="topicEngine"></select>
           </div>
           <button id="topicGenerate" type="button">Tạo theo chủ đề</button>
         </div>
@@ -158,6 +166,10 @@
       const topicSubject = document.getElementById('topicSubject');
       const topicGrade = document.getElementById('topicGrade');
       const topicType = document.getElementById('topicType');
+      const aiEngine = document.getElementById('aiEngine');
+      const topicEngine = document.getElementById('topicEngine');
+      const aiEngineField = document.getElementById('aiEngineField');
+      const useAICheckbox = document.getElementById('useAI');
 
       let templatesByTopic = {};
       let currentQuestions = [];
@@ -206,6 +218,31 @@
           buildInfo.textContent = '';
         }
       }
+
+      async function loadEngines() {
+        const res = await fetch('/ai-engines');
+        const data = await res.json();
+        const engines = data.engines || [];
+        const html = engines
+          .map((e) => {
+            const disabled = e.available ? '' : ' disabled';
+            const suffix = e.available ? '' : ' (N/A)';
+            return `<option value="${e.key}"${disabled}>${e.label}${suffix}</option>`;
+          })
+          .join('');
+        aiEngine.innerHTML = html;
+        topicEngine.innerHTML = html;
+        // Auto-select the first available engine
+        const first = engines.find((e) => e.available);
+        if (first) {
+          aiEngine.value = first.key;
+          topicEngine.value = first.key;
+        }
+      }
+
+      useAICheckbox.addEventListener('change', () => {
+        aiEngineField.style.display = useAICheckbox.checked ? '' : 'none';
+      });
 
       async function fetchBlobList(prefix = '') {
         const url = prefix ? `/api/blob/list?prefix=${encodeURIComponent(prefix)}` : '/api/blob/list';
@@ -307,6 +344,7 @@
           change_context: document.getElementById('context').checked,
           variants_per_question: Number(document.getElementById('variants').value) || 1,
           use_ai: document.getElementById('useAI').checked,
+          ai_engine: aiEngine.value || 'openai',
         };
       }
 
@@ -345,6 +383,7 @@
             formData.append('change_context', false);
             formData.append('variants_per_question', 1);
             formData.append('use_ai', false);
+            formData.append('ai_engine', aiEngine.value || 'openai');
           } else {
             const payload = readPayload();
             formData.append('samples', payload.samples.join('\n'));
@@ -355,6 +394,7 @@
             formData.append('change_context', payload.change_context);
             formData.append('variants_per_question', payload.variants_per_question);
             formData.append('use_ai', payload.use_ai);
+            formData.append('ai_engine', payload.ai_engine);
           }
           formData.append('fmt', btn.dataset.export);
           const res = await fetch('/export', { method: 'POST', body: formData });
@@ -468,6 +508,7 @@
         formData.append('change_numbers', document.getElementById('numbers').checked);
         formData.append('change_context', document.getElementById('context').checked);
         formData.append('use_ai', document.getElementById('useAI').checked);
+        formData.append('ai_engine', aiEngine.value || 'openai');
 
         if (useBlob) {
           const items = blobIndex[autoSubject.value] || [];
@@ -496,6 +537,7 @@
         formData.append('grade', topicGrade.value);
         formData.append('qtype', topicType.value);
         formData.append('count', document.getElementById('topicCount').value || 10);
+        formData.append('ai_engine', topicEngine.value || 'openai');
         const res = await fetch('/generate-topic', { method: 'POST', body: formData });
         const data = await res.json();
         if (data.message) {
@@ -570,6 +612,7 @@
       });
       loadSubjects();
       loadBuildInfo();
+      loadEngines();
       sampleSubject.addEventListener('change', loadSampleFiles);
     </script>
   </body>

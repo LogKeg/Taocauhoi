@@ -31,6 +31,7 @@ class GenerateRequest(BaseModel):
     change_context: bool
     variants_per_question: int
     use_ai: bool = False
+    ai_engine: str = "openai"
 
 
 class ParseSamplesRequest(BaseModel):
@@ -192,6 +193,12 @@ MCQ_OPTION_RE = re.compile(r"^[A-H][\).\-:]\s+", re.IGNORECASE)
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
 OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
 OPENAI_API_BASE = os.getenv("OPENAI_API_BASE", "https://api.openai.com/v1")
+
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.0-flash")
+
+OLLAMA_BASE = os.getenv("OLLAMA_BASE", "http://localhost:11434")
+OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "llama3.2")
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 
@@ -443,6 +450,70 @@ def _call_openai(prompt: str) -> Tuple[Optional[str], Optional[str]]:
         return _extract_text_from_response(response.json()), None
 
 
+def _call_gemini(prompt: str) -> Tuple[Optional[str], Optional[str]]:
+    if not GEMINI_API_KEY:
+        return None, "missing_gemini_api_key"
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL}:generateContent?key={GEMINI_API_KEY}"
+    payload = {
+        "contents": [{"parts": [{"text": prompt}]}],
+        "generationConfig": {
+            "maxOutputTokens": 400,
+            "temperature": 0.8,
+        },
+    }
+    with httpx.Client(timeout=30) as client:
+        response = client.post(url, json=payload)
+        if response.status_code != 200:
+            try:
+                data = response.json()
+                msg = data.get("error", {}).get("message", "")
+            except Exception:
+                msg = response.text[:200]
+            return None, f"{response.status_code}: {msg}"
+        data = response.json()
+        try:
+            text = data["candidates"][0]["content"]["parts"][0]["text"]
+            return text.strip(), None
+        except (KeyError, IndexError):
+            return None, "Không parse được phản hồi Gemini"
+
+
+def _call_ollama(prompt: str) -> Tuple[Optional[str], Optional[str]]:
+    url = f"{OLLAMA_BASE}/api/generate"
+    payload = {
+        "model": OLLAMA_MODEL,
+        "prompt": prompt,
+        "stream": False,
+        "options": {
+            "num_predict": 400,
+            "temperature": 0.8,
+        },
+    }
+    try:
+        with httpx.Client(timeout=60) as client:
+            response = client.post(url, json=payload)
+            if response.status_code != 200:
+                try:
+                    data = response.json()
+                    msg = data.get("error", response.text[:200])
+                except Exception:
+                    msg = response.text[:200]
+                return None, f"{response.status_code}: {msg}"
+            data = response.json()
+            text = data.get("response", "")
+            return text.strip() if text else None, None
+    except httpx.ConnectError:
+        return None, "Không kết nối được Ollama. Hãy chắc chắn Ollama đang chạy (ollama serve)."
+
+
+def _call_ai(prompt: str, engine: str = "openai") -> Tuple[Optional[str], Optional[str]]:
+    if engine == "gemini":
+        return _call_gemini(prompt)
+    if engine == "ollama":
+        return _call_ollama(prompt)
+    return _call_openai(prompt)
+
+
 def _normalize_ai_lines(text: str) -> List[str]:
     lines = []
     for raw in text.splitlines():
@@ -638,8 +709,16 @@ def _load_questions_from_subject(subject: str) -> List[str]:
     return [q for q in questions if q]
 
 
+def _is_engine_available(engine: str) -> bool:
+    if engine == "gemini":
+        return bool(GEMINI_API_KEY)
+    if engine == "ollama":
+        return True  # Ollama runs locally, availability checked at call time
+    return bool(OPENAI_API_KEY)
+
+
 def generate_variants(req: GenerateRequest) -> List[str]:
-    if req.use_ai and OPENAI_API_KEY:
+    if req.use_ai and _is_engine_available(req.ai_engine):
         generated: List[str] = []
         samples = req.samples or [None]
         for sample in samples:
@@ -657,7 +736,7 @@ def generate_variants(req: GenerateRequest) -> List[str]:
             attempts = 0
             while attempts < 2:
                 attempts += 1
-                text, err = _call_openai(prompt)
+                text, err = _call_ai(prompt, req.ai_engine)
                 if text:
                     lines = [_strip_leading_numbering(line) for line in _normalize_ai_lines(text)]
                     if sample:
@@ -707,13 +786,15 @@ def index() -> HTMLResponse:
 
 @app.post("/generate")
 def generate(payload: GenerateRequest) -> dict:
-    if payload.use_ai and not OPENAI_API_KEY:
+    engine = payload.ai_engine
+    if payload.use_ai and not _is_engine_available(engine):
+        engine_names = {"openai": "OPENAI_API_KEY", "gemini": "GEMINI_API_KEY", "ollama": "Ollama"}
         return {
             "questions": generate_variants(payload),
-            "message": "Chưa cấu hình OPENAI_API_KEY nên AI không được dùng.",
+            "message": f"Chưa cấu hình {engine_names.get(engine, engine)} nên AI không được dùng.",
         }
     questions = generate_variants(payload)
-    if payload.use_ai and OPENAI_API_KEY:
+    if payload.use_ai and _is_engine_available(engine):
         src = {_normalize_question(s) for s in payload.samples if s.strip()}
         out = {_normalize_question(q) for q in questions if q.strip()}
         if out and out.issubset(src):
@@ -730,13 +811,15 @@ def generate_topic(
     grade: int = Form(1),
     qtype: str = Form("mcq"),
     count: int = Form(10),
+    ai_engine: str = Form("openai"),
 ) -> dict:
-    if not OPENAI_API_KEY:
-        return {"questions": [], "message": "Chưa cấu hình OPENAI_API_KEY nên AI không được dùng."}
+    if not _is_engine_available(ai_engine):
+        engine_names = {"openai": "OPENAI_API_KEY", "gemini": "GEMINI_API_KEY", "ollama": "Ollama"}
+        return {"questions": [], "message": f"Chưa cấu hình {engine_names.get(ai_engine, ai_engine)} nên AI không được dùng."}
     count = max(1, min(50, count))
     grade = max(1, min(12, grade))
     prompt = _build_topic_prompt(subject, grade, qtype, count)
-    text, err = _call_openai(prompt)
+    text, err = _call_ai(prompt, ai_engine)
     if not text:
         msg = f"Không nhận được phản hồi từ AI. {err}" if err else "Không nhận được phản hồi từ AI."
         return {"questions": [], "message": msg}
@@ -757,6 +840,7 @@ def auto_generate(
     change_context: bool = Form(True),
     use_ai: bool = Form(False),
     samples_text: str = Form(""),
+    ai_engine: str = Form("openai"),
 ) -> dict:
     if samples_text.strip():
         samples = _split_questions(samples_text)
@@ -787,10 +871,11 @@ def auto_generate(
     )
     questions = generate_variants(req)
 
-    if use_ai and ai_count > 0 and not OPENAI_API_KEY:
+    if use_ai and ai_count > 0 and not _is_engine_available(ai_engine):
+        engine_names = {"openai": "OPENAI_API_KEY", "gemini": "GEMINI_API_KEY", "ollama": "Ollama"}
         return {
             "questions": questions[:count],
-            "message": "Chưa cấu hình OPENAI_API_KEY nên AI không được dùng.",
+            "message": f"Chưa cấu hình {engine_names.get(ai_engine, ai_engine)} nên AI không được dùng.",
         }
 
     if use_ai and ai_count > 0:
@@ -803,6 +888,7 @@ def auto_generate(
             change_context=change_context,
             variants_per_question=max(1, ai_count),
             use_ai=True,
+            ai_engine=ai_engine,
         )
         ai_questions = generate_variants(ai_req)
         if ai_questions:
@@ -810,7 +896,7 @@ def auto_generate(
 
     random.shuffle(questions)
     result = {"questions": questions[:count]}
-    if use_ai and OPENAI_API_KEY:
+    if use_ai and _is_engine_available(ai_engine):
         src = {_normalize_question(s) for s in samples if s.strip()}
         out = {_normalize_question(q) for q in result["questions"] if q.strip()}
         if out and out.issubset(src):
@@ -829,6 +915,7 @@ def export(
     variants_per_question: int = Form(1),
     fmt: str = Form("txt"),
     use_ai: bool = Form(False),
+    ai_engine: str = Form("openai"),
 ):
     req = GenerateRequest(
         samples=[s for s in samples.split("\n") if s.strip()],
@@ -839,6 +926,7 @@ def export(
         change_context=change_context,
         variants_per_question=variants_per_question,
         use_ai=use_ai,
+        ai_engine=ai_engine,
     )
     questions = generate_variants(req)
 
@@ -900,6 +988,32 @@ def export(
         media_type="text/plain",
         headers={"Content-Disposition": "attachment; filename=questions.txt"},
     )
+
+
+@app.get("/ai-engines")
+def list_ai_engines() -> dict:
+    engines = []
+    if OPENAI_API_KEY:
+        engines.append({"key": "openai", "label": f"OpenAI ({OPENAI_MODEL})", "available": True})
+    else:
+        engines.append({"key": "openai", "label": "OpenAI (chưa có API key)", "available": False})
+    if GEMINI_API_KEY:
+        engines.append({"key": "gemini", "label": f"Gemini ({GEMINI_MODEL})", "available": True})
+    else:
+        engines.append({"key": "gemini", "label": "Gemini (chưa có API key)", "available": False})
+    # Ollama: try a quick check
+    ollama_ok = False
+    try:
+        with httpx.Client(timeout=2) as client:
+            r = client.get(f"{OLLAMA_BASE}/api/tags")
+            ollama_ok = r.status_code == 200
+    except Exception:
+        pass
+    if ollama_ok:
+        engines.append({"key": "ollama", "label": f"Ollama ({OLLAMA_MODEL})", "available": True})
+    else:
+        engines.append({"key": "ollama", "label": "Ollama (không kết nối được)", "available": False})
+    return {"engines": engines}
 
 
 @app.get("/topics")
