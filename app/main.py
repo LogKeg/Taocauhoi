@@ -990,6 +990,42 @@ def export(
     )
 
 
+@app.post("/ai-settings")
+async def update_ai_settings(request: Request) -> dict:
+    global OPENAI_API_KEY, OPENAI_MODEL, OPENAI_API_BASE
+    global GEMINI_API_KEY, GEMINI_MODEL
+    global OLLAMA_BASE, OLLAMA_MODEL
+    data = await request.json()
+    if "openai_key" in data:
+        OPENAI_API_KEY = data["openai_key"].strip()
+    if "openai_model" in data:
+        OPENAI_MODEL = data["openai_model"].strip() or "gpt-4o-mini"
+    if "openai_base" in data:
+        OPENAI_API_BASE = data["openai_base"].strip() or "https://api.openai.com/v1"
+    if "gemini_key" in data:
+        GEMINI_API_KEY = data["gemini_key"].strip()
+    if "gemini_model" in data:
+        GEMINI_MODEL = data["gemini_model"].strip() or "gemini-2.0-flash"
+    if "ollama_base" in data:
+        OLLAMA_BASE = data["ollama_base"].strip() or "http://localhost:11434"
+    if "ollama_model" in data:
+        OLLAMA_MODEL = data["ollama_model"].strip() or "llama3.2"
+    return {"ok": True}
+
+
+@app.get("/ai-settings")
+def get_ai_settings() -> dict:
+    return {
+        "openai_key": OPENAI_API_KEY[:4] + "****" if len(OPENAI_API_KEY) > 4 else "",
+        "openai_model": OPENAI_MODEL,
+        "openai_base": OPENAI_API_BASE,
+        "gemini_key": GEMINI_API_KEY[:4] + "****" if len(GEMINI_API_KEY) > 4 else "",
+        "gemini_model": GEMINI_MODEL,
+        "ollama_base": OLLAMA_BASE,
+        "ollama_model": OLLAMA_MODEL,
+    }
+
+
 @app.get("/ai-engines")
 def list_ai_engines() -> dict:
     engines = []

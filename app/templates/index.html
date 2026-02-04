@@ -19,7 +19,7 @@
       <nav class="sidebar">
         <button class="nav-item active" data-tab="tab-auto">Tự tạo từ đề mẫu</button>
         <button class="nav-item" data-tab="tab-topic">Tạo theo chủ đề (AI)</button>
-        <button class="nav-item" data-tab="tab-result">Kết quả</button>
+        <button class="nav-item" data-tab="tab-settings">Cài đặt</button>
         <button class="nav-item" data-tab="tab-blob" id="navBlob" hidden>Quản lý Blob</button>
       </nav>
 
@@ -44,6 +44,19 @@
             </div>
             <small>Hệ thống sẽ lấy câu hỏi mẫu theo môn → tạo bộ câu hỏi mới theo số lượng và tỉ lệ AI.</small>
           </div>
+          <div class="panel result-panel" id="autoResult" hidden>
+            <div class="output-header">
+              <h2>Kết quả</h2>
+              <div class="actions">
+                <button data-export="txt">Xuất TXT</button>
+                <button data-export="csv">Xuất CSV</button>
+                <button data-export="docx">Xuất DOCX</button>
+                <button data-export="pdf">Xuất PDF</button>
+              </div>
+            </div>
+            <div class="gen-status" id="autoStatus"></div>
+            <ul class="output-list" id="autoOutput"></ul>
+          </div>
         </section>
 
         <section class="tab-panel" id="tab-topic">
@@ -66,18 +79,11 @@
                 <label for="topicCount">Số câu</label>
                 <input id="topicCount" type="number" min="1" max="50" value="10" />
               </div>
-              <div>
-                <label for="topicEngine">AI Engine</label>
-                <select id="topicEngine"></select>
-              </div>
               <button id="topicGenerate" type="button">Tạo theo chủ đề</button>
             </div>
             <small>AI sẽ tự tạo câu hỏi theo môn, lớp và dạng câu hỏi bạn chọn.</small>
           </div>
-        </section>
-
-        <section class="tab-panel" id="tab-result">
-          <div class="panel">
+          <div class="panel result-panel" id="topicResult" hidden>
             <div class="output-header">
               <h2>Kết quả</h2>
               <div class="actions">
@@ -87,8 +93,44 @@
                 <button data-export="pdf">Xuất PDF</button>
               </div>
             </div>
-            <div id="genStatus" class="gen-status"></div>
-            <ul id="output" class="output-list"></ul>
+            <div class="gen-status" id="topicStatus"></div>
+            <ul class="output-list" id="topicOutput"></ul>
+          </div>
+        </section>
+
+        <section class="tab-panel" id="tab-settings">
+          <div class="panel">
+            <h2>Cài đặt AI</h2>
+            <div class="settings-grid">
+              <fieldset class="settings-group">
+                <legend>OpenAI</legend>
+                <label for="setOpenaiKey">API Key</label>
+                <input id="setOpenaiKey" type="password" placeholder="sk-..." autocomplete="off" />
+                <label for="setOpenaiModel">Model</label>
+                <input id="setOpenaiModel" type="text" placeholder="gpt-4o-mini" />
+                <label for="setOpenaiBase">API Base URL</label>
+                <input id="setOpenaiBase" type="text" placeholder="https://api.openai.com/v1" />
+              </fieldset>
+              <fieldset class="settings-group">
+                <legend>Google Gemini</legend>
+                <label for="setGeminiKey">API Key</label>
+                <input id="setGeminiKey" type="password" placeholder="AIza..." autocomplete="off" />
+                <label for="setGeminiModel">Model</label>
+                <input id="setGeminiModel" type="text" placeholder="gemini-2.0-flash" />
+              </fieldset>
+              <fieldset class="settings-group">
+                <legend>Ollama (local)</legend>
+                <label for="setOllamaBase">Base URL</label>
+                <input id="setOllamaBase" type="text" placeholder="http://localhost:11434" />
+                <label for="setOllamaModel">Model</label>
+                <input id="setOllamaModel" type="text" placeholder="llama3.2" />
+              </fieldset>
+            </div>
+            <div class="settings-actions">
+              <button id="saveSettings" type="button">Lưu cài đặt</button>
+              <span id="settingsStatus" class="gen-status"></span>
+            </div>
+            <div class="engine-status" id="engineStatus"></div>
           </div>
         </section>
 
@@ -127,22 +169,20 @@
         btn.addEventListener('click', () => switchTab(btn.dataset.tab));
       });
 
-      const output = document.getElementById('output');
       const autoSubject = document.getElementById('autoSubject');
       const blobManager = document.getElementById('blobManager');
       const blobList = document.getElementById('blobList');
       const blobCount = document.getElementById('blobCount');
       const blobSize = document.getElementById('blobSize');
-      const genStatus = document.getElementById('genStatus');
       const buildInfo = document.getElementById('buildInfo');
       const topicSubject = document.getElementById('topicSubject');
       const topicGrade = document.getElementById('topicGrade');
       const topicType = document.getElementById('topicType');
-      const topicEngine = document.getElementById('topicEngine');
 
       let currentQuestions = [];
       let useBlob = false;
       let blobIndex = {};
+      let activeEngine = 'openai';
 
       async function loadSubjects() {
         const res = await fetch('/subjects');
@@ -174,20 +214,65 @@
         const res = await fetch('/ai-engines');
         const data = await res.json();
         const engines = data.engines || [];
-        const html = engines
-          .map((e) => {
-            const disabled = e.available ? '' : ' disabled';
-            const suffix = e.available ? '' : ' (N/A)';
-            return `<option value="${e.key}"${disabled}>${e.label}${suffix}</option>`;
-          })
-          .join('');
-        topicEngine.innerHTML = html;
         const first = engines.find((e) => e.available);
-        if (first) {
-          topicEngine.value = first.key;
-        }
+        if (first) activeEngine = first.key;
+        renderEngineStatus(engines);
       }
 
+      function renderEngineStatus(engines) {
+        const el = document.getElementById('engineStatus');
+        el.innerHTML = '<h3>Trạng thái kết nối</h3>' + engines
+          .map((e) => {
+            const dot = e.available ? '<span class="dot dot-ok"></span>' : '<span class="dot dot-off"></span>';
+            return `<div class="engine-row">${dot} ${e.label}</div>`;
+          })
+          .join('');
+      }
+
+      /* ---- Settings ---- */
+      async function loadSettings() {
+        const res = await fetch('/ai-settings');
+        const s = await res.json();
+        document.getElementById('setOpenaiKey').placeholder = s.openai_key || 'sk-...';
+        document.getElementById('setOpenaiModel').placeholder = s.openai_model;
+        document.getElementById('setOpenaiBase').placeholder = s.openai_base;
+        document.getElementById('setGeminiKey').placeholder = s.gemini_key || 'AIza...';
+        document.getElementById('setGeminiModel').placeholder = s.gemini_model;
+        document.getElementById('setOllamaBase').placeholder = s.ollama_base;
+        document.getElementById('setOllamaModel').placeholder = s.ollama_model;
+      }
+
+      document.getElementById('saveSettings').addEventListener('click', async () => {
+        const status = document.getElementById('settingsStatus');
+        status.textContent = 'Đang lưu...';
+        const payload = {};
+        const fields = [
+          ['setOpenaiKey', 'openai_key'],
+          ['setOpenaiModel', 'openai_model'],
+          ['setOpenaiBase', 'openai_base'],
+          ['setGeminiKey', 'gemini_key'],
+          ['setGeminiModel', 'gemini_model'],
+          ['setOllamaBase', 'ollama_base'],
+          ['setOllamaModel', 'ollama_model'],
+        ];
+        fields.forEach(([id, key]) => {
+          const val = document.getElementById(id).value.trim();
+          if (val) payload[key] = val;
+        });
+        await fetch('/ai-settings', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        // Clear inputs after saving
+        fields.forEach(([id]) => { document.getElementById(id).value = ''; });
+        await loadSettings();
+        await loadEngines();
+        status.textContent = 'Đã lưu!';
+        setTimeout(() => { status.textContent = ''; }, 2000);
+      });
+
+      /* ---- Blob ---- */
       async function fetchBlobList(prefix = '') {
         const url = prefix ? `/api/blob/list?prefix=${encodeURIComponent(prefix)}` : '/api/blob/list';
         const res = await fetch(url);
@@ -235,43 +320,55 @@
         autoSubject.innerHTML = folders.map((f) => `<option value="${f}">${f}</option>`).join('');
       }
 
-      function renderQuestions(questions) {
+      /* ---- Render results inline ---- */
+      function renderQuestions(questions, outputEl, statusEl, resultPanel) {
         currentQuestions = questions;
-        output.innerHTML = questions
+        outputEl.innerHTML = questions
           .map((q) => `<li>${q.replace(/\n/g, '<br>')}</li>`)
           .join('');
-        if (questions.length) switchTab('tab-result');
+        resultPanel.hidden = !questions.length;
       }
 
-      document.querySelectorAll('[data-export]').forEach((btn) => {
-        btn.addEventListener('click', async () => {
-          if (!currentQuestions.length) return;
-          const formData = new FormData();
-          formData.append('samples', currentQuestions.join('\n'));
-          formData.append('topic', 'toan_hoc');
-          formData.append('custom_keywords', '');
-          formData.append('paraphrase', false);
-          formData.append('change_numbers', false);
-          formData.append('change_context', false);
-          formData.append('variants_per_question', 1);
-          formData.append('use_ai', false);
-          formData.append('ai_engine', topicEngine.value || 'openai');
-          formData.append('fmt', btn.dataset.export);
-          const res = await fetch('/export', { method: 'POST', body: formData });
-          const blob = await res.blob();
-          const url = URL.createObjectURL(blob);
-          const a = document.createElement('a');
-          a.href = url;
-          const ext = btn.dataset.export;
-          a.download = `questions.${ext}`;
-          a.click();
-          URL.revokeObjectURL(url);
+      /* ---- Export ---- */
+      function attachExport(container) {
+        container.querySelectorAll('[data-export]').forEach((btn) => {
+          btn.addEventListener('click', async () => {
+            if (!currentQuestions.length) return;
+            const formData = new FormData();
+            formData.append('samples', currentQuestions.join('\n'));
+            formData.append('topic', 'toan_hoc');
+            formData.append('custom_keywords', '');
+            formData.append('paraphrase', false);
+            formData.append('change_numbers', false);
+            formData.append('change_context', false);
+            formData.append('variants_per_question', 1);
+            formData.append('use_ai', false);
+            formData.append('ai_engine', activeEngine);
+            formData.append('fmt', btn.dataset.export);
+            const res = await fetch('/export', { method: 'POST', body: formData });
+            const blob = await res.blob();
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `questions.${btn.dataset.export}`;
+            a.click();
+            URL.revokeObjectURL(url);
+          });
         });
-      });
+      }
+      attachExport(document.getElementById('autoResult'));
+      attachExport(document.getElementById('topicResult'));
 
+      /* ---- Auto Generate ---- */
       document.getElementById('autoGenerate').addEventListener('click', async () => {
         if (!autoSubject.value) return;
-        genStatus.textContent = '';
+        const statusEl = document.getElementById('autoStatus');
+        const outputEl = document.getElementById('autoOutput');
+        const resultPanel = document.getElementById('autoResult');
+        statusEl.textContent = 'Đang tạo...';
+        resultPanel.hidden = false;
+        outputEl.innerHTML = '';
+
         const formData = new FormData();
         formData.append('subject', autoSubject.value);
         formData.append('count', document.getElementById('autoCount').value || 20);
@@ -282,7 +379,7 @@
         formData.append('change_numbers', true);
         formData.append('change_context', true);
         formData.append('use_ai', true);
-        formData.append('ai_engine', topicEngine.value || 'openai');
+        formData.append('ai_engine', activeEngine);
 
         if (useBlob) {
           const items = blobIndex[autoSubject.value] || [];
@@ -298,28 +395,32 @@
 
         const res = await fetch('/auto-generate', { method: 'POST', body: formData });
         const data = await res.json();
-        if (data.message) {
-          genStatus.textContent = data.message;
-        }
-        renderQuestions(data.questions || []);
+        statusEl.textContent = data.message || '';
+        renderQuestions(data.questions || [], outputEl, statusEl, resultPanel);
       });
 
+      /* ---- Topic Generate ---- */
       document.getElementById('topicGenerate').addEventListener('click', async () => {
-        genStatus.textContent = '';
+        const statusEl = document.getElementById('topicStatus');
+        const outputEl = document.getElementById('topicOutput');
+        const resultPanel = document.getElementById('topicResult');
+        statusEl.textContent = 'Đang tạo...';
+        resultPanel.hidden = false;
+        outputEl.innerHTML = '';
+
         const formData = new FormData();
         formData.append('subject', topicSubject.value);
         formData.append('grade', topicGrade.value);
         formData.append('qtype', topicType.value);
         formData.append('count', document.getElementById('topicCount').value || 10);
-        formData.append('ai_engine', topicEngine.value || 'openai');
+        formData.append('ai_engine', activeEngine);
         const res = await fetch('/generate-topic', { method: 'POST', body: formData });
         const data = await res.json();
-        if (data.message) {
-          genStatus.textContent = data.message;
-        }
-        renderQuestions(data.questions || []);
+        statusEl.textContent = data.message || '';
+        renderQuestions(data.questions || [], outputEl, statusEl, resultPanel);
       });
 
+      /* ---- Blob Manager ---- */
       function humanSize(bytes) {
         if (!bytes) return '0 KB';
         const units = ['B', 'KB', 'MB', 'GB'];
@@ -380,10 +481,12 @@
         URL.revokeObjectURL(url);
       });
 
+      /* ---- Init ---- */
       loadSampleFolders();
       loadSubjects();
       loadBuildInfo();
       loadEngines();
+      loadSettings();
     </script>
   </body>
 </html>
