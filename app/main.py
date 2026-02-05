@@ -318,7 +318,14 @@ def _apply_context(text: str, topic_key: str, custom_keywords: List[str]) -> str
     return out
 
 
+_QUESTION_PREFIX_RE = re.compile(
+    r"^\s*(Câu(\s+hỏi)?\s*\d*\s*[:.)]\s*|Question\s*\d*\s*[:.)]\s*)",
+    re.IGNORECASE,
+)
+
+
 def _strip_leading_numbering(text: str) -> str:
+    text = _QUESTION_PREFIX_RE.sub("", text)
     return LEADING_NUM_RE.sub("", text).strip()
 
 
@@ -546,12 +553,12 @@ def _call_ollama(prompt: str) -> Tuple[Optional[str], Optional[str]]:
         "prompt": prompt,
         "stream": False,
         "options": {
-            "num_predict": 400,
+            "num_predict": 2048,
             "temperature": 0.8,
         },
     }
     try:
-        with httpx.Client(timeout=60) as client:
+        with httpx.Client(timeout=180) as client:
             response = client.post(url, json=payload)
             if response.status_code != 200:
                 try:
@@ -584,15 +591,50 @@ def _normalize_ai_lines(text: str) -> List[str]:
     return lines
 
 
+_LABEL_RE = re.compile(r"^(Câu(\s+hỏi)?|Question)\s*\d*\s*:?\s*$", re.IGNORECASE)
+
+
 def _normalize_ai_blocks(text: str) -> List[str]:
     normalized = text.replace("\r\n", "\n").strip()
     blocks = [b.strip() for b in re.split(r"\n\s*\n", normalized) if b.strip()]
-    cleaned: List[str] = []
+    # First pass: merge blocks that are MCQ options or question labels
+    merged: List[str] = []
     for block in blocks:
+        first_line = block.splitlines()[0].strip() if block.strip() else ""
+        is_option_block = bool(MCQ_OPTION_RE.match(first_line))
+        is_label = bool(_LABEL_RE.match(block.strip()))
+        if is_option_block and merged:
+            # Attach options to previous question
+            merged[-1] = merged[-1] + "\n" + block
+        elif is_label:
+            # "Câu 1:", "Câu hỏi 2:" — start a new entry that will absorb
+            # the next block as the actual question content
+            merged.append(block)
+        elif merged and _LABEL_RE.match(merged[-1].splitlines()[0].strip()):
+            # Previous block was just a label; merge this content into it
+            merged[-1] = merged[-1] + "\n" + block
+        else:
+            merged.append(block)
+    # Second pass: clean up numbering and drop empty / separator blocks
+    cleaned: List[str] = []
+    for block in merged:
         lines = block.splitlines()
+        # Remove leading label lines like "Câu 1:"
+        while lines and _LABEL_RE.match(lines[0].strip()):
+            lines.pop(0)
         if lines:
             lines[0] = _strip_leading_numbering(lines[0])
-        cleaned.append("\n".join(lines).strip())
+        result = "\n".join(lines).strip()
+        if not result or re.match(r"^-{2,}$", result):
+            continue
+        # Skip intro/filler lines that aren't actual questions
+        # (no "?" and no MCQ options means it's likely just a preamble)
+        has_question_mark = "?" in result
+        has_options = any(MCQ_OPTION_RE.match(ln.strip()) for ln in result.splitlines())
+        has_blank = "..." in result
+        if not has_question_mark and not has_options and not has_blank:
+            continue
+        cleaned.append(result)
     return cleaned
 
 
@@ -618,28 +660,40 @@ def _build_topic_prompt(subject_key: str, grade: int, qtype: str, count: int, to
             "essay": "short-answer",
         }.get(qtype, "multiple-choice")
         topic_text = f", topic: {topic_label}" if topic_label else ""
+        example = ""
+        if qtype == "mcq":
+            example = (
+                "\n\nExample format:\n"
+                "What is 2 + 2?\n"
+                "A) 3\nB) 4\nC) 5\nD) 6\n"
+                "\nWhat color is the sky?\n"
+                "A) Red\nB) Green\nC) Blue\nD) Yellow\n"
+                "\n---ANSWERS---\n1. B\n2. C\n"
+            )
         return (
             "You are an education content writer.\n"
             f"Create {count} {type_text} questions for {label} ({grade_text}{topic_text}).\n"
             "Rules:\n"
-            "- Do not number questions.\n"
+            "- Do NOT number questions. Do NOT write 'Question 1', 'Q1', etc.\n"
             "- Separate questions with a blank line.\n"
             "- If multiple-choice, provide 4 options labeled A) B) C) D) on separate lines.\n"
             "- If fill-in-the-blank, use \"...\" for the blank.\n"
             "- After all questions, add a line \"---ANSWERS---\" then list the correct answer for each question (e.g. 1. B, 2. A, ...).\n"
+            f"{example}"
         )
     grade_text = f"Lớp {grade}"
     type_text = QUESTION_TYPES.get(qtype, "Trắc nghiệm")
-    topic_text = f", chủ đề: {topic_label}" if topic_label else ""
+    topic_text = f" về {topic_label}" if topic_label else ""
+    mcq_rule = ""
+    if qtype == "mcq":
+        mcq_rule = "Mỗi câu có 4 đáp án A) B) C) D).\n"
+    elif qtype == "blank":
+        mcq_rule = "Dùng \"...\" cho chỗ trống.\n"
     return (
-        "Bạn là người biên soạn câu hỏi học tập.\n"
-        f"Hãy tạo {count} câu hỏi dạng {type_text} cho môn {label} ({grade_text}{topic_text}).\n"
-        "Yêu cầu:\n"
-        "- Không đánh số đầu câu.\n"
-        "- Mỗi câu cách nhau bằng một dòng trống.\n"
-        "- Nếu trắc nghiệm, đưa 4 đáp án A) B) C) D) mỗi đáp án một dòng.\n"
-        "- Nếu điền khuyết, dùng \"...\" để thể hiện chỗ trống.\n"
-        "- Sau tất cả câu hỏi, thêm dòng \"---ĐÁP ÁN---\" rồi liệt kê đáp án đúng cho từng câu (ví dụ: 1. B, 2. A, ...).\n"
+        f"Tạo {count} câu hỏi {type_text} môn {label} {grade_text}{topic_text}.\n"
+        f"{mcq_rule}"
+        "Mỗi câu cách nhau bằng một dòng trống.\n"
+        "Cuối cùng viết ---ĐÁP ÁN--- rồi liệt kê đáp án.\n"
     )
 
 
