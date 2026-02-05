@@ -951,14 +951,16 @@ def generate_topic(
     if not text:
         msg = f"Không nhận được phản hồi từ AI. {err}" if err else "Không nhận được phản hồi từ AI."
         return {"questions": [], "answers": "", "message": msg}
-    # Split answers section from questions
+    # Split answers section from questions using regex
     answers = ""
-    for sep in ("---ĐÁP ÁN---", "---ANSWERS---", "---Đáp án---", "---đáp án---"):
-        if sep in text:
-            parts = text.split(sep, 1)
-            text = parts[0]
-            answers = parts[1].strip()
-            break
+    answer_pattern = re.compile(
+        r"\n\s*-{0,3}\s*(?:ĐÁP ÁN|Đáp án|đáp án|ANSWERS|Answers|Answer Key|answer key)\s*-{0,3}\s*:?\s*\n",
+        re.IGNORECASE,
+    )
+    match = answer_pattern.search(text)
+    if match:
+        answers = text[match.end():].strip()
+        text = text[:match.start()]
     questions = _normalize_ai_blocks(text)
     questions = [q for q in questions if q.strip()]
     return {"questions": questions[:count], "answers": answers}

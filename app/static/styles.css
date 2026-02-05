@@ -167,17 +167,21 @@ button:hover {
   flex-wrap: wrap;
 }
 
-ol,
-ul.output-list {
+ol.output-list {
   margin: 16px 0 0;
-  padding-left: 0;
-  list-style: none;
+  padding-left: 24px;
+  list-style: decimal;
   color: var(--ink);
 }
 
-ul.output-list li {
-  padding: 6px 0;
+ol.output-list li {
+  padding: 8px 0;
   border-bottom: 1px dashed var(--border);
+}
+
+ol.output-list li::marker {
+  font-weight: 700;
+  color: var(--accent);
 }
 
 .blob-meta {
