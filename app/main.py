@@ -170,6 +170,45 @@ SUBJECTS = {
     "khoa_hoc": {"label": "Khoa học", "lang": "vi"},
 }
 
+SUBJECT_TOPICS: dict[str, list[dict[str, str]]] = {
+    "toan_hoc": [
+        {"key": "so_hoc", "label": "Số học"},
+        {"key": "dai_so", "label": "Đại số"},
+        {"key": "hinh_hoc", "label": "Hình học"},
+        {"key": "do_luong", "label": "Đo lường"},
+        {"key": "thong_ke", "label": "Thống kê và xác suất"},
+        {"key": "phan_so", "label": "Phân số và thập phân"},
+        {"key": "phuong_trinh", "label": "Phương trình và bất phương trình"},
+        {"key": "ham_so", "label": "Hàm số"},
+        {"key": "luong_giac", "label": "Lượng giác"},
+        {"key": "tich_phan", "label": "Tích phân và đạo hàm"},
+    ],
+    "tieng_anh": [
+        {"key": "grammar", "label": "Grammar"},
+        {"key": "vocabulary", "label": "Vocabulary"},
+        {"key": "reading", "label": "Reading Comprehension"},
+        {"key": "tenses", "label": "Tenses"},
+        {"key": "prepositions", "label": "Prepositions"},
+        {"key": "articles", "label": "Articles & Determiners"},
+        {"key": "conditionals", "label": "Conditionals"},
+        {"key": "passive_voice", "label": "Passive Voice"},
+        {"key": "reported_speech", "label": "Reported Speech"},
+        {"key": "word_formation", "label": "Word Formation"},
+    ],
+    "khoa_hoc": [
+        {"key": "vat_ly", "label": "Vật lý"},
+        {"key": "hoa_hoc", "label": "Hóa học"},
+        {"key": "sinh_hoc", "label": "Sinh học"},
+        {"key": "trai_dat", "label": "Trái Đất và bầu trời"},
+        {"key": "moi_truong", "label": "Môi trường và sinh thái"},
+        {"key": "co_the_nguoi", "label": "Cơ thể người"},
+        {"key": "dong_vat", "label": "Động vật"},
+        {"key": "thuc_vat", "label": "Thực vật"},
+        {"key": "nang_luong", "label": "Năng lượng và lực"},
+        {"key": "nuoc_khi_tuong", "label": "Nước và khí tượng"},
+    ],
+}
+
 QUESTION_TYPES = {
     "mcq": "Trắc nghiệm",
     "blank": "Điền khuyết",
@@ -557,10 +596,20 @@ def _normalize_ai_blocks(text: str) -> List[str]:
     return cleaned
 
 
-def _build_topic_prompt(subject_key: str, grade: int, qtype: str, count: int) -> str:
+def _build_topic_prompt(subject_key: str, grade: int, qtype: str, count: int, topic: str = "") -> str:
     subject = SUBJECTS.get(subject_key, {"label": subject_key, "lang": "vi"})
     label = subject.get("label", subject_key)
     lang = subject.get("lang", "vi")
+    # Resolve topic label
+    topic_label = ""
+    if topic:
+        topics = SUBJECT_TOPICS.get(subject_key, [])
+        for t in topics:
+            if t["key"] == topic:
+                topic_label = t["label"]
+                break
+        if not topic_label:
+            topic_label = topic
     if lang == "en":
         grade_text = f"Grade {grade}"
         type_text = {
@@ -568,9 +617,10 @@ def _build_topic_prompt(subject_key: str, grade: int, qtype: str, count: int) ->
             "blank": "fill-in-the-blank",
             "essay": "short-answer",
         }.get(qtype, "multiple-choice")
+        topic_text = f", topic: {topic_label}" if topic_label else ""
         return (
             "You are an education content writer.\n"
-            f"Create {count} {type_text} questions for {label} ({grade_text}).\n"
+            f"Create {count} {type_text} questions for {label} ({grade_text}{topic_text}).\n"
             "Rules:\n"
             "- Do not number questions.\n"
             "- Separate questions with a blank line.\n"
@@ -580,9 +630,10 @@ def _build_topic_prompt(subject_key: str, grade: int, qtype: str, count: int) ->
         )
     grade_text = f"Lớp {grade}"
     type_text = QUESTION_TYPES.get(qtype, "Trắc nghiệm")
+    topic_text = f", chủ đề: {topic_label}" if topic_label else ""
     return (
         "Bạn là người biên soạn câu hỏi học tập.\n"
-        f"Hãy tạo {count} câu hỏi dạng {type_text} cho môn {label} ({grade_text}).\n"
+        f"Hãy tạo {count} câu hỏi dạng {type_text} cho môn {label} ({grade_text}{topic_text}).\n"
         "Yêu cầu:\n"
         "- Không đánh số đầu câu.\n"
         "- Mỗi câu cách nhau bằng một dòng trống.\n"
@@ -834,13 +885,14 @@ def generate_topic(
     qtype: str = Form("mcq"),
     count: int = Form(10),
     ai_engine: str = Form("openai"),
+    topic: str = Form(""),
 ) -> dict:
     if not _is_engine_available(ai_engine):
         engine_names = {"openai": "OPENAI_API_KEY", "gemini": "GEMINI_API_KEY", "ollama": "Ollama"}
         return {"questions": [], "message": f"Chưa cấu hình {engine_names.get(ai_engine, ai_engine)} nên AI không được dùng."}
     count = max(1, min(50, count))
     grade = max(1, min(12, grade))
-    prompt = _build_topic_prompt(subject, grade, qtype, count)
+    prompt = _build_topic_prompt(subject, grade, qtype, count, topic)
     text, err = _call_ai(prompt, ai_engine)
     if not text:
         msg = f"Không nhận được phản hồi từ AI. {err}" if err else "Không nhận được phản hồi từ AI."
@@ -1104,6 +1156,7 @@ def list_subjects() -> dict:
             {"key": key, "label": value} for key, value in QUESTION_TYPES.items()
         ],
         "grades": list(range(1, 13)),
+        "topics": {key: topics for key, topics in SUBJECT_TOPICS.items()},
     }
 
 

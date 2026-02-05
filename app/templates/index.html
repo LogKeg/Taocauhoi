@@ -72,6 +72,10 @@
                 <select id="topicSubject"></select>
               </div>
               <div>
+                <label for="topicTopic">Chủ đề</label>
+                <select id="topicTopic"><option value="">-- Tất cả --</option></select>
+              </div>
+              <div>
                 <label for="topicGrade">Lớp</label>
                 <select id="topicGrade"></select>
               </div>
@@ -191,10 +195,12 @@
       let useBlob = false;
       let blobIndex = {};
       let activeEngine = 'openai';
+      let subjectTopics = {};
 
       async function loadSubjects() {
         const res = await fetch('/subjects');
         const data = await res.json();
+        subjectTopics = data.topics || {};
         topicSubject.innerHTML = (data.subjects || [])
           .map((s) => `<option value="${s.key}">${s.label}</option>`)
           .join('');
@@ -204,7 +210,17 @@
         topicGrade.innerHTML = (data.grades || [])
           .map((g) => `<option value="${g}">${g}</option>`)
           .join('');
+        updateTopicTopics();
       }
+
+      function updateTopicTopics() {
+        const topics = subjectTopics[topicSubject.value] || [];
+        const topicSelect = document.getElementById('topicTopic');
+        topicSelect.innerHTML = '<option value="">-- Tất cả --</option>' +
+          topics.map((t) => `<option value="${t.key}">${t.label}</option>`).join('');
+      }
+
+      topicSubject.addEventListener('change', updateTopicTopics);
 
       async function loadBuildInfo() {
         try {
@@ -434,6 +450,7 @@
         try {
           const formData = new FormData();
           formData.append('subject', topicSubject.value);
+          formData.append('topic', document.getElementById('topicTopic').value);
           formData.append('grade', topicGrade.value);
           formData.append('qtype', topicType.value);
           formData.append('count', document.getElementById('topicCount').value || 10);
