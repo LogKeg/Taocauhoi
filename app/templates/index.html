@@ -344,7 +344,8 @@
         outputEl.innerHTML = questions
           .map((q) => `<li>${q.replace(/\n/g, '<br>')}</li>`)
           .join('');
-        resultPanel.hidden = !questions.length;
+        // Always keep panel visible so user can see error messages
+        resultPanel.hidden = false;
       }
 
       /* ---- Export ---- */
@@ -387,34 +388,38 @@
         resultPanel.hidden = false;
         outputEl.innerHTML = '';
 
-        const formData = new FormData();
-        formData.append('subject', autoSubject.value);
-        formData.append('count', document.getElementById('autoCount').value || 20);
-        formData.append('ai_ratio', document.getElementById('autoRatio').value || 30);
-        formData.append('topic', 'toan_hoc');
-        formData.append('custom_keywords', '');
-        formData.append('paraphrase', true);
-        formData.append('change_numbers', true);
-        formData.append('change_context', true);
-        formData.append('use_ai', true);
-        formData.append('ai_engine', document.getElementById('autoEngine').value || activeEngine);
+        try {
+          const formData = new FormData();
+          formData.append('subject', autoSubject.value);
+          formData.append('count', document.getElementById('autoCount').value || 20);
+          formData.append('ai_ratio', document.getElementById('autoRatio').value || 30);
+          formData.append('topic', 'toan_hoc');
+          formData.append('custom_keywords', '');
+          formData.append('paraphrase', true);
+          formData.append('change_numbers', true);
+          formData.append('change_context', true);
+          formData.append('use_ai', true);
+          formData.append('ai_engine', document.getElementById('autoEngine').value || activeEngine);
 
-        if (useBlob) {
-          const items = blobIndex[autoSubject.value] || [];
-          const urls = items.map((item) => item.url);
-          const parsed = await fetch('/parse-sample-urls', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ urls }),
-          });
-          const parsedData = await parsed.json();
-          formData.append('samples_text', parsedData.content || '');
+          if (useBlob) {
+            const items = blobIndex[autoSubject.value] || [];
+            const urls = items.map((item) => item.url);
+            const parsed = await fetch('/parse-sample-urls', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ urls }),
+            });
+            const parsedData = await parsed.json();
+            formData.append('samples_text', parsedData.content || '');
+          }
+
+          const res = await fetch('/auto-generate', { method: 'POST', body: formData });
+          const data = await res.json();
+          statusEl.textContent = data.message || '';
+          renderQuestions(data.questions || [], outputEl, statusEl, resultPanel);
+        } catch (err) {
+          statusEl.textContent = 'Lỗi: ' + err.message;
         }
-
-        const res = await fetch('/auto-generate', { method: 'POST', body: formData });
-        const data = await res.json();
-        statusEl.textContent = data.message || '';
-        renderQuestions(data.questions || [], outputEl, statusEl, resultPanel);
       });
 
       /* ---- Topic Generate ---- */
@@ -426,16 +431,20 @@
         resultPanel.hidden = false;
         outputEl.innerHTML = '';
 
-        const formData = new FormData();
-        formData.append('subject', topicSubject.value);
-        formData.append('grade', topicGrade.value);
-        formData.append('qtype', topicType.value);
-        formData.append('count', document.getElementById('topicCount').value || 10);
-        formData.append('ai_engine', document.getElementById('topicEngine').value || activeEngine);
-        const res = await fetch('/generate-topic', { method: 'POST', body: formData });
-        const data = await res.json();
-        statusEl.textContent = data.message || '';
-        renderQuestions(data.questions || [], outputEl, statusEl, resultPanel);
+        try {
+          const formData = new FormData();
+          formData.append('subject', topicSubject.value);
+          formData.append('grade', topicGrade.value);
+          formData.append('qtype', topicType.value);
+          formData.append('count', document.getElementById('topicCount').value || 10);
+          formData.append('ai_engine', document.getElementById('topicEngine').value || activeEngine);
+          const res = await fetch('/generate-topic', { method: 'POST', body: formData });
+          const data = await res.json();
+          statusEl.textContent = data.message || '';
+          renderQuestions(data.questions || [], outputEl, statusEl, resultPanel);
+        } catch (err) {
+          statusEl.textContent = 'Lỗi: ' + err.message;
+        }
       });
 
       /* ---- Blob Manager ---- */
