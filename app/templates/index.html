@@ -40,6 +40,10 @@
                 <label for="autoRatio">Tỉ lệ AI (%)</label>
                 <input id="autoRatio" type="number" min="0" max="100" value="30" />
               </div>
+              <div>
+                <label for="autoEngine">AI Engine</label>
+                <select id="autoEngine"></select>
+              </div>
               <button id="autoGenerate" type="button">Tự tạo đề</button>
             </div>
             <small>Hệ thống sẽ lấy câu hỏi mẫu theo môn → tạo bộ câu hỏi mới theo số lượng và tỉ lệ AI.</small>
@@ -78,6 +82,10 @@
               <div>
                 <label for="topicCount">Số câu</label>
                 <input id="topicCount" type="number" min="1" max="50" value="10" />
+              </div>
+              <div>
+                <label for="topicEngine">AI Engine</label>
+                <select id="topicEngine"></select>
               </div>
               <button id="topicGenerate" type="button">Tạo theo chủ đề</button>
             </div>
@@ -217,6 +225,16 @@
         const first = engines.find((e) => e.available);
         if (first) activeEngine = first.key;
         renderEngineStatus(engines);
+        renderEngineSelects(engines);
+      }
+
+      function renderEngineSelects(engines) {
+        const available = engines.filter((e) => e.available);
+        const html = available
+          .map((e) => `<option value="${e.key}"${e.key === activeEngine ? ' selected' : ''}>${e.label}</option>`)
+          .join('');
+        document.getElementById('autoEngine').innerHTML = html || '<option value="">Không có AI</option>';
+        document.getElementById('topicEngine').innerHTML = html || '<option value="">Không có AI</option>';
       }
 
       function renderEngineStatus(engines) {
@@ -379,7 +397,7 @@
         formData.append('change_numbers', true);
         formData.append('change_context', true);
         formData.append('use_ai', true);
-        formData.append('ai_engine', activeEngine);
+        formData.append('ai_engine', document.getElementById('autoEngine').value || activeEngine);
 
         if (useBlob) {
           const items = blobIndex[autoSubject.value] || [];
@@ -413,7 +431,7 @@
         formData.append('grade', topicGrade.value);
         formData.append('qtype', topicType.value);
         formData.append('count', document.getElementById('topicCount').value || 10);
-        formData.append('ai_engine', activeEngine);
+        formData.append('ai_engine', document.getElementById('topicEngine').value || activeEngine);
         const res = await fetch('/generate-topic', { method: 'POST', body: formData });
         const data = await res.json();
         statusEl.textContent = data.message || '';
