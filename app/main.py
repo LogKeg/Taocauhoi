@@ -1,4 +1,5 @@
 import io
+import json
 import os
 import random
 import re
@@ -190,16 +191,37 @@ NUMBER_RE = re.compile(r"\b\d+\b")
 LEADING_NUM_RE = re.compile(r"^\s*\d{1,3}[\).\-:]\s+")
 MCQ_OPTION_RE = re.compile(r"^[A-H][\).\-:]\s+", re.IGNORECASE)
 
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
-OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
-OPENAI_API_BASE = os.getenv("OPENAI_API_BASE", "https://api.openai.com/v1")
-
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
-GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.0-flash")
-
-OLLAMA_BASE = os.getenv("OLLAMA_BASE", "http://localhost:11434")
-OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "llama3.2")
 BASE_DIR = Path(__file__).resolve().parent.parent
+SETTINGS_FILE = BASE_DIR / "ai_settings.json"
+
+
+def _load_saved_settings() -> dict:
+    if SETTINGS_FILE.exists():
+        try:
+            return json.loads(SETTINGS_FILE.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError):
+            pass
+    return {}
+
+
+def _save_settings_to_file(data: dict) -> None:
+    try:
+        SETTINGS_FILE.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
+    except OSError:
+        pass
+
+
+_saved = _load_saved_settings()
+
+OPENAI_API_KEY = _saved.get("openai_key") or os.getenv("OPENAI_API_KEY", "")
+OPENAI_MODEL = _saved.get("openai_model") or os.getenv("OPENAI_MODEL", "gpt-4o-mini")
+OPENAI_API_BASE = _saved.get("openai_base") or os.getenv("OPENAI_API_BASE", "https://api.openai.com/v1")
+
+GEMINI_API_KEY = _saved.get("gemini_key") or os.getenv("GEMINI_API_KEY", "")
+GEMINI_MODEL = _saved.get("gemini_model") or os.getenv("GEMINI_MODEL", "gemini-2.0-flash")
+
+OLLAMA_BASE = _saved.get("ollama_base") or os.getenv("OLLAMA_BASE", "http://localhost:11434")
+OLLAMA_MODEL = _saved.get("ollama_model") or os.getenv("OLLAMA_MODEL", "llama3.2")
 
 
 def _normalize_name(value: str) -> str:
@@ -1010,6 +1032,15 @@ async def update_ai_settings(request: Request) -> dict:
         OLLAMA_BASE = data["ollama_base"].strip() or "http://localhost:11434"
     if "ollama_model" in data:
         OLLAMA_MODEL = data["ollama_model"].strip() or "llama3.2"
+    _save_settings_to_file({
+        "openai_key": OPENAI_API_KEY,
+        "openai_model": OPENAI_MODEL,
+        "openai_base": OPENAI_API_BASE,
+        "gemini_key": GEMINI_API_KEY,
+        "gemini_model": GEMINI_MODEL,
+        "ollama_base": OLLAMA_BASE,
+        "ollama_model": OLLAMA_MODEL,
+    })
     return {"ok": True}
 
 
