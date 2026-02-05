@@ -219,6 +219,36 @@ ul.output-list li {
 
 .result-panel {
   margin-top: 0;
+  max-height: 70vh;
+  overflow-y: auto;
+}
+
+/* Answers */
+.answers-section {
+  margin-top: 16px;
+  border-top: 1px solid var(--border);
+  padding-top: 12px;
+}
+
+.toggle-answers {
+  background: #5a7d5a;
+  font-size: 14px;
+  padding: 8px 16px;
+}
+
+.toggle-answers:hover {
+  background: #4a6a4a;
+}
+
+.answers-content {
+  margin-top: 10px;
+  padding: 14px;
+  background: #f9f6f0;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  white-space: pre-wrap;
+  font-size: 15px;
+  line-height: 1.6;
 }
 
 /* Settings */

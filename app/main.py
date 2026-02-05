@@ -626,7 +626,7 @@ def _build_topic_prompt(subject_key: str, grade: int, qtype: str, count: int, to
             "- Separate questions with a blank line.\n"
             "- If multiple-choice, provide 4 options labeled A) B) C) D) on separate lines.\n"
             "- If fill-in-the-blank, use \"...\" for the blank.\n"
-            "- Do not include answers.\n"
+            "- After all questions, add a line \"---ANSWERS---\" then list the correct answer for each question (e.g. 1. B, 2. A, ...).\n"
         )
     grade_text = f"Lớp {grade}"
     type_text = QUESTION_TYPES.get(qtype, "Trắc nghiệm")
@@ -639,7 +639,7 @@ def _build_topic_prompt(subject_key: str, grade: int, qtype: str, count: int, to
         "- Mỗi câu cách nhau bằng một dòng trống.\n"
         "- Nếu trắc nghiệm, đưa 4 đáp án A) B) C) D) mỗi đáp án một dòng.\n"
         "- Nếu điền khuyết, dùng \"...\" để thể hiện chỗ trống.\n"
-        "- Không kèm đáp án.\n"
+        "- Sau tất cả câu hỏi, thêm dòng \"---ĐÁP ÁN---\" rồi liệt kê đáp án đúng cho từng câu (ví dụ: 1. B, 2. A, ...).\n"
     )
 
 
@@ -896,10 +896,18 @@ def generate_topic(
     text, err = _call_ai(prompt, ai_engine)
     if not text:
         msg = f"Không nhận được phản hồi từ AI. {err}" if err else "Không nhận được phản hồi từ AI."
-        return {"questions": [], "message": msg}
+        return {"questions": [], "answers": "", "message": msg}
+    # Split answers section from questions
+    answers = ""
+    for sep in ("---ĐÁP ÁN---", "---ANSWERS---", "---Đáp án---", "---đáp án---"):
+        if sep in text:
+            parts = text.split(sep, 1)
+            text = parts[0]
+            answers = parts[1].strip()
+            break
     questions = _normalize_ai_blocks(text)
     questions = [q for q in questions if q.strip()]
-    return {"questions": questions[:count]}
+    return {"questions": questions[:count], "answers": answers}
 
 
 @app.post("/auto-generate")

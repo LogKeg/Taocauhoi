@@ -107,6 +107,10 @@
             </div>
             <div class="gen-status" id="topicStatus"></div>
             <ul class="output-list" id="topicOutput"></ul>
+            <div class="answers-section" id="topicAnswers" hidden>
+              <button class="toggle-answers" id="toggleAnswers">Hiện đáp án</button>
+              <div class="answers-content" id="answersContent" hidden></div>
+            </div>
           </div>
         </section>
 
@@ -438,6 +442,14 @@
         }
       });
 
+      /* ---- Toggle Answers ---- */
+      document.getElementById('toggleAnswers').addEventListener('click', () => {
+        const content = document.getElementById('answersContent');
+        const btn = document.getElementById('toggleAnswers');
+        content.hidden = !content.hidden;
+        btn.textContent = content.hidden ? 'Hiện đáp án' : 'Ẩn đáp án';
+      });
+
       /* ---- Topic Generate ---- */
       document.getElementById('topicGenerate').addEventListener('click', async () => {
         const statusEl = document.getElementById('topicStatus');
@@ -459,6 +471,17 @@
           const data = await res.json();
           statusEl.textContent = data.message || '';
           renderQuestions(data.questions || [], outputEl, statusEl, resultPanel);
+          // Show answers if available
+          const answersSection = document.getElementById('topicAnswers');
+          const answersContent = document.getElementById('answersContent');
+          if (data.answers) {
+            answersContent.textContent = data.answers;
+            answersContent.hidden = true;
+            answersSection.hidden = false;
+            document.getElementById('toggleAnswers').textContent = 'Hiện đáp án';
+          } else {
+            answersSection.hidden = true;
+          }
         } catch (err) {
           statusEl.textContent = 'Lỗi: ' + err.message;
         }
