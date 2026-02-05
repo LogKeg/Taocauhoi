@@ -362,7 +362,7 @@
       function renderQuestions(questions, outputEl, statusEl, resultPanel) {
         currentQuestions = questions;
         outputEl.innerHTML = questions
-          .map((q) => `<li>${q.replace(/\n/g, '<br>')}</li>`)
+          .map((q, i) => `<li><strong>Câu ${i + 1}.</strong> ${q.replace(/\n/g, '<br>')}</li>`)
           .join('');
         // Always keep panel visible so user can see error messages
         resultPanel.hidden = false;
