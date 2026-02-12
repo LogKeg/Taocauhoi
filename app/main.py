@@ -2908,8 +2908,27 @@ async def parse_exam_file(file: UploadFile):
     # Extract lines from document
     lines, table_options = _extract_docx_lines(doc)
 
-    # Parse questions
-    questions = _parse_bilingual_questions(lines, table_options)
+    # Detect format and use appropriate parser
+    # Check if this is a Math exam format (Question 1., Question 2., etc.)
+    is_math_format = any(re.match(r'^Question\s+\d+', line, re.IGNORECASE) for line in lines[:20])
+
+    # Check if this is an English Level exam format
+    is_english_level_format = (
+        any('Section A' in line or 'Section B' in line for line in lines[:15]) and
+        file.filename and 'LEVEL' in file.filename.upper()
+    )
+
+    # Check if this is an EN-VIE bilingual format
+    is_envie_format = file.filename and 'EN-VIE' in file.filename.upper()
+
+    if is_math_format:
+        questions = _parse_math_exam_questions(lines)
+    elif is_english_level_format:
+        questions = _parse_english_exam_questions(doc)
+    elif is_envie_format:
+        questions = _parse_envie_questions(doc)
+    else:
+        questions = _parse_bilingual_questions(lines, table_options)
 
     return {
         "ok": True,
