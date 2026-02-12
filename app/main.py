@@ -1239,25 +1239,48 @@ def _parse_bilingual_questions(lines: List[str]) -> List[dict]:
                 if len(next_nonempty_lines) >= 5:
                     break
 
+        # Skip lines that are just single option markers (e.g., "E. 7" or "A. answer")
+        single_option_only = re.match(r'^[A-E]\s*[.\)]\s*\S+$', line, re.IGNORECASE) and len(line) < 30
+        if single_option_only:
+            i += 1
+            continue
+
+        # Skip lines that are just standalone numbers (e.g., "1", "2", "3" - image labels)
+        standalone_number = re.match(r'^\d+$', line)
+        if standalone_number:
+            i += 1
+            continue
+
         # Check for question detection
         q_match = question_num_pattern.match(line)
-        is_fill_blank = has_fill_blank(line) and not is_option_line(line)
+        # Only consider fill_blank as standalone question if it starts with a number
+        is_fill_blank = has_fill_blank(line) and not is_option_line(line) and q_match
         is_direct_question = line.endswith('?') and len(line) > 15
 
         # Check if line looks like a question stem (followed by options)
+        # But NOT if it looks like a translation line (Vietnamese text following English)
         is_question_stem = False
         if len(line) < 200 and line and line[0].isupper():
             if next_nonempty_lines and is_option_line(next_nonempty_lines[0]):
-                is_question_stem = True
+                # Skip if this line looks like a Vietnamese translation (no question number)
+                # Vietnamese translations typically follow a numbered English line
+                if not q_match and not is_direct_question:
+                    # Check if previous line was a numbered question with same structure
+                    pass  # Don't treat as question stem - likely a translation
+                else:
+                    is_question_stem = True
 
         if q_match or is_fill_blank or is_question_stem or is_direct_question:
             question_text_parts = []
             options = []
 
             # Check for cloze passage with numbered blanks like (31), (32), etc.
+            # Must also have fill-in markers (___/...) to be considered a cloze passage
+            # This avoids false positives like "Look at pictures (2) and (3)"
             numbered_blank_pattern = re.compile(r'\((\d+)\)')
             numbered_blanks = numbered_blank_pattern.findall(line)
-            is_cloze_passage = len(numbered_blanks) >= 2  # Multiple numbered blanks
+            has_blank_markers = '___' in line or ('...' in line and not line.strip().endswith('...'))
+            is_cloze_passage = len(numbered_blanks) >= 2 and has_blank_markers
 
             if q_match:
                 q_content = q_match.group(2).strip()
@@ -1308,14 +1331,26 @@ def _parse_bilingual_questions(lines: List[str]) -> List[dict]:
                 if question_num_pattern.match(next_line):
                     break
 
-                # Extract options from line
+                # Extract options from line (inline A) B) C) D) format)
                 if is_option_line(next_line):
                     line_opts = extract_options_from_line(next_line)
                     if line_opts:
                         options.extend(line_opts)
                     j += 1
-                    # Stop after collecting 4 options (standard MCQ)
-                    if len(options) >= 4:
+                    # Stop after collecting 5 options (some exams have A-E)
+                    if len(options) >= 5:
+                        break
+                    continue
+
+                # Check for single option line (A. xxx or B. yyy on separate lines)
+                single_opt_match = re.match(r'^([A-E])\s*[.\)]\s*(.+)$', next_line, re.IGNORECASE)
+                if single_opt_match:
+                    opt_text = single_opt_match.group(2).strip()
+                    if opt_text:
+                        options.append(opt_text)
+                    j += 1
+                    # Stop after collecting 5 options
+                    if len(options) >= 5:
                         break
                     continue
 
@@ -1334,10 +1369,12 @@ def _parse_bilingual_questions(lines: List[str]) -> List[dict]:
 
             question_text = "\n".join(question_text_parts)
 
-            if question_text.strip() and options:
+            # Save question even without options (open-ended questions)
+            if question_text.strip():
                 questions.append({
                     "question": question_text.strip(),
-                    "options": options
+                    "options": options,
+                    "number": int(q_match.group(1)) if q_match else None
                 })
 
             i = j
