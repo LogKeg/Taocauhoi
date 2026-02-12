@@ -572,6 +572,35 @@ ol.output-list li::marker {
   background: #a33;
 }
 
+.history-item-actions {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.history-item-actions button {
+  padding: 6px 12px;
+  font-size: 12px;
+}
+
+.history-item-actions .delete-history {
+  background: #c44;
+}
+
+.history-item-actions .delete-history:hover {
+  background: #a33;
+}
+
+.history-item-actions .export-history-docx,
+.history-item-actions .export-history-pdf {
+  background: #5a7d5a;
+}
+
+.history-item-actions .export-history-docx:hover,
+.history-item-actions .export-history-pdf:hover {
+  background: #4a6a4a;
+}
+
 /* Import/Export */
 .import-grid {
   display: grid;
@@ -681,6 +710,74 @@ ol.output-list li::marker {
   font-weight: 600;
   color: #3a8;
   font-size: 14px;
+}
+
+/* Modal */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modal {
+  background: var(--panel);
+  border-radius: 16px;
+  width: 90%;
+  max-width: 800px;
+  max-height: 85vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border);
+}
+
+.modal-header h2 {
+  margin: 0;
+  font-size: 18px;
+}
+
+.modal-close {
+  background: transparent;
+  border: none;
+  font-size: 28px;
+  cursor: pointer;
+  color: var(--muted);
+  padding: 0;
+  line-height: 1;
+}
+
+.modal-close:hover {
+  color: var(--ink);
+  background: transparent;
+  transform: none;
+}
+
+.modal-body {
+  padding: 20px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.modal-footer {
+  padding: 16px 20px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
 }
 
 @media (max-width: 900px) {

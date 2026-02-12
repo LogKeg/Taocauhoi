@@ -711,7 +711,7 @@ def _normalize_ai_blocks(text: str) -> List[str]:
     return cleaned
 
 
-def _build_topic_prompt(subject_key: str, grade: int, qtype: str, count: int, topic: str = "") -> str:
+def _build_topic_prompt(subject_key: str, grade: int, qtype: str, count: int, topic: str = "", difficulty: str = "medium") -> str:
     subject = SUBJECTS.get(subject_key, {"label": subject_key, "lang": "vi"})
     label = subject.get("label", subject_key)
     lang = subject.get("lang", "vi")
@@ -725,6 +725,9 @@ def _build_topic_prompt(subject_key: str, grade: int, qtype: str, count: int, to
                 break
         if not topic_label:
             topic_label = topic
+    # Difficulty text
+    difficulty_map_en = {"easy": "easy", "medium": "medium", "hard": "hard/challenging"}
+    difficulty_map_vi = {"easy": "dễ", "medium": "trung bình", "hard": "khó"}
     if lang == "en":
         grade_text = f"Grade {grade}"
         type_text = {
@@ -733,6 +736,7 @@ def _build_topic_prompt(subject_key: str, grade: int, qtype: str, count: int, to
             "essay": "short-answer",
         }.get(qtype, "multiple-choice")
         topic_text = f", topic: {topic_label}" if topic_label else ""
+        diff_text = difficulty_map_en.get(difficulty, "medium")
         example = ""
         if qtype == "mcq":
             example = (
@@ -746,6 +750,7 @@ def _build_topic_prompt(subject_key: str, grade: int, qtype: str, count: int, to
         return (
             "You are an education content writer.\n"
             f"Create {count} {type_text} questions for {label} ({grade_text}{topic_text}).\n"
+            f"Difficulty level: {diff_text}.\n"
             "Rules:\n"
             "- Do NOT number questions. Do NOT write 'Question 1', 'Q1', etc.\n"
             "- Separate questions with a blank line.\n"
@@ -757,13 +762,14 @@ def _build_topic_prompt(subject_key: str, grade: int, qtype: str, count: int, to
     grade_text = f"Lớp {grade}"
     type_text = QUESTION_TYPES.get(qtype, "Trắc nghiệm")
     topic_text = f" về {topic_label}" if topic_label else ""
+    diff_text = difficulty_map_vi.get(difficulty, "trung bình")
     mcq_rule = ""
     if qtype == "mcq":
         mcq_rule = "Mỗi câu có 4 đáp án A) B) C) D).\n"
     elif qtype == "blank":
         mcq_rule = "Dùng \"...\" cho chỗ trống.\n"
     return (
-        f"Tạo {count} câu hỏi {type_text} môn {label} {grade_text}{topic_text}.\n"
+        f"Tạo {count} câu hỏi {type_text} môn {label} {grade_text}{topic_text}, độ khó: {diff_text}.\n"
         f"{mcq_rule}"
         "Mỗi câu cách nhau bằng một dòng trống.\n"
         "Cuối cùng viết ---ĐÁP ÁN--- rồi liệt kê đáp án.\n"
@@ -1655,15 +1661,16 @@ def generate_topic(
     grade: int = Form(1),
     qtype: str = Form("mcq"),
     count: int = Form(10),
-    ai_engine: str = Form("openai"),
+    ai_engine: str = Form("ollama"),
     topic: str = Form(""),
+    difficulty: str = Form("medium"),
 ) -> dict:
     if not _is_engine_available(ai_engine):
         engine_names = {"openai": "OPENAI_API_KEY", "gemini": "GEMINI_API_KEY", "ollama": "Ollama"}
         return {"questions": [], "message": f"Chưa cấu hình {engine_names.get(ai_engine, ai_engine)} nên AI không được dùng."}
     count = max(1, min(50, count))
     grade = max(1, min(12, grade))
-    prompt = _build_topic_prompt(subject, grade, qtype, count, topic)
+    prompt = _build_topic_prompt(subject, grade, qtype, count, topic, difficulty)
     text, err = _call_ai(prompt, ai_engine)
     if not text:
         msg = f"Không nhận được phản hồi từ AI. {err}" if err else "Không nhận được phản hồi từ AI."
@@ -2048,7 +2055,7 @@ def upload_sample(subject: str = Form(...), file: UploadFile = Form(...)) -> dic
 # ============================================================================
 
 from app.database import (
-    get_db, QuestionCRUD, ExamCRUD, Question, Exam, ExamQuestion, ExamVariant, init_db
+    get_db, QuestionCRUD, ExamCRUD, HistoryCRUD, Question, Exam, ExamQuestion, ExamVariant, UsageHistory, init_db
 )
 
 # Ensure database is initialized
@@ -2199,6 +2206,73 @@ def delete_question(question_id: int, db: Session = Depends(get_db)):
     if QuestionCRUD.delete(db, question_id):
         return {"ok": True, "message": "Đã xóa câu hỏi"}
     raise HTTPException(status_code=404, detail="Không tìm thấy câu hỏi")
+
+
+# ============================================================================
+# USAGE HISTORY APIs
+# ============================================================================
+
+@app.get("/api/history")
+def get_history(skip: int = 0, limit: int = 50, db: Session = Depends(get_db)):
+    """Get usage history"""
+    history_items = HistoryCRUD.get_all(db, skip=skip, limit=limit)
+    return {
+        "history": [
+            {
+                "timestamp": h.timestamp,
+                "type": h.history_type,
+                "filename": h.filename,
+                "count": h.count,
+                "difficulty": h.difficulty,
+                "questions": json.loads(h.questions_json) if h.questions_json else [],
+            }
+            for h in history_items
+        ]
+    }
+
+
+@app.post("/api/history")
+def save_history(request: Request, db: Session = Depends(get_db)):
+    """Save a history item"""
+    import asyncio
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    body = loop.run_until_complete(request.json())
+    loop.close()
+
+    timestamp = body.get("timestamp", "")
+    history_type = body.get("type", "unknown")
+    filename = body.get("filename")
+    count = body.get("count", 0)
+    difficulty = body.get("difficulty")
+    questions = body.get("questions", [])
+    questions_json = json.dumps(questions, ensure_ascii=False) if questions else None
+
+    HistoryCRUD.create(
+        db,
+        timestamp=timestamp,
+        history_type=history_type,
+        filename=filename,
+        count=count,
+        difficulty=difficulty,
+        questions_json=questions_json
+    )
+    return {"ok": True, "message": "Đã lưu lịch sử"}
+
+
+@app.delete("/api/history/{timestamp}")
+def delete_history_item(timestamp: str, db: Session = Depends(get_db)):
+    """Delete a history item by timestamp"""
+    if HistoryCRUD.delete_by_timestamp(db, timestamp):
+        return {"ok": True, "message": "Đã xóa lịch sử"}
+    raise HTTPException(status_code=404, detail="Không tìm thấy lịch sử")
+
+
+@app.delete("/api/history")
+def clear_history(db: Session = Depends(get_db)):
+    """Clear all history"""
+    count = HistoryCRUD.delete_all(db)
+    return {"ok": True, "message": f"Đã xóa {count} mục lịch sử"}
 
 
 # ============================================================================

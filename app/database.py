@@ -150,6 +150,20 @@ class Tag(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
 
 
+class UsageHistory(Base):
+    """Model for storing usage history (generated exams, topic questions)"""
+    __tablename__ = "usage_history"
+
+    id = Column(Integer, primary_key=True, index=True)
+    timestamp = Column(String(50), unique=True, nullable=False, index=True)
+    history_type = Column(String(20), nullable=False)  # "create", "topic"
+    filename = Column(String(255), nullable=True)
+    count = Column(Integer, default=0)
+    difficulty = Column(String(20), nullable=True)
+    questions_json = Column(Text, nullable=True)  # JSON array of questions
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
 # Database initialization
 def init_db():
     """Create all tables"""
@@ -376,6 +390,48 @@ class ExamCRUD:
         db.commit()
         db.refresh(variant)
         return variant
+
+
+# CRUD Operations for UsageHistory
+class HistoryCRUD:
+    @staticmethod
+    def create(db: Session, timestamp: str, history_type: str, filename: str = None,
+               count: int = 0, difficulty: str = None, questions_json: str = None) -> UsageHistory:
+        # Check if already exists
+        existing = db.query(UsageHistory).filter(UsageHistory.timestamp == timestamp).first()
+        if existing:
+            return existing
+        history = UsageHistory(
+            timestamp=timestamp,
+            history_type=history_type,
+            filename=filename,
+            count=count,
+            difficulty=difficulty,
+            questions_json=questions_json
+        )
+        db.add(history)
+        db.commit()
+        db.refresh(history)
+        return history
+
+    @staticmethod
+    def get_all(db: Session, skip: int = 0, limit: int = 50) -> List[UsageHistory]:
+        return db.query(UsageHistory).order_by(UsageHistory.created_at.desc()).offset(skip).limit(limit).all()
+
+    @staticmethod
+    def delete_by_timestamp(db: Session, timestamp: str) -> bool:
+        history = db.query(UsageHistory).filter(UsageHistory.timestamp == timestamp).first()
+        if history:
+            db.delete(history)
+            db.commit()
+            return True
+        return False
+
+    @staticmethod
+    def delete_all(db: Session) -> int:
+        count = db.query(UsageHistory).delete()
+        db.commit()
+        return count
 
 
 # Initialize database on import

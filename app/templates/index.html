@@ -96,6 +96,14 @@
                 <input id="topicCount" type="number" min="1" max="50" value="10" />
               </div>
               <div>
+                <label for="topicDifficulty">Độ khó</label>
+                <select id="topicDifficulty">
+                  <option value="easy">Dễ</option>
+                  <option value="medium" selected>Trung bình</option>
+                  <option value="hard">Khó</option>
+                </select>
+              </div>
+              <div>
                 <label for="topicEngine">AI Engine</label>
                 <select id="topicEngine"></select>
               </div>
@@ -245,6 +253,21 @@
       </main>
     </div>
 
+    <!-- Modal xem chi tiết lịch sử -->
+    <div class="modal-overlay" id="historyModal" hidden>
+      <div class="modal">
+        <div class="modal-header">
+          <h2 id="modalTitle">Chi tiết</h2>
+          <button class="modal-close" id="modalClose">&times;</button>
+        </div>
+        <div class="modal-body" id="modalBody"></div>
+        <div class="modal-footer">
+          <button id="modalExportDocx">Xuất DOCX</button>
+          <button id="modalExportPdf">Xuất PDF</button>
+        </div>
+      </div>
+    </div>
+
     <script type="module">
       import { upload } from 'https://esm.sh/@vercel/blob/client';
 
@@ -274,7 +297,7 @@
       let createdQuestions = [];
       let useBlob = false;
       let blobIndex = {};
-      let activeEngine = 'openai';
+      let activeEngine = 'ollama';
       let subjectTopics = {};
       let usageHistory = JSON.parse(localStorage.getItem('usageHistory') || '[]');
 
@@ -319,8 +342,11 @@
         const res = await fetch('/ai-engines');
         const data = await res.json();
         const engines = data.engines || [];
+        // Ưu tiên ollama nếu available, nếu không thì chọn engine available đầu tiên
+        const ollama = engines.find((e) => e.key === 'ollama' && e.available);
         const first = engines.find((e) => e.available);
-        if (first) activeEngine = first.key;
+        if (ollama) activeEngine = 'ollama';
+        else if (first) activeEngine = first.key;
         renderEngineStatus(engines);
         renderEngineSelects(engines);
       }
@@ -598,12 +624,121 @@
       });
 
       /* ---- Lịch sử sử dụng ---- */
-      function saveToHistory(item) {
+      let currentModalQuestions = [];
+
+      async function saveToHistory(item) {
         usageHistory.unshift(item);
         if (usageHistory.length > 50) usageHistory = usageHistory.slice(0, 50);
         localStorage.setItem('usageHistory', JSON.stringify(usageHistory));
+        // Sync to server
+        try {
+          await fetch('/api/history', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(item)
+          });
+        } catch (e) { console.log('Server sync failed:', e); }
         renderHistory();
       }
+
+      async function loadHistoryFromServer() {
+        try {
+          const res = await fetch('/api/history');
+          const data = await res.json();
+          if (data.history && data.history.length) {
+            // Merge with localStorage, avoiding duplicates by timestamp
+            const localTimestamps = new Set(usageHistory.map(h => h.timestamp));
+            data.history.forEach(h => {
+              if (!localTimestamps.has(h.timestamp)) {
+                usageHistory.push(h);
+              }
+            });
+            // Sort by timestamp descending
+            usageHistory.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+            usageHistory = usageHistory.slice(0, 50);
+            localStorage.setItem('usageHistory', JSON.stringify(usageHistory));
+          }
+        } catch (e) { console.log('Load history from server failed:', e); }
+      }
+
+      function showHistoryModal(historyItem) {
+        const modal = document.getElementById('historyModal');
+        const title = document.getElementById('modalTitle');
+        const body = document.getElementById('modalBody');
+
+        const date = new Date(historyItem.timestamp).toLocaleString('vi-VN');
+        const typeLabel = historyItem.type === 'create' ? 'Tạo đề' : historyItem.type === 'topic' ? 'Tạo theo chủ đề' : 'Khác';
+
+        title.textContent = `${typeLabel} - ${date}`;
+
+        const questions = historyItem.questions || [];
+        currentModalQuestions = questions;
+
+        if (!questions.length) {
+          body.innerHTML = '<p>Không có câu hỏi.</p>';
+        } else {
+          body.innerHTML = questions.map((q, i) => {
+            if (typeof q === 'string') {
+              return `<div class="created-question">
+                <div class="q-number">Câu ${i + 1}</div>
+                <div class="q-content">${q.replace(/\n/g, '<br>')}</div>
+              </div>`;
+            }
+            return `<div class="created-question">
+              <div class="q-number">Câu ${i + 1}</div>
+              <div class="q-content">${q.content || ''}</div>
+              <div class="q-options">${(q.options || []).map((o, j) => `<span>${String.fromCharCode(65 + j)}) ${o}</span>`).join(' ')}</div>
+              ${q.correct_answer ? `<div class="q-answer">Đáp án: ${q.correct_answer}</div>` : ''}
+            </div>`;
+          }).join('');
+        }
+
+        modal.hidden = false;
+      }
+
+      function hideHistoryModal() {
+        document.getElementById('historyModal').hidden = true;
+        currentModalQuestions = [];
+      }
+
+      document.getElementById('modalClose').addEventListener('click', hideHistoryModal);
+      document.getElementById('historyModal').addEventListener('click', (e) => {
+        if (e.target.id === 'historyModal') hideHistoryModal();
+      });
+
+      document.getElementById('modalExportDocx').addEventListener('click', async () => {
+        if (!currentModalQuestions.length) return;
+        const samples = currentModalQuestions.map(q => typeof q === 'string' ? q : q.content).join('\n');
+        const formData = new FormData();
+        formData.append('samples', samples);
+        formData.append('topic', 'history');
+        formData.append('fmt', 'docx');
+        const res = await fetch('/export', { method: 'POST', body: formData });
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'lich_su.docx';
+        a.click();
+        URL.revokeObjectURL(url);
+      });
+
+      document.getElementById('modalExportPdf').addEventListener('click', async () => {
+        if (!currentModalQuestions.length) return;
+        const samples = currentModalQuestions.map(q => typeof q === 'string' ? q : q.content).join('\n');
+        const formData = new FormData();
+        formData.append('samples', samples);
+        formData.append('topic', 'history');
+        formData.append('fmt', 'pdf');
+        const res = await fetch('/export', { method: 'POST', body: formData });
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'lich_su.pdf';
+        a.click();
+        URL.revokeObjectURL(url);
+      });
 
       function renderHistory() {
         const list = document.getElementById('historyList');
@@ -614,6 +749,7 @@
         list.innerHTML = usageHistory.map((h, i) => {
           const date = new Date(h.timestamp).toLocaleString('vi-VN');
           const typeLabel = h.type === 'create' ? 'Tạo đề' : h.type === 'topic' ? 'Tạo theo chủ đề' : 'Khác';
+          const diffLabel = h.difficulty ? ` (${h.difficulty === 'same' ? 'Tương đương' : h.difficulty === 'easier' ? 'Dễ hơn' : 'Khó hơn'})` : '';
           return `
             <div class="history-item">
               <div class="history-meta">
@@ -622,10 +758,12 @@
               </div>
               <div class="history-info">
                 ${h.filename ? `<strong>File:</strong> ${h.filename}` : ''}
-                <strong>Số câu:</strong> ${h.count || 0}
+                <strong>Số câu:</strong> ${h.count || 0}${diffLabel}
               </div>
-              <div class="history-actions">
+              <div class="history-item-actions">
                 <button class="view-history" data-index="${i}">Xem</button>
+                <button class="export-history-docx" data-index="${i}">DOCX</button>
+                <button class="export-history-pdf" data-index="${i}">PDF</button>
                 <button class="delete-history" data-index="${i}">Xóa</button>
               </div>
             </div>
@@ -633,10 +771,17 @@
         }).join('');
 
         list.querySelectorAll('.delete-history').forEach(btn => {
-          btn.addEventListener('click', () => {
+          btn.addEventListener('click', async () => {
             const idx = parseInt(btn.dataset.index);
+            const item = usageHistory[idx];
             usageHistory.splice(idx, 1);
             localStorage.setItem('usageHistory', JSON.stringify(usageHistory));
+            // Delete from server
+            if (item && item.timestamp) {
+              try {
+                await fetch(`/api/history/${encodeURIComponent(item.timestamp)}`, { method: 'DELETE' });
+              } catch (e) { console.log('Delete from server failed:', e); }
+            }
             renderHistory();
           });
         });
@@ -645,20 +790,66 @@
           btn.addEventListener('click', () => {
             const idx = parseInt(btn.dataset.index);
             const h = usageHistory[idx];
-            if (h && h.questions) {
-              alert(`Có ${h.questions.length} câu hỏi.\n\nCâu 1: ${h.questions[0]?.content || 'N/A'}`);
-            }
+            if (h) showHistoryModal(h);
+          });
+        });
+
+        list.querySelectorAll('.export-history-docx').forEach(btn => {
+          btn.addEventListener('click', async () => {
+            const idx = parseInt(btn.dataset.index);
+            const h = usageHistory[idx];
+            if (!h || !h.questions || !h.questions.length) return;
+            const samples = h.questions.map(q => typeof q === 'string' ? q : q.content).join('\n');
+            const formData = new FormData();
+            formData.append('samples', samples);
+            formData.append('topic', 'history');
+            formData.append('fmt', 'docx');
+            const res = await fetch('/export', { method: 'POST', body: formData });
+            const blob = await res.blob();
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `lich_su_${idx + 1}.docx`;
+            a.click();
+            URL.revokeObjectURL(url);
+          });
+        });
+
+        list.querySelectorAll('.export-history-pdf').forEach(btn => {
+          btn.addEventListener('click', async () => {
+            const idx = parseInt(btn.dataset.index);
+            const h = usageHistory[idx];
+            if (!h || !h.questions || !h.questions.length) return;
+            const samples = h.questions.map(q => typeof q === 'string' ? q : q.content).join('\n');
+            const formData = new FormData();
+            formData.append('samples', samples);
+            formData.append('topic', 'history');
+            formData.append('fmt', 'pdf');
+            const res = await fetch('/export', { method: 'POST', body: formData });
+            const blob = await res.blob();
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `lich_su_${idx + 1}.pdf`;
+            a.click();
+            URL.revokeObjectURL(url);
           });
         });
       }
 
-      document.getElementById('historyRefreshBtn').addEventListener('click', () => {
+      document.getElementById('historyRefreshBtn').addEventListener('click', async () => {
+        await loadHistoryFromServer();
         usageHistory = JSON.parse(localStorage.getItem('usageHistory') || '[]');
         renderHistory();
+        document.getElementById('historyStatus').textContent = 'Đã đồng bộ với server';
       });
 
-      document.getElementById('historyClearBtn').addEventListener('click', () => {
+      document.getElementById('historyClearBtn').addEventListener('click', async () => {
         if (!confirm('Xóa toàn bộ lịch sử?')) return;
+        // Clear from server
+        try {
+          await fetch('/api/history', { method: 'DELETE' });
+        } catch (e) { console.log('Clear server history failed:', e); }
         usageHistory = [];
         localStorage.setItem('usageHistory', JSON.stringify(usageHistory));
         renderHistory();
@@ -689,6 +880,7 @@
           formData.append('grade', topicGrade.value);
           formData.append('qtype', topicType.value);
           formData.append('count', document.getElementById('topicCount').value || 10);
+          formData.append('difficulty', document.getElementById('topicDifficulty').value);
           formData.append('ai_engine', document.getElementById('topicEngine').value || activeEngine);
           const res = await fetch('/generate-topic', { method: 'POST', body: formData });
           const data = await res.json();
@@ -888,7 +1080,8 @@
       loadSettings();
       loadBankStats();
       loadBankQuestions();
-      renderHistory();
+      // Load history from server then render
+      loadHistoryFromServer().then(() => renderHistory());
     </script>
   </body>
 </html>
