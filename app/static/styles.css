@@ -726,6 +726,10 @@ ol.output-list li::marker {
   z-index: 1000;
 }
 
+.modal-overlay[hidden] {
+  display: none;
+}
+
 .modal {
   background: var(--panel);
   border-radius: 16px;

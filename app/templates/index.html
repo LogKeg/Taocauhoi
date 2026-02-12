@@ -748,22 +748,50 @@
         }
         list.innerHTML = usageHistory.map((h, i) => {
           const date = new Date(h.timestamp).toLocaleString('vi-VN');
-          const typeLabel = h.type === 'create' ? 'Tạo đề' : h.type === 'topic' ? 'Tạo theo chủ đề' : 'Khác';
-          const diffLabel = h.difficulty ? ` (${h.difficulty === 'same' ? 'Tương đương' : h.difficulty === 'easier' ? 'Dễ hơn' : 'Khó hơn'})` : '';
+          let typeLabel = 'Khác';
+          if (h.type === 'create') typeLabel = 'Tạo đề';
+          else if (h.type === 'topic') typeLabel = 'Tạo theo chủ đề';
+          else if (h.type === 'convert') typeLabel = 'Word → Excel';
+
+          let diffLabel = '';
+          if (h.difficulty) {
+            if (h.difficulty === 'same') diffLabel = ' (Tương đương)';
+            else if (h.difficulty === 'easier') diffLabel = ' (Dễ hơn)';
+            else if (h.difficulty === 'harder') diffLabel = ' (Khó hơn)';
+            else if (h.difficulty === 'easy') diffLabel = ' (Dễ)';
+            else if (h.difficulty === 'medium') diffLabel = ' (Trung bình)';
+            else if (h.difficulty === 'hard') diffLabel = ' (Khó)';
+          }
+
+          // Build info based on type
+          let infoHtml = '';
+          if (h.type === 'convert') {
+            infoHtml = `<strong>File:</strong> ${h.filename || ''} → ${h.outputFilename || ''}${h.useLatex ? ' (LaTeX)' : ''}`;
+          } else {
+            if (h.filename) infoHtml += `<strong>File:</strong> ${h.filename} `;
+            if (h.subject) infoHtml += `<strong>Môn:</strong> ${h.subject} `;
+            if (h.topic) infoHtml += `<strong>Chủ đề:</strong> ${h.topic} `;
+            if (h.count) infoHtml += `<strong>Số câu:</strong> ${h.count}`;
+            infoHtml += diffLabel;
+          }
+
+          // Only show export buttons for types with questions
+          const hasQuestions = h.questions && h.questions.length > 0;
+          const exportButtons = hasQuestions ? `
+            <button class="view-history" data-index="${i}">Xem</button>
+            <button class="export-history-docx" data-index="${i}">DOCX</button>
+            <button class="export-history-pdf" data-index="${i}">PDF</button>
+          ` : '';
+
           return `
             <div class="history-item">
               <div class="history-meta">
                 <span class="history-type">${typeLabel}</span>
                 <span class="history-date">${date}</span>
               </div>
-              <div class="history-info">
-                ${h.filename ? `<strong>File:</strong> ${h.filename}` : ''}
-                <strong>Số câu:</strong> ${h.count || 0}${diffLabel}
-              </div>
+              <div class="history-info">${infoHtml}</div>
               <div class="history-item-actions">
-                <button class="view-history" data-index="${i}">Xem</button>
-                <button class="export-history-docx" data-index="${i}">DOCX</button>
-                <button class="export-history-pdf" data-index="${i}">PDF</button>
+                ${exportButtons}
                 <button class="delete-history" data-index="${i}">Xóa</button>
               </div>
             </div>
@@ -897,6 +925,22 @@
           } else {
             answersSection.hidden = true;
           }
+          // Save to history
+          if (data.questions && data.questions.length) {
+            const subjectLabel = topicSubject.options[topicSubject.selectedIndex]?.text || topicSubject.value;
+            const difficultyVal = document.getElementById('topicDifficulty').value;
+            saveToHistory({
+              type: 'topic',
+              subject: subjectLabel,
+              topic: document.getElementById('topicTopic').value,
+              grade: topicGrade.value,
+              count: data.questions.length,
+              difficulty: difficultyVal,
+              questions: data.questions.map(q => ({ content: q })),
+              answers: data.answers || '',
+              timestamp: new Date().toISOString(),
+            });
+          }
         } catch (err) {
           statusEl.textContent = 'Lỗi: ' + err.message;
         }
@@ -988,10 +1032,19 @@
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = fileInput.files[0].name.replace('.docx', '.xlsx');
+            const outputFilename = fileInput.files[0].name.replace('.docx', '.xlsx');
+            a.download = outputFilename;
             a.click();
             URL.revokeObjectURL(url);
             status.textContent = 'Đã tải xuống file Excel!';
+            // Save to history
+            saveToHistory({
+              type: 'convert',
+              filename: fileInput.files[0].name,
+              outputFilename: outputFilename,
+              useLatex: useLatex,
+              timestamp: new Date().toISOString(),
+            });
           } else {
             const data = await res.json();
             status.textContent = 'Lỗi: ' + (data.detail || 'Không thể chuyển đổi');
