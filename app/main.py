@@ -820,7 +820,13 @@ def _omml_to_latex(element, ns: dict) -> str:
     - m:d (delimiter/parentheses) -> \\left( ... \\right)
     - m:t (text) -> plain text
     """
-    tag = element.tag.replace(ns['m'], '').replace('{', '').replace('}', '')
+    if element is None:
+        return ''
+    if element.tag is None:
+        return ''
+
+    ns_prefix = ns.get('m', '')
+    tag = element.tag.replace(ns_prefix, '').replace('{', '').replace('}', '')
 
     # Text element
     if tag == 't':
@@ -877,10 +883,13 @@ def _omml_to_latex(element, ns: dict) -> str:
         sup = element.find('m:sup', ns)
         content = element.find('m:e', ns)
 
-        # Get the operator character
-        op_char = chr_elem.get(f'{ns["m"]}val') if chr_elem is not None else '∑'
+        # Get the operator character safely
+        op_char = '∑'  # default
+        if chr_elem is not None:
+            ns_m = ns.get('m', '')
+            op_char = chr_elem.get(f'{{{ns_m}}}val') or chr_elem.get('val') or '∑'
         op_map = {'∑': '\\sum', '∏': '\\prod', '∫': '\\int', '⋃': '\\bigcup', '⋂': '\\bigcap'}
-        op_latex = op_map.get(op_char, op_char)
+        op_latex = op_map.get(op_char, op_char) or '\\sum'
 
         sub_latex = _omml_children_to_latex(sub, ns) if sub is not None else ''
         sup_latex = _omml_children_to_latex(sup, ns) if sup is not None else ''
@@ -898,11 +907,16 @@ def _omml_to_latex(element, ns: dict) -> str:
     if tag == 'd':
         content = element.find('m:e', ns)
         content_latex = _omml_children_to_latex(content, ns) if content is not None else ''
-        # Get delimiter characters
+        # Get delimiter characters safely
+        ns_m = ns.get('m', '')
         beg_chr = element.find('.//m:begChr', ns)
         end_chr = element.find('.//m:endChr', ns)
-        beg = beg_chr.get(f'{ns["m"]}val') if beg_chr is not None else '('
-        end = end_chr.get(f'{ns["m"]}val') if end_chr is not None else ')'
+        beg = '('
+        end = ')'
+        if beg_chr is not None:
+            beg = beg_chr.get(f'{{{ns_m}}}val') or beg_chr.get('val') or '('
+        if end_chr is not None:
+            end = end_chr.get(f'{{{ns_m}}}val') or end_chr.get('val') or ')'
         return f'\\left{beg}{content_latex}\\right{end}'
 
     # Matrix
