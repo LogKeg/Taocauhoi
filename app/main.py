@@ -3000,14 +3000,17 @@ def convert_word_to_excel(file: UploadFile = Form(...)) -> StreamingResponse:
         # Data rows
         for idx, q in enumerate(questions, 1):
             row = idx + 1
-            # Question Type - default to "MCQ" (Multiple Choice Question)
-            ws.cell(row=row, column=1, value="MCQ")
+            options = q.get("options", [])
+
+            # Question Type: MSA for multiple choice (has options), SAQ for short answer/fill-in
+            has_options = len(options) >= 2
+            question_type = "MSA" if has_options else "SAQ"
+            ws.cell(row=row, column=1, value=question_type)
 
             # Question content
             ws.cell(row=row, column=2, value=q.get("question", ""))
 
             # Options 1-5
-            options = q.get("options", [])
             for opt_idx in range(5):
                 if opt_idx < len(options):
                     ws.cell(row=row, column=3 + opt_idx, value=options[opt_idx])
@@ -3020,16 +3023,16 @@ def convert_word_to_excel(file: UploadFile = Form(...)) -> StreamingResponse:
             # Default Marks - empty by default
             ws.cell(row=row, column=9, value="")
 
-            # Default Time To Solve - empty by default
-            ws.cell(row=row, column=10, value="")
+            # Default Time To Solve - 30 seconds
+            ws.cell(row=row, column=10, value=30)
 
-            # Difficulty Level - empty by default
-            ws.cell(row=row, column=11, value="")
+            # Difficulty Level - EASY by default
+            ws.cell(row=row, column=11, value="EASY")
 
-            # Hint - empty by default
+            # Hint - empty
             ws.cell(row=row, column=12, value="")
 
-            # Solution - empty by default
+            # Solution - empty
             ws.cell(row=row, column=13, value="")
 
         # Save to buffer
