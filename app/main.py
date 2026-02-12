@@ -3050,19 +3050,32 @@ def convert_word_to_excel(
             row = idx + 1
             options = q.get("options", [])
 
-            # Question Type: MSA for multiple choice (has options or image-based), SAQ for short answer/fill-in
-            # If no options extracted but it's a numbered question, assume it's image-based MCQ
+            # Question Type logic:
+            # - Math format (Question X.): always SAQ (short answer/fill-in) - no A/B/C/D options
+            # - Other formats: MSA if has options, SAQ if no options
+            # - For non-math formats without options but with question number: might be image-based MCQ
             has_options = len(options) >= 2
             is_numbered_question = q.get("number") is not None
-            question_type = "MSA" if has_options or is_numbered_question else "SAQ"
+
+            if is_math_format:
+                # Math exams are always short answer type
+                question_type = "SAQ"
+            elif has_options:
+                question_type = "MSA"
+            elif is_numbered_question:
+                # Non-math format with number but no options = likely image-based MCQ
+                question_type = "MSA"
+            else:
+                question_type = "SAQ"
+
             ws.cell(row=row, column=1, value=question_type)
 
             # Question content
             ws.cell(row=row, column=2, value=q.get("question", ""))
 
             # Options 1-5
-            # If no options but it's a numbered question (image-based), use A, B, C, D placeholders
-            if not options and is_numbered_question:
+            # Only add A/B/C/D placeholders for non-math formats with image-based questions
+            if not options and is_numbered_question and not is_math_format:
                 options = ["A", "B", "C", "D"]
             for opt_idx in range(5):
                 if opt_idx < len(options):
