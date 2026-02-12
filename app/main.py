@@ -1073,7 +1073,7 @@ def _extract_docx_content(doc: Document, include_textboxes: bool = True, use_lat
     return "\n\n".join(all_text)
 
 
-def _extract_docx_lines(doc: Document, include_textboxes: bool = True, use_latex: bool = False) -> list:
+def _extract_docx_lines(doc: Document, include_textboxes: bool = True, use_latex: bool = False) -> tuple:
     """
     Extract all text lines from a Word document as a list.
     Similar to _extract_docx_content but returns list instead of joined string.
@@ -1083,9 +1083,13 @@ def _extract_docx_lines(doc: Document, include_textboxes: bool = True, use_latex
         doc: A python-docx Document object
         include_textboxes: If True, extract text from text boxes
         use_latex: If True, convert math formulas to LaTeX notation
+
+    Returns:
+        tuple: (lines, table_options) where table_options is a list of option lists from standalone tables
     """
     all_lines = []
     seen_text = set()
+    table_options = []  # Store options from standalone option tables
     ns = {'w': 'http://schemas.openxmlformats.org/wordprocessingml/2006/main'}
 
     def add_line(text: str):
@@ -1154,28 +1158,55 @@ def _extract_docx_lines(doc: Document, include_textboxes: bool = True, use_latex
     # Read tables - including nested tables for options
     # For Math exams, each cell may contain a full question with multiple lines
     for table in doc.tables:
-        for row in table.rows:
-            for cell in row.cells:
-                # Get cell text with math formulas
-                cell_text = _extract_cell_with_math(cell, use_latex=use_latex)
-                if cell_text:
-                    # Use multiline handler to split and add each line
-                    add_multiline_text(cell_text)
+        # Check if this table is a standalone options table (1 row with A. B. C. D. E. cells)
+        is_options_table = False
+        if len(table.rows) == 1 and len(table.columns) >= 4:
+            first_row_texts = [cell.text.strip() for cell in table.rows[0].cells]
+            # Check if cells start with A., B., C., D., E.
+            if (first_row_texts and
+                first_row_texts[0].startswith('A.') and
+                len(first_row_texts) >= 2 and first_row_texts[1].startswith('B.')):
+                is_options_table = True
+                # Extract options without the A./B./C./D./E. prefix
+                opts = []
+                for cell_text in first_row_texts:
+                    # Remove "A. ", "B. ", etc. prefix
+                    opt_text = re.sub(r'^[A-E]\.\s*', '', cell_text).strip()
+                    if opt_text:
+                        opts.append(opt_text)
+                if opts:
+                    table_options.append(opts)
 
-                # Check for nested tables (options in 2x2 grid)
-                nested_opts = extract_nested_table_options(cell)
-                if nested_opts:
-                    add_line(nested_opts)
+        if not is_options_table:
+            for row in table.rows:
+                for cell in row.cells:
+                    # Get cell text with math formulas
+                    cell_text = _extract_cell_with_math(cell, use_latex=use_latex)
+                    if cell_text:
+                        # Use multiline handler to split and add each line
+                        add_multiline_text(cell_text)
 
-    return all_lines
+                    # Check for nested tables (options in 2x2 grid)
+                    nested_opts = extract_nested_table_options(cell)
+                    if nested_opts:
+                        add_line(nested_opts)
+
+    return all_lines, table_options
 
 
-def _parse_bilingual_questions(lines: List[str]) -> List[dict]:
+def _parse_bilingual_questions(lines: List[str], table_options: List[List[str]] = None) -> List[dict]:
     """
     Parse questions from Word document lines.
     Returns list of dicts with 'question' and 'options' keys.
+
+    Args:
+        lines: List of text lines from document
+        table_options: Optional list of option lists from standalone tables
+                      (for Science exams where options are in separate tables)
     """
     questions = []
+    table_options = table_options or []
+    table_option_idx = 0  # Index to track which table options to use next
 
     # Patterns
     question_num_pattern = re.compile(r'^\s*(\d+)\s*[.\)]\s*(.*)$')
@@ -1184,9 +1215,12 @@ def _parse_bilingual_questions(lines: List[str]) -> List[dict]:
     def extract_options_from_line(line: str) -> List[str]:
         """Extract options from a line with A) B) C) D) markers."""
         opts = []
-        marker_pattern = re.compile(r'(?:^|(?<=\s)|(?<=\t))([A-E])\s*[.\)]', re.IGNORECASE)
+        # Match uppercase A-E followed by . or ) and then actual content (not just dots)
+        # Must be at start, after space/tab, and followed by real text
+        marker_pattern = re.compile(r'(?:^|(?<=\s)|(?<=\t))([A-E])\s*[.\)]\s*(?=\S)', re.IGNORECASE)
         markers = list(marker_pattern.finditer(line))
-        if markers:
+        # Only process if we find at least 2 options (A and B minimum)
+        if markers and len(markers) >= 2:
             for idx, m in enumerate(markers):
                 start = m.end()
                 if idx + 1 < len(markers):
@@ -1194,7 +1228,8 @@ def _parse_bilingual_questions(lines: List[str]) -> List[dict]:
                 else:
                     end = len(line)
                 opt_text = line[start:end].strip().rstrip('\t ')
-                if opt_text:
+                # Skip if the option text is just dots or empty
+                if opt_text and opt_text not in ['...', '..', '.', '…']:
                     opts.append(opt_text)
         return opts
 
@@ -1368,6 +1403,11 @@ def _parse_bilingual_questions(lines: List[str]) -> List[dict]:
                 j += 1
 
             question_text = "\n".join(question_text_parts)
+
+            # If no options found but we have table options available, use them
+            if not options and table_option_idx < len(table_options):
+                options = table_options[table_option_idx]
+                table_option_idx += 1
 
             # Save question even without options (open-ended questions)
             if question_text.strip():
@@ -2841,10 +2881,10 @@ async def parse_exam_file(file: UploadFile):
     doc = Document(io.BytesIO(content))
 
     # Extract lines from document
-    lines = _extract_docx_lines(doc)
+    lines, table_options = _extract_docx_lines(doc)
 
     # Parse questions
-    questions = _parse_bilingual_questions(lines)
+    questions = _parse_bilingual_questions(lines, table_options)
 
     return {
         "ok": True,
@@ -3081,7 +3121,7 @@ def convert_word_to_excel(
         doc = Document(io.BytesIO(content))
 
         # Use unified extraction for lines (handles paragraphs, textboxes, tables)
-        lines = _extract_docx_lines(doc, include_textboxes=True, use_latex=latex_enabled)
+        lines, table_options = _extract_docx_lines(doc, include_textboxes=True, use_latex=latex_enabled)
 
         # Check if this is a Math exam format (Question 1., Question 2., etc.)
         is_math_format = any(re.match(r'^Question\s+\d+', line, re.IGNORECASE) for line in lines[:20])
@@ -3089,7 +3129,7 @@ def convert_word_to_excel(
         if is_math_format:
             questions = _parse_math_exam_questions(lines)
         else:
-            questions = _parse_bilingual_questions(lines)
+            questions = _parse_bilingual_questions(lines, table_options)
 
         # Create Excel file
         try:
