@@ -3001,15 +3001,20 @@ def convert_word_to_excel(file: UploadFile = Form(...)) -> StreamingResponse:
             row = idx + 1
             options = q.get("options", [])
 
-            # Question Type: MSA for multiple choice (has options), SAQ for short answer/fill-in
+            # Question Type: MSA for multiple choice (has options or image-based), SAQ for short answer/fill-in
+            # If no options extracted but it's a numbered question, assume it's image-based MCQ
             has_options = len(options) >= 2
-            question_type = "MSA" if has_options else "SAQ"
+            is_numbered_question = q.get("number") is not None
+            question_type = "MSA" if has_options or is_numbered_question else "SAQ"
             ws.cell(row=row, column=1, value=question_type)
 
             # Question content
             ws.cell(row=row, column=2, value=q.get("question", ""))
 
             # Options 1-5
+            # If no options but it's a numbered question (image-based), use A, B, C, D placeholders
+            if not options and is_numbered_question:
+                options = ["A", "B", "C", "D"]
             for opt_idx in range(5):
                 if opt_idx < len(options):
                     ws.cell(row=row, column=3 + opt_idx, value=options[opt_idx])
