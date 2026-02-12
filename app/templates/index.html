@@ -31,15 +31,23 @@
         <section class="tab-panel active" id="tab-create">
           <div class="panel">
             <h2>Tạo đề từ đề mẫu</h2>
-            <p>Upload file Word (.docx) chứa đề mẫu để tạo đề mới tương tự.</p>
+            <p>Upload file Word (.docx) chứa đề mẫu để tạo đề mới tương tự theo từng câu.</p>
             <div class="upload-area">
               <input type="file" id="createFile" accept=".docx" />
+              <button id="parseFileBtn" type="button">Phân tích đề</button>
+            </div>
+            <div class="parse-info" id="parseInfo" hidden>
+              <p><strong>Đề mẫu:</strong> <span id="parseFileName"></span> - <span id="parseQuestionCount">0</span> câu hỏi</p>
             </div>
             <div class="create-options">
               <div class="auto-grid">
                 <div>
-                  <label for="createCount">Số câu cần tạo</label>
-                  <input id="createCount" type="number" min="1" max="100" value="20" />
+                  <label for="createDifficulty">Độ khó so với đề mẫu</label>
+                  <select id="createDifficulty">
+                    <option value="same">Tương đương</option>
+                    <option value="easier">Dễ hơn</option>
+                    <option value="harder">Khó hơn</option>
+                  </select>
                 </div>
                 <div>
                   <label for="createEngine">AI Engine</label>
@@ -459,25 +467,62 @@
       attachExport(document.getElementById('topicResult'));
 
       /* ---- Tạo đề từ đề mẫu ---- */
-      document.getElementById('createBtn').addEventListener('click', async () => {
+      let parsedSampleQuestions = [];
+
+      // Parse file to get question count
+      document.getElementById('parseFileBtn').addEventListener('click', async () => {
         const fileInput = document.getElementById('createFile');
         const status = document.getElementById('createStatus');
-        const result = document.getElementById('createResult');
-        const output = document.getElementById('createOutput');
-        const countEl = document.getElementById('createResultCount');
+        const parseInfo = document.getElementById('parseInfo');
 
         if (!fileInput.files.length) {
           status.textContent = 'Vui lòng chọn file .docx';
           return;
         }
 
-        status.textContent = 'Đang tạo đề mới...';
+        status.textContent = 'Đang phân tích đề mẫu...';
+
+        try {
+          const formData = new FormData();
+          formData.append('file', fileInput.files[0]);
+
+          const res = await fetch('/api/parse-exam', { method: 'POST', body: formData });
+          const data = await res.json();
+
+          if (data.ok) {
+            parsedSampleQuestions = data.questions || [];
+            document.getElementById('parseFileName').textContent = data.filename;
+            document.getElementById('parseQuestionCount').textContent = parsedSampleQuestions.length;
+            parseInfo.hidden = false;
+            status.textContent = `Đã phân tích: ${parsedSampleQuestions.length} câu hỏi`;
+          } else {
+            status.textContent = 'Lỗi: ' + (data.error || 'Không thể phân tích đề');
+          }
+        } catch (err) {
+          status.textContent = 'Lỗi: ' + err.message;
+        }
+      });
+
+      document.getElementById('createBtn').addEventListener('click', async () => {
+        const fileInput = document.getElementById('createFile');
+        const status = document.getElementById('createStatus');
+        const result = document.getElementById('createResult');
+        const output = document.getElementById('createOutput');
+        const countEl = document.getElementById('createResultCount');
+        const difficulty = document.getElementById('createDifficulty').value;
+
+        if (!fileInput.files.length) {
+          status.textContent = 'Vui lòng chọn file .docx';
+          return;
+        }
+
+        status.textContent = 'Đang tạo đề mới (tương tự từng câu)...';
         result.hidden = true;
 
         try {
           const formData = new FormData();
           formData.append('file', fileInput.files[0]);
-          formData.append('count', document.getElementById('createCount').value || 20);
+          formData.append('difficulty', difficulty);
           formData.append('ai_engine', document.getElementById('createEngine').value || activeEngine);
 
           const res = await fetch('/api/generate-similar-exam', { method: 'POST', body: formData });
@@ -495,13 +540,14 @@
               </div>
             `).join('');
             result.hidden = false;
-            status.textContent = `Đã tạo ${createdQuestions.length} câu hỏi mới`;
+            status.textContent = `Đã tạo ${createdQuestions.length} câu hỏi mới (${difficulty === 'same' ? 'tương đương' : difficulty === 'easier' ? 'dễ hơn' : 'khó hơn'})`;
 
             // Auto save to history
             saveToHistory({
               type: 'create',
               filename: fileInput.files[0].name,
               count: createdQuestions.length,
+              difficulty: difficulty,
               questions: createdQuestions,
               timestamp: new Date().toISOString(),
             });

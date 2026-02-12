@@ -4800,47 +4800,120 @@ Chỉ trả về JSON array, không giải thích."""
         return {"ok": False, "error": str(e)}
 
 
-@app.post("/api/generate-similar-exam")
-async def generate_similar_exam(
-    file: UploadFile,
-    count: int = Form(10),
-    ai_engine: str = Form("openai"),
-):
-    """Generate similar questions based on an exam file."""
+@app.post("/api/parse-exam")
+async def parse_exam(file: UploadFile):
+    """Parse exam file to get question list."""
     if not file.filename.endswith('.docx'):
         raise HTTPException(status_code=400, detail="Chỉ hỗ trợ file .docx")
 
     content = await file.read()
     doc = Document(io.BytesIO(content))
 
-    # Extract content
-    text_content = _extract_docx_content(doc)
+    # Extract lines from document
+    lines, table_options = _extract_docx_lines(doc)
 
-    # Use AI to generate similar questions
+    # Detect format and use appropriate parser
+    is_math_format = any(re.match(r'^Question\s+\d+', line, re.IGNORECASE) for line in lines[:20])
+    is_english_level_format = (
+        any('Section A' in line or 'Section B' in line for line in lines[:15]) and
+        file.filename and 'LEVEL' in file.filename.upper()
+    )
+    is_envie_format = file.filename and 'EN-VIE' in file.filename.upper()
+
+    if is_math_format:
+        questions = _parse_math_exam_questions(lines)
+    elif is_english_level_format:
+        questions = _parse_english_exam_questions(doc)
+    elif is_envie_format:
+        questions = _parse_envie_questions(doc)
+    else:
+        questions = _parse_bilingual_questions(lines, table_options)
+
+    return {
+        "ok": True,
+        "filename": file.filename,
+        "questions": questions,
+        "count": len(questions),
+    }
+
+
+@app.post("/api/generate-similar-exam")
+async def generate_similar_exam(
+    file: UploadFile,
+    difficulty: str = Form("same"),
+    ai_engine: str = Form("openai"),
+):
+    """Generate similar questions based on an exam file, one by one matching the original."""
+    if not file.filename.endswith('.docx'):
+        raise HTTPException(status_code=400, detail="Chỉ hỗ trợ file .docx")
+
+    content = await file.read()
+    doc = Document(io.BytesIO(content))
+
+    # Extract lines and parse questions
+    lines, table_options = _extract_docx_lines(doc)
+
+    # Detect format and use appropriate parser
+    is_math_format = any(re.match(r'^Question\s+\d+', line, re.IGNORECASE) for line in lines[:20])
+    is_english_level_format = (
+        any('Section A' in line or 'Section B' in line for line in lines[:15]) and
+        file.filename and 'LEVEL' in file.filename.upper()
+    )
+    is_envie_format = file.filename and 'EN-VIE' in file.filename.upper()
+
+    if is_math_format:
+        sample_questions = _parse_math_exam_questions(lines)
+    elif is_english_level_format:
+        sample_questions = _parse_english_exam_questions(doc)
+    elif is_envie_format:
+        sample_questions = _parse_envie_questions(doc)
+    else:
+        sample_questions = _parse_bilingual_questions(lines, table_options)
+
+    if not sample_questions:
+        return {"ok": False, "error": "Không tìm thấy câu hỏi trong file"}
+
+    # Build difficulty instruction
+    difficulty_text = {
+        "same": "tương đương về độ khó",
+        "easier": "DỄ HƠN (đơn giản hơn, ít phức tạp hơn)",
+        "harder": "KHÓ HƠN (phức tạp hơn, đòi hỏi tư duy cao hơn)"
+    }.get(difficulty, "tương đương về độ khó")
+
+    # Format sample questions for prompt
+    sample_text = ""
+    for i, q in enumerate(sample_questions[:50], 1):  # Limit to 50 questions
+        q_content = q.get('question', '')[:200]
+        q_options = q.get('options', [])
+        opts_text = " | ".join(q_options[:5]) if q_options else "N/A"
+        sample_text += f"Câu {i}: {q_content}\nĐáp án: {opts_text}\n\n"
+
     settings = _load_ai_settings()
 
-    prompt = f"""Dựa trên đề thi mẫu sau, hãy tạo {count} câu hỏi mới tương tự về dạng và độ khó.
+    prompt = f"""Dựa trên {len(sample_questions)} câu hỏi mẫu sau, hãy tạo {len(sample_questions)} câu hỏi MỚI, mỗi câu tương ứng với 1 câu mẫu về CHỦ ĐỀ và DẠNG BÀI.
 
-Đề thi mẫu:
-{text_content[:6000]}
+ĐỘ KHÓ: {difficulty_text}
 
-Yêu cầu:
-- Tạo {count} câu hỏi mới, không trùng với câu hỏi mẫu
-- Giữ nguyên format và độ khó
-- Mỗi câu có 4 đáp án A, B, C, D
-- Đánh dấu đáp án đúng
+ĐỀ MẪU:
+{sample_text[:8000]}
 
-Trả về JSON array:
+YÊU CẦU QUAN TRỌNG:
+1. Tạo ĐÚNG {len(sample_questions)} câu hỏi mới
+2. Câu mới thứ i phải CÙNG CHỦ ĐỀ với câu mẫu thứ i
+3. Giữ nguyên số lượng đáp án (3, 4 hoặc 5 tùy câu mẫu)
+4. Nội dung phải KHÁC câu mẫu nhưng cùng dạng bài
+5. Độ khó: {difficulty_text}
+
+Trả về JSON array với ĐÚNG {len(sample_questions)} phần tử:
 [
     {{
-        "content": "nội dung câu hỏi",
+        "content": "nội dung câu hỏi mới",
         "options": ["đáp án A", "đáp án B", "đáp án C", "đáp án D"],
-        "correct_answer": "A",
-        "explanation": "giải thích ngắn"
+        "correct_answer": "A"
     }}
 ]
 
-Chỉ trả về JSON array."""
+CHỈ TRẢ VỀ JSON ARRAY, KHÔNG CÓ TEXT KHÁC."""
 
     try:
         response = await _call_ai_engine(ai_engine, prompt, settings)
@@ -4850,8 +4923,10 @@ Chỉ trả về JSON array."""
             return {
                 "ok": True,
                 "original_file": file.filename,
+                "original_count": len(sample_questions),
                 "generated_questions": questions,
                 "count": len(questions),
+                "difficulty": difficulty,
             }
         return {"ok": False, "error": "Không thể phân tích kết quả AI"}
     except Exception as e:

@@ -453,6 +453,19 @@ ol.output-list li::marker {
 }
 
 /* Create exam output */
+.parse-info {
+  margin: 12px 0;
+  padding: 10px 14px;
+  background: #e8f5e9;
+  border: 1px solid #a5d6a7;
+  border-radius: 8px;
+  color: #2e7d32;
+}
+
+.parse-info p {
+  margin: 0;
+}
+
 .create-options {
   margin-top: 16px;
 }
