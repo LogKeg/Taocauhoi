@@ -2839,10 +2839,11 @@ def _parse_math_exam_questions(lines: List[str]) -> List[dict]:
         """
         Extract options from text that may contain A. xxx B. xxx C. xxx D. xxx
         Returns (content_without_options, list_of_options)
+        Handles both spaced format (A. opt1  B. opt2) and compact format (A. opt1B. opt2)
         """
         # Try to find where options start - look for A. or A) pattern
         # Options are typically at the end of the text, separated by tabs or multiple spaces
-        option_start_pattern = re.compile(r'\s+A\s*[.\)]\s*\S', re.IGNORECASE)
+        option_start_pattern = re.compile(r'(?:\s+|^)A\s*[.\)]\s*\S', re.IGNORECASE)
         match = option_start_pattern.search(text)
 
         if not match:
@@ -2852,17 +2853,38 @@ def _parse_math_exam_questions(lines: List[str]) -> List[dict]:
         content_part = text[:match.start()].strip()
         options_part = text[match.start():].strip()
 
-        # Extract individual options
+        # Extract individual options using different strategies
         options = []
-        opt_matches = list(option_pattern.finditer(options_part))
 
-        if opt_matches and len(opt_matches) >= 2:
-            for m in opt_matches:
-                opt_text = m.group(2).strip()
-                # Clean up trailing whitespace and tabs
-                opt_text = re.sub(r'\s+$', '', opt_text)
-                if opt_text:
-                    options.append(opt_text)
+        # Check if compact format (no spaces between options): "A. 2B. 4C. 5D. 3"
+        # \S[B-D] means any non-whitespace character immediately followed by B/C/D
+        is_compact = bool(re.search(r'\S[B-D]\s*[.\)]', options_part))
+
+        if is_compact:
+            # Strategy 1: Compact format - split by B. C. D. markers
+            parts = re.split(r'([B-D])\s*[.\)]', options_part, flags=re.IGNORECASE)
+            # First part after A.
+            a_match = re.match(r'A\s*[.\)]\s*(.+?)$', parts[0].strip(), re.IGNORECASE)
+            if a_match:
+                options.append(a_match.group(1).strip())
+            # Rest of options (B, C, D values)
+            i = 1
+            while i < len(parts) - 1:
+                value = parts[i + 1].strip() if i + 1 < len(parts) else ""
+                if value:
+                    options.append(value)
+                i += 2
+        else:
+            # Strategy 2: Normal spaced format
+            opt_matches = list(option_pattern.finditer(options_part))
+
+            if opt_matches and len(opt_matches) >= 2:
+                for m in opt_matches:
+                    opt_text = m.group(2).strip()
+                    # Clean up trailing whitespace and tabs
+                    opt_text = re.sub(r'\s+$', '', opt_text)
+                    if opt_text:
+                        options.append(opt_text)
 
         return content_part, options
 
@@ -2954,7 +2976,24 @@ def _parse_math_exam_questions(lines: List[str]) -> List[dict]:
 
             # If we're in a question, process content
             if current_question_num is not None:
-                # Check for options line
+                # Check for options line - first try compact format (A. 2B. 4C. 5D. 3)
+                is_compact_options = bool(re.match(r'^A\s*[.\)]\s*\S', line, re.IGNORECASE) and
+                                          re.search(r'\S[B-D]\s*[.\)]', line))
+                if is_compact_options:
+                    # Parse compact format options
+                    parts = re.split(r'([B-D])\s*[.\)]', line, flags=re.IGNORECASE)
+                    a_match = re.match(r'A\s*[.\)]\s*(.+?)$', parts[0].strip(), re.IGNORECASE)
+                    if a_match:
+                        current_options.append(a_match.group(1).strip())
+                    i = 1
+                    while i < len(parts) - 1:
+                        value = parts[i + 1].strip() if i + 1 < len(parts) else ""
+                        if value:
+                            current_options.append(value)
+                        i += 2
+                    continue
+
+                # Check for spaced options line
                 opt_matches = list(option_pattern.finditer(line))
                 if opt_matches and len(opt_matches) >= 2:
                     for m in opt_matches:
@@ -3051,17 +3090,19 @@ def convert_word_to_excel(
             options = q.get("options", [])
 
             # Question Type logic:
-            # - Math format (Question X.): always SAQ (short answer/fill-in) - no A/B/C/D options
-            # - Other formats: MSA if has options, SAQ if no options
-            # - For non-math formats without options but with question number: might be image-based MCQ
+            # - If has options (A/B/C/D) → MSA (multiple choice)
+            # - Math format without options → SAQ (short answer/fill-in)
+            # - Non-math format without options but numbered → likely image-based MCQ → MSA
+            # - Otherwise → SAQ
             has_options = len(options) >= 2
             is_numbered_question = q.get("number") is not None
 
-            if is_math_format:
-                # Math exams are always short answer type
-                question_type = "SAQ"
-            elif has_options:
+            if has_options:
+                # Has actual options → multiple choice
                 question_type = "MSA"
+            elif is_math_format:
+                # Math format without options → short answer
+                question_type = "SAQ"
             elif is_numbered_question:
                 # Non-math format with number but no options = likely image-based MCQ
                 question_type = "MSA"
