@@ -1096,8 +1096,9 @@ def _extract_docx_lines(doc: Document, include_textboxes: bool = True, use_latex
         text = text.strip()
         if not text:
             return
-        # Allow duplicate option lines (A) B) C) D)) - they may belong to different questions
-        is_option_line = 'A)' in text and 'B)' in text
+        # Allow duplicate option lines - they may belong to different questions
+        # Check for inline options (A) B) C) D)) or single option lines (A. xxx, B. yyy)
+        is_option_line = ('A)' in text and 'B)' in text) or re.match(r'^[A-E]\s*[.\)]\s*\S', text)
         if is_option_line or text not in seen_text:
             if not is_option_line:
                 seen_text.add(text)
