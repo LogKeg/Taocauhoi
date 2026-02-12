@@ -3408,15 +3408,23 @@ def _parse_envie_questions(doc: Document) -> List[dict]:
             continue
 
         # Skip pure option lines (they belong to previous question)
-        # But don't skip cloze lines - those are standalone cloze options/questions
+        # Cloze option lines are handled separately in the textbox section
         if is_option_line_envie(line) and not has_fill_blank(line):
-            # Check if this is a standalone cloze option (A) at start with tab-separated B) C) D))
-            is_standalone_cloze = re.match(r'^A\s*\)', line) and '\t' in line and re.search(r'B\s*\).*C\s*\).*D\s*\)', line)
             # Check if this is a numbered cloze question "22. A) opt B) opt..."
+            # Skip these as they're processed in the textbox section later
             is_numbered_cloze = re.match(r'^(\d+)\.\s*A\s*\)', line)
-            if not is_standalone_cloze and not is_numbered_cloze:
+            if is_numbered_cloze:
                 i += 1
                 continue
+            # Check if this is a standalone cloze option (A) at start with tab-separated B) C) D))
+            # Also skip these - handled in textbox section
+            is_standalone_cloze = re.match(r'^A\s*\)', line) and '\t' in line and re.search(r'B\s*\).*C\s*\).*D\s*\)', line)
+            if is_standalone_cloze:
+                i += 1
+                continue
+            # Regular option line - skip
+            i += 1
+            continue
 
         # Case 0a: Wallaby Q1-5 special format (must be BEFORE instruction skip)
         # Structure: "For each question (1-5)..." instruction
@@ -3951,6 +3959,25 @@ def _parse_envie_questions(doc: Document) -> List[dict]:
                 i = j
                 continue
 
+        # Case 5d: Question with options in image (no text options)
+        # Format: "Pick the sentence with the correct punctuation." followed by another question
+        # These questions have their options shown as images
+        if line.endswith('.') and len(line) > 20 and len(line) < 80:
+            # Check if this looks like a question (not a regular statement)
+            lower_line = line.lower()
+            is_question_like = any(w in lower_line for w in ['pick', 'choose', 'select', 'which', 'what'])
+            # Check if next line is NOT an option line (options are in images)
+            if is_question_like and next_line and not is_option_line_envie(next_line):
+                # Check that next line is another question (not table data)
+                next_is_question = len(next_line) > 20 and not re.match(r'^\w+\s+[a-e]\.', next_line)
+                if next_is_question:
+                    questions.append({
+                        'question': line,
+                        'options': ['[Option A in image]', '[Option B in image]', '[Option C in image]', '[Option D in image]', '[Option E in image]']
+                    })
+                    i += 1
+                    continue
+
         # Case 6: Question + next line options with 5 choices (Wallaby Q31-50)
         # Format: "The Forbidden City is located in …" on one line
         # Then: "Beijing, China.\tB) Athens, Greece.   C) Rome..." on next line
@@ -4136,7 +4163,7 @@ def _parse_envie_questions(doc: Document) -> List[dict]:
                             'options': opts[:5]
                         })
 
-    # Parse cloze questions from textboxes
+    # Parse cloze questions from textboxes and paragraphs
     # Textboxes may contain: "21. A) sparked B) spotted C) split D) squandered"
     from lxml import etree
     try:
@@ -4145,6 +4172,8 @@ def _parse_envie_questions(doc: Document) -> List[dict]:
         textbox_matches = re.findall(r'<w:txbxContent[^>]*>(.*?)</w:txbxContent>', xml_str, re.DOTALL)
 
         seen_cloze_nums = set()
+        cloze_opts_from_textbox = {}  # Store options by question number
+
         for match in textbox_matches:
             texts = re.findall(r'<w:t[^>]*>([^<]+)</w:t>', match)
             content = ' '.join(texts).strip()
@@ -4152,7 +4181,7 @@ def _parse_envie_questions(doc: Document) -> List[dict]:
             # Look for cloze option format: "21. A) option B) option C) option D) option"
             cloze_match = re.match(r'^(\d+)\.\s*A\s*\)\s*', content)
             if cloze_match:
-                q_num = cloze_match.group(1)
+                q_num = int(cloze_match.group(1))
                 if q_num in seen_cloze_nums:
                     continue
                 seen_cloze_nums.add(q_num)
@@ -4171,46 +4200,103 @@ def _parse_envie_questions(doc: Document) -> List[dict]:
                         opts.append(opt_text)
 
                 if len(opts) >= 3:
-                    questions.append({
-                        'question': f'Cloze question {q_num}',
-                        'options': opts[:4]
-                    })
+                    cloze_opts_from_textbox[q_num] = opts[:4]
 
-        # Find cloze numbers in passages that don't have options (image-based questions)
-        # These appear as (26), (27), (28) in text but no corresponding option lines
+        # Also check paragraphs for numbered cloze options (e.g., "22. A) neither B) both...")
+        for para in doc.paragraphs:
+            text = para.text.strip()
+            opt_match = re.match(r'^(\d+)\.\s*A\s*\)', text)
+            if opt_match:
+                q_num = int(opt_match.group(1))
+                if q_num not in cloze_opts_from_textbox:
+                    # Extract options
+                    markers = list(re.finditer(r'([A-D])\s*\)\s*', text))
+                    opts = []
+                    for idx, m in enumerate(markers):
+                        start = m.end()
+                        if idx + 1 < len(markers):
+                            end = markers[idx + 1].start()
+                        else:
+                            end = len(text)
+                        opt_text = text[start:end].strip()
+                        if opt_text:
+                            opts.append(opt_text)
+                    if len(opts) >= 3:
+                        cloze_opts_from_textbox[q_num] = opts[:4]
+
+        # Collect unnumbered cloze option lines from paragraphs
+        # These are lines like "A) yet B) whereas C) also D) while" in cloze section
+        unnumbered_cloze_opts = []
+        in_cloze_section = False
+        for para in doc.paragraphs:
+            text = para.text.strip()
+            # Detect start of cloze section
+            if 'space (21-30)' in text.lower() or '(21-30)' in text:
+                in_cloze_section = True
+                continue
+            # Detect end of cloze section
+            if in_cloze_section and ('questions 31-' in text.lower() or 'For questions 31' in text):
+                in_cloze_section = False
+                continue
+            # Collect unnumbered option lines in cloze section
+            if in_cloze_section and re.match(r'^A\s*\)', text):
+                # This is an unnumbered cloze option line
+                markers = list(re.finditer(r'([A-D])\s*\)\s*', text))
+                opts = []
+                for idx, m in enumerate(markers):
+                    start = m.end()
+                    if idx + 1 < len(markers):
+                        end = markers[idx + 1].start()
+                    else:
+                        end = len(text)
+                    opt_text = text[start:end].strip()
+                    if opt_text:
+                        opts.append(opt_text)
+                if len(opts) >= 3:
+                    unnumbered_cloze_opts.append(opts[:4])
+
+        # Find cloze numbers in passages (from textboxes)
         cloze_in_passage = set()
-        cloze_with_options = set()
-
         for match in textbox_matches:
             texts = re.findall(r'<w:t[^>]*>([^<]+)</w:t>', match)
             content = ''.join(texts).strip()
-
-            # Options: "21. A) ..." or "21.A) ..."
-            opt_match = re.match(r'^(\d+)\.?\s*A\s*\)', content)
-            if opt_match:
-                cloze_with_options.add(int(opt_match.group(1)))
-
             # Passage blanks: "(26)" or "(27)"
             blanks = re.findall(r'\((\d+)\)', content)
             for b in blanks:
                 cloze_in_passage.add(int(b))
 
-        # Also check paragraphs for cloze options
-        for para in doc.paragraphs:
-            text = para.text.strip()
-            opt_match = re.match(r'^(\d+)\.\s*A\s*\)', text)
-            if opt_match:
-                cloze_with_options.add(int(opt_match.group(1)))
+        # Determine missing cloze numbers (numbers in passage but no options)
+        cloze_with_options = set(cloze_opts_from_textbox.keys())
+        missing_cloze = sorted(cloze_in_passage - cloze_with_options)
 
-        # Create placeholder questions for cloze numbers without options
-        # Only add if within the range of cloze numbers that have options (to avoid adding extras at the end)
-        missing_cloze = cloze_in_passage - cloze_with_options
-        if cloze_with_options:
-            max_cloze_with_options = max(cloze_with_options)
-            for cloze_num in sorted(missing_cloze):
-                # Only add if cloze number is less than max cloze that has options
-                # This ensures we don't create questions for trailing passage markers
-                if 20 <= cloze_num < max_cloze_with_options:
+        # Assign unnumbered options to missing cloze numbers
+        if missing_cloze and unnumbered_cloze_opts:
+            for i, cloze_num in enumerate(missing_cloze):
+                if i < len(unnumbered_cloze_opts):
+                    cloze_opts_from_textbox[cloze_num] = unnumbered_cloze_opts[i]
+
+        # Also handle cloze 30 which may be the last unnumbered option
+        if 30 not in cloze_opts_from_textbox and unnumbered_cloze_opts:
+            # Use the last available unnumbered option for cloze 30
+            remaining_unnumbered = len(unnumbered_cloze_opts) - len(missing_cloze)
+            if remaining_unnumbered > 0:
+                cloze_opts_from_textbox[30] = unnumbered_cloze_opts[-1]
+
+        # Add all cloze questions
+        for q_num in sorted(cloze_opts_from_textbox.keys()):
+            opts = cloze_opts_from_textbox[q_num]
+            questions.append({
+                'question': f'Cloze question {q_num}',
+                'options': opts
+            })
+
+        # Add placeholder for any remaining missing cloze numbers (image-based)
+        all_cloze_nums = set(cloze_opts_from_textbox.keys())
+        still_missing = cloze_in_passage - all_cloze_nums
+        if all_cloze_nums:
+            max_cloze = max(all_cloze_nums)
+            for cloze_num in sorted(still_missing):
+                if 20 <= cloze_num <= max_cloze:
                     questions.append({
                         'question': f'Cloze question {cloze_num} (image-based)',
                         'options': ['[Option A in image]', '[Option B in image]', '[Option C in image]', '[Option D in image]']
@@ -4218,6 +4304,42 @@ def _parse_envie_questions(doc: Document) -> List[dict]:
 
     except Exception:
         pass  # lxml may not be available
+
+    # Remove incorrectly parsed "A) ..." lines as questions
+    questions = [q for q in questions if not q.get('question', '').startswith('A)')]
+
+    # Sort cloze questions by their question number and insert at correct position
+    def get_cloze_num(q):
+        text = q.get('question', '')
+        m = re.search(r'Cloze question (\d+)', text)
+        if m:
+            return int(m.group(1))
+        return 999
+
+    # Separate cloze questions from others
+    cloze_questions = [q for q in questions if 'Cloze question' in q.get('question', '')]
+    other_questions = [q for q in questions if 'Cloze question' not in q.get('question', '')]
+
+    # Sort cloze questions by their number
+    cloze_questions.sort(key=get_cloze_num)
+
+    # Insert cloze questions after Q20 (index 20, since 0-indexed)
+    # Cloze questions typically start at Q21 in EN-VIE format
+    if cloze_questions:
+        # Find the best insertion point (after 3-option questions, before 5-option questions)
+        insert_idx = 20  # Default: after Q20
+        # Count how many 3-option questions we have (Q1-20 typically have 3 options)
+        three_opt_count = 0
+        for q in other_questions:
+            if len(q.get('options', [])) == 3:
+                three_opt_count += 1
+            else:
+                break  # Stop when we hit non-3-option question
+        if three_opt_count > 0:
+            insert_idx = three_opt_count
+        questions = other_questions[:insert_idx] + cloze_questions + other_questions[insert_idx:]
+    else:
+        questions = other_questions
 
     return questions
 
