@@ -4323,20 +4323,16 @@ def _parse_envie_questions(doc: Document) -> List[dict]:
     # Sort cloze questions by their number
     cloze_questions.sort(key=get_cloze_num)
 
-    # Insert cloze questions after Q20 (index 20, since 0-indexed)
-    # Cloze questions typically start at Q21 in EN-VIE format
+    # Insert cloze questions at correct position based on cloze number
+    # E.g., "Cloze question 21" should be inserted at position 20 (0-indexed)
     if cloze_questions:
-        # Find the best insertion point (after 3-option questions, before 5-option questions)
-        insert_idx = 20  # Default: after Q20
-        # Count how many 3-option questions we have (Q1-20 typically have 3 options)
-        three_opt_count = 0
-        for q in other_questions:
-            if len(q.get('options', [])) == 3:
-                three_opt_count += 1
-            else:
-                break  # Stop when we hit non-3-option question
-        if three_opt_count > 0:
-            insert_idx = three_opt_count
+        # Get the first cloze question number to determine insertion position
+        first_cloze_num = get_cloze_num(cloze_questions[0])
+        # Insert at position = first_cloze_num - 1 (0-indexed)
+        # E.g., Cloze Q11 -> insert at index 10, Cloze Q21 -> insert at index 20
+        insert_idx = first_cloze_num - 1
+        # Make sure we don't go beyond the available questions
+        insert_idx = min(insert_idx, len(other_questions))
         questions = other_questions[:insert_idx] + cloze_questions + other_questions[insert_idx:]
     else:
         questions = other_questions
