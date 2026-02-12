@@ -2864,7 +2864,7 @@ def _parse_math_exam_questions(lines: List[str]) -> List[dict]:
                 content_part, options = extract_options_from_text(remaining)
 
                 questions.append({
-                    "question": f"Question {q_num}.\n{content_part}".strip(),
+                    "question": content_part.strip(),  # No "Question X." prefix
                     "options": options[:4],  # Max 4 options
                     "answer": "",
                     "number": q_num
@@ -2879,8 +2879,7 @@ def _parse_math_exam_questions(lines: List[str]) -> List[dict]:
             nonlocal current_question_num, current_content_lines, current_options
 
             if current_question_num is not None and (current_content_lines or current_options):
-                question_text = f"Question {current_question_num}.\n"
-                question_text += "\n".join(current_content_lines)
+                question_text = "\n".join(current_content_lines)
 
                 questions.append({
                     "question": question_text.strip(),
