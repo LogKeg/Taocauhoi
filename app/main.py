@@ -1044,6 +1044,7 @@ def _extract_docx_lines(doc: Document, include_textboxes: bool = True) -> list:
     """
     Extract all text lines from a Word document as a list.
     Similar to _extract_docx_content but returns list instead of joined string.
+    For Math exams, preserves line breaks within cells to keep options separate.
     """
     all_lines = []
     seen_text = set()
@@ -1059,6 +1060,17 @@ def _extract_docx_lines(doc: Document, include_textboxes: bool = True) -> list:
             if not is_option_line:
                 seen_text.add(text)
             all_lines.append(text)
+
+    def add_multiline_text(text: str):
+        """Add text that may contain multiple lines (from table cells)."""
+        text = text.strip()
+        if not text:
+            return
+        # Split by newlines and add each line
+        for line in text.split('\n'):
+            line = line.strip()
+            if line:
+                add_line(line)
 
     def extract_nested_table_options(cell) -> str:
         """Extract options from nested tables within a cell (2x2 grid format)."""
@@ -1102,26 +1114,20 @@ def _extract_docx_lines(doc: Document, include_textboxes: bool = True) -> list:
                 pass
 
     # Read tables - including nested tables for options
+    # For Math exams, each cell may contain a full question with multiple lines
     for table in doc.tables:
         for row in table.rows:
             for cell in row.cells:
-                # Get main cell text (excluding nested table content)
-                main_text_parts = []
-                for para in cell.paragraphs:
-                    text = para.text.strip()
-                    if text:
-                        main_text_parts.append(text)
-
-                main_text = ' '.join(main_text_parts)
+                # Get cell text preserving line structure
+                cell_text = cell.text.strip()
+                if cell_text:
+                    # Use multiline handler to split and add each line
+                    add_multiline_text(cell_text)
 
                 # Check for nested tables (options in 2x2 grid)
                 nested_opts = extract_nested_table_options(cell)
-
-                # Only add options if there's also question text in this cell
-                if main_text:
-                    add_line(main_text)
-                    if nested_opts:
-                        add_line(nested_opts)
+                if nested_opts:
+                    add_line(nested_opts)
 
     return all_lines
 
@@ -2782,100 +2788,155 @@ def _parse_math_exam_questions(lines: List[str]) -> List[dict]:
     """
     Parse Math exam questions with "Question X." format.
     Handles bilingual (English + Vietnamese) content and MCQ options A/B/C/D.
+    Supports both multi-line format and single-line format (all content in one cell).
     """
     questions = []
 
-    # Pattern to detect "Question X." header
+    # Pattern to detect "Question X." header (standalone)
     question_header = re.compile(r'^Question\s+(\d+)\s*[.\)]?\s*$', re.IGNORECASE)
-    # Pattern to detect options: A. xxx  B. xxx  C. xxx  D. xxx
-    option_pattern = re.compile(r'([A-D])\s*[.\)]\s*([^\t\n]+?)(?=\s+[B-D]\s*[.\)]|$)', re.IGNORECASE)
-    # Single option at start of line
-    single_option = re.compile(r'^([A-D])\s*[.\)]\s*(.+)$', re.IGNORECASE)
+    # Pattern to detect options: A. xxx  B. xxx  C. xxx  D. xxx (with tabs or multiple spaces)
+    option_pattern = re.compile(r'([A-D])\s*[.\)]\s*([^\t]+?)(?=\s{2,}[B-D]\s*[.\)]|\t[B-D]\s*[.\)]|$)', re.IGNORECASE)
 
-    current_question_num = None
-    current_content_lines = []
-    current_options = []
+    def extract_options_from_text(text: str) -> tuple:
+        """
+        Extract options from text that may contain A. xxx B. xxx C. xxx D. xxx
+        Returns (content_without_options, list_of_options)
+        """
+        # Try to find where options start - look for A. or A) pattern
+        # Options are typically at the end of the text, separated by tabs or multiple spaces
+        option_start_pattern = re.compile(r'\s+A\s*[.\)]\s*\S', re.IGNORECASE)
+        match = option_start_pattern.search(text)
 
-    def save_current_question():
-        """Save accumulated question data"""
-        nonlocal current_question_num, current_content_lines, current_options
+        if not match:
+            return text, []
 
-        if current_question_num is not None and (current_content_lines or current_options):
-            # Build question text
-            question_text = f"Question {current_question_num}.\n"
-            question_text += "\n".join(current_content_lines)
+        # Split text into content and options part
+        content_part = text[:match.start()].strip()
+        options_part = text[match.start():].strip()
 
-            # Extract answer from options if marked
-            answer = ""
-            clean_options = []
-            for opt in current_options:
-                clean_opt = opt.strip()
-                clean_options.append(clean_opt)
+        # Extract individual options
+        options = []
+        opt_matches = list(option_pattern.finditer(options_part))
 
-            questions.append({
-                "question": question_text.strip(),
-                "options": clean_options,
-                "answer": answer,
-                "number": current_question_num
-            })
+        if opt_matches and len(opt_matches) >= 2:
+            for m in opt_matches:
+                opt_text = m.group(2).strip()
+                # Clean up trailing whitespace and tabs
+                opt_text = re.sub(r'\s+$', '', opt_text)
+                if opt_text:
+                    options.append(opt_text)
 
-        # Reset
+        return content_part, options
+
+    def process_content_line(line: str, content_lines: list, options: list):
+        """Process a line that may contain both content and options."""
+        # Check if line has embedded options (A. B. C. D. pattern)
+        if re.search(r'A\s*[.\)]\s*.+B\s*[.\)]', line, re.IGNORECASE):
+            content_part, extracted_opts = extract_options_from_text(line)
+            if content_part:
+                content_lines.append(content_part)
+            if extracted_opts:
+                options.extend(extracted_opts)
+        else:
+            content_lines.append(line)
+
+    # First, check if we have single-line format (each line contains full question with options)
+    single_line_format = False
+    for line in lines[:5]:
+        if re.match(r'^Question\s+\d+\s*[.\)]?\s*.+A\s*[.\)]', line, re.IGNORECASE):
+            single_line_format = True
+            break
+
+    if single_line_format:
+        # Parse single-line format: "Question X. content... A. opt1 B. opt2 C. opt3 D. opt4"
+        for line in lines:
+            line = line.strip()
+            if not line:
+                continue
+
+            # Match question header with content
+            combined = re.match(r'^Question\s+(\d+)\s*[.\)]?\s*(.+)$', line, re.IGNORECASE)
+            if combined:
+                q_num = int(combined.group(1))
+                remaining = combined.group(2).strip()
+
+                # Extract content and options
+                content_part, options = extract_options_from_text(remaining)
+
+                questions.append({
+                    "question": f"Question {q_num}.\n{content_part}".strip(),
+                    "options": options[:4],  # Max 4 options
+                    "answer": "",
+                    "number": q_num
+                })
+    else:
+        # Parse multi-line format
         current_question_num = None
         current_content_lines = []
         current_options = []
 
-    i = 0
-    while i < len(lines):
-        line = lines[i].strip()
+        def save_current_question():
+            nonlocal current_question_num, current_content_lines, current_options
 
-        if not line:
-            i += 1
-            continue
+            if current_question_num is not None and (current_content_lines or current_options):
+                question_text = f"Question {current_question_num}.\n"
+                question_text += "\n".join(current_content_lines)
 
-        # Check for "Question X." header
-        header_match = question_header.match(line)
-        if header_match:
-            save_current_question()
-            current_question_num = int(header_match.group(1))
-            i += 1
-            continue
+                questions.append({
+                    "question": question_text.strip(),
+                    "options": current_options[:4],
+                    "answer": "",
+                    "number": current_question_num
+                })
 
-        # Check for question header combined with content
-        combined_header = re.match(r'^Question\s+(\d+)\s*[.\)]?\s*(.+)$', line, re.IGNORECASE)
-        if combined_header:
-            save_current_question()
-            current_question_num = int(combined_header.group(1))
-            remaining = combined_header.group(2).strip()
-            if remaining:
-                current_content_lines.append(remaining)
-            i += 1
-            continue
+            current_question_num = None
+            current_content_lines = []
+            current_options = []
 
-        # If we're in a question, process content
-        if current_question_num is not None:
-            # Check for options line (A. xxx B. xxx C. xxx D. xxx)
-            options_found = list(option_pattern.finditer(line))
-            if options_found and len(options_found) >= 2:
-                # Line contains multiple options
-                for m in options_found:
-                    current_options.append(m.group(2).strip())
-                i += 1
+        for line in lines:
+            line = line.strip()
+            if not line:
                 continue
 
-            # Check for single option line
-            single_match = single_option.match(line)
-            if single_match:
-                current_options.append(single_match.group(2).strip())
-                i += 1
+            # Check for standalone "Question X." header
+            header_match = question_header.match(line)
+            if header_match:
+                save_current_question()
+                current_question_num = int(header_match.group(1))
                 continue
 
-            # Otherwise it's content
-            current_content_lines.append(line)
+            # Check for question header combined with content
+            combined_header = re.match(r'^Question\s+(\d+)\s*[.\)]?\s*(.+)$', line, re.IGNORECASE)
+            if combined_header:
+                save_current_question()
+                current_question_num = int(combined_header.group(1))
+                remaining = combined_header.group(2).strip()
+                if remaining:
+                    process_content_line(remaining, current_content_lines, current_options)
+                continue
 
-        i += 1
+            # If we're in a question, process content
+            if current_question_num is not None:
+                # Check for options line
+                opt_matches = list(option_pattern.finditer(line))
+                if opt_matches and len(opt_matches) >= 2:
+                    for m in opt_matches:
+                        opt_text = m.group(2).strip()
+                        opt_text = re.sub(r'\s+$', '', opt_text)
+                        if opt_text:
+                            current_options.append(opt_text)
+                    continue
 
-    # Save last question
-    save_current_question()
+                # Check for single option line (A. xxx)
+                single_match = re.match(r'^([A-D])\s*[.\)]\s*(.+)$', line, re.IGNORECASE)
+                if single_match:
+                    current_options.append(single_match.group(2).strip())
+                    continue
+
+                # Otherwise process as content (may contain embedded options)
+                process_content_line(line, current_content_lines, current_options)
+
+        save_current_question()
 
     return questions
 
