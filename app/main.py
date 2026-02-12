@@ -3423,7 +3423,30 @@ def _parse_envie_questions(doc: Document) -> List[dict]:
         # Then: passage paragraphs for Q1 (no number marker, can be multiple paragraphs)
         # Then: "2.", "3.", "4.", "5." markers (all consecutive)
         # Then: 15 option paragraphs (3 for each Q1-5)
+        # Question content is in textboxes (Q2-5) or paragraphs before "2." (Q1)
         if 'question (1-5)' in line.lower() or 'questions (1-5)' in line.lower():
+            # Extract textbox content for Q2-5 passages
+            from lxml import etree
+            try:
+                body = doc.element.body
+                xml_str = etree.tostring(body, encoding='unicode')
+                textbox_matches = re.findall(r'<w:txbxContent[^>]*>(.*?)</w:txbxContent>', xml_str, re.DOTALL)
+
+                # Get unique textbox contents (they're often duplicated)
+                textbox_contents = []
+                seen_tb = set()
+                for tb in textbox_matches:
+                    texts = re.findall(r'<w:t[^>]*>([^<]+)</w:t>', tb)
+                    content = ''.join(texts).strip()
+                    # Skip short content, headers, and cloze options
+                    if content and len(content) > 30 and content not in seen_tb:
+                        if not re.match(r'^\d+\.?\s*A\s*\)', content):  # Not cloze options
+                            if 'Wallaby' not in content and 'Answer a maximum' not in content:
+                                seen_tb.add(content)
+                                textbox_contents.append(content)
+            except:
+                textbox_contents = []
+
             # Find all consecutive standalone numbers and passages before them
             j = i + 1
             passages_before_nums = []
@@ -3473,13 +3496,30 @@ def _parse_envie_questions(doc: Document) -> List[dict]:
                     opts_list.append(opt_para)
                     j += 1
 
+                # Build question contents
+                # Q1: from paragraphs before "2." marker
+                q1_content = ' '.join(passages_before_nums) if passages_before_nums else 'Question 1'
+
+                # Q2-5: from textboxes (first 4 unique textbox contents)
+                q_contents = [q1_content]
+                for tb_idx in range(min(4, len(textbox_contents))):
+                    # Truncate long passages for display
+                    tb_text = textbox_contents[tb_idx]
+                    if len(tb_text) > 200:
+                        tb_text = tb_text[:200] + '...'
+                    q_contents.append(tb_text)
+
+                # Pad with placeholders if not enough textboxes
+                while len(q_contents) < num_questions:
+                    q_contents.append(f'Question {len(q_contents) + 1}')
+
                 # Create questions from collected options
                 if len(opts_list) >= num_questions * 3:
                     for q_idx in range(num_questions):
                         q_opts = opts_list[q_idx*3:(q_idx+1)*3]
                         if len(q_opts) == 3:
                             questions.append({
-                                'question': f'Reading comprehension Q{q_idx+1}',
+                                'question': q_contents[q_idx],
                                 'options': q_opts
                             })
                             seen_q_numbers.add(str(q_idx + 1))
