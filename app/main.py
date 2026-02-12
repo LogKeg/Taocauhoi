@@ -933,16 +933,21 @@ def _omml_children_to_latex(element, ns: dict) -> str:
     return ''.join(result)
 
 
-def _extract_paragraph_with_math(para) -> str:
+def _extract_paragraph_with_math(para, use_latex: bool = False) -> str:
     """
     Extract text from a paragraph, including OMML math formulas.
 
     python-docx's para.text doesn't include math formulas (OMML).
     This function extracts both regular text and math formula text.
+
+    Args:
+        para: A python-docx paragraph object
+        use_latex: If True, convert math formulas to LaTeX notation
     """
     # Namespace for OMML (Office Math Markup Language)
     MATH_NS = '{http://schemas.openxmlformats.org/officeDocument/2006/math}'
     WORD_NS = '{http://schemas.openxmlformats.org/wordprocessingml/2006/main}'
+    ns = {'m': 'http://schemas.openxmlformats.org/officeDocument/2006/math'}
 
     result_parts = []
 
@@ -959,36 +964,50 @@ def _extract_paragraph_with_math(para) -> str:
 
         # Math formula (OMML)
         elif tag == f'{MATH_NS}oMath' or tag == f'{MATH_NS}oMathPara':
-            # Extract all text from math formula
-            math_texts = []
-            for m_t in child.iter(f'{MATH_NS}t'):
-                if m_t.text:
-                    math_texts.append(m_t.text)
-            if math_texts:
-                # Join math parts (may need spaces for readability)
-                result_parts.append(''.join(math_texts))
+            if use_latex:
+                # Convert OMML to LaTeX
+                latex = _omml_children_to_latex(child, ns)
+                if latex:
+                    result_parts.append(f'${latex}$')
+            else:
+                # Extract plain text from math formula
+                math_texts = []
+                for m_t in child.iter(f'{MATH_NS}t'):
+                    if m_t.text:
+                        math_texts.append(m_t.text)
+                if math_texts:
+                    result_parts.append(''.join(math_texts))
 
     return ''.join(result_parts).strip()
 
 
-def _extract_cell_with_math(cell) -> str:
+def _extract_cell_with_math(cell, use_latex: bool = False) -> str:
     """
     Extract text from a table cell, including OMML math formulas.
+
+    Args:
+        cell: A python-docx table cell object
+        use_latex: If True, convert math formulas to LaTeX notation
     """
     cell_parts = []
     for para in cell.paragraphs:
-        para_text = _extract_paragraph_with_math(para)
+        para_text = _extract_paragraph_with_math(para, use_latex=use_latex)
         if para_text:
             cell_parts.append(para_text)
     return '\n'.join(cell_parts)
 
 
-def _extract_docx_content(doc: Document, include_textboxes: bool = True) -> str:
+def _extract_docx_content(doc: Document, include_textboxes: bool = True, use_latex: bool = False) -> str:
     """
     Extract all text content from a Word document.
     Handles paragraphs, tables, and optionally text boxes.
 
     This is the unified function for reading Word documents across all features.
+
+    Args:
+        doc: A python-docx Document object
+        include_textboxes: If True, extract text from text boxes
+        use_latex: If True, convert math formulas to LaTeX notation
     """
     all_text = []
     seen_text = set()  # To avoid duplicates
@@ -1003,7 +1022,7 @@ def _extract_docx_content(doc: Document, include_textboxes: bool = True) -> str:
     # 1. Read paragraphs (including text boxes if enabled)
     for para in doc.paragraphs:
         # Get paragraph text including math formulas
-        text = _extract_paragraph_with_math(para)
+        text = _extract_paragraph_with_math(para, use_latex=use_latex)
         if text:
             add_text(text)
 
@@ -1027,7 +1046,7 @@ def _extract_docx_content(doc: Document, include_textboxes: bool = True) -> str:
         for row in table.rows:
             row_texts = []
             for cell in row.cells:
-                cell_text = _extract_cell_with_math(cell)
+                cell_text = _extract_cell_with_math(cell, use_latex=use_latex)
                 if cell_text:
                     row_texts.append(cell_text)
 
@@ -1040,11 +1059,16 @@ def _extract_docx_content(doc: Document, include_textboxes: bool = True) -> str:
     return "\n\n".join(all_text)
 
 
-def _extract_docx_lines(doc: Document, include_textboxes: bool = True) -> list:
+def _extract_docx_lines(doc: Document, include_textboxes: bool = True, use_latex: bool = False) -> list:
     """
     Extract all text lines from a Word document as a list.
     Similar to _extract_docx_content but returns list instead of joined string.
     For Math exams, preserves line breaks within cells to keep options separate.
+
+    Args:
+        doc: A python-docx Document object
+        include_textboxes: If True, extract text from text boxes
+        use_latex: If True, convert math formulas to LaTeX notation
     """
     all_lines = []
     seen_text = set()
@@ -1094,7 +1118,7 @@ def _extract_docx_lines(doc: Document, include_textboxes: bool = True) -> list:
 
     # Read paragraphs
     for para in doc.paragraphs:
-        text = _extract_paragraph_with_math(para)
+        text = _extract_paragraph_with_math(para, use_latex=use_latex)
         if text:
             add_line(text)
 
@@ -1118,8 +1142,8 @@ def _extract_docx_lines(doc: Document, include_textboxes: bool = True) -> list:
     for table in doc.tables:
         for row in table.rows:
             for cell in row.cells:
-                # Get cell text preserving line structure
-                cell_text = cell.text.strip()
+                # Get cell text with math formulas
+                cell_text = _extract_cell_with_math(cell, use_latex=use_latex)
                 if cell_text:
                     # Use multiline handler to split and add each line
                     add_multiline_text(cell_text)
@@ -2945,10 +2969,21 @@ def _parse_math_exam_questions(lines: List[str]) -> List[dict]:
 # ============================================================================
 
 @app.post("/convert-word-to-excel")
-def convert_word_to_excel(file: UploadFile = Form(...)) -> StreamingResponse:
-    """Convert a Word file containing questions to Excel format."""
+def convert_word_to_excel(
+    file: UploadFile = Form(...),
+    use_latex: str = Form("0")
+) -> StreamingResponse:
+    """Convert a Word file containing questions to Excel format.
+
+    Args:
+        file: The Word document to convert
+        use_latex: "1" to convert math formulas to LaTeX, "0" for plain text
+    """
     if not file.filename or not file.filename.lower().endswith('.docx'):
         raise HTTPException(status_code=400, detail="Chỉ hỗ trợ file .docx")
+
+    # Parse use_latex parameter
+    latex_enabled = use_latex == "1"
 
     # Read the Word document
     try:
@@ -2956,7 +2991,7 @@ def convert_word_to_excel(file: UploadFile = Form(...)) -> StreamingResponse:
         doc = Document(io.BytesIO(content))
 
         # Use unified extraction for lines (handles paragraphs, textboxes, tables)
-        lines = _extract_docx_lines(doc, include_textboxes=True)
+        lines = _extract_docx_lines(doc, include_textboxes=True, use_latex=latex_enabled)
 
         # Check if this is a Math exam format (Question 1., Question 2., etc.)
         is_math_format = any(re.match(r'^Question\s+\d+', line, re.IGNORECASE) for line in lines[:20])

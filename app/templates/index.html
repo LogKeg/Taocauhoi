@@ -123,6 +123,12 @@
               <input type="file" id="convertFile" accept=".docx" />
               <button id="convertBtn" type="button">Chuyển đổi</button>
             </div>
+            <div class="convert-options" style="margin-top: 12px;">
+              <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                <input type="checkbox" id="convertLatex" />
+                <span>Xuất công thức dạng LaTeX</span>
+              </label>
+            </div>
             <div class="gen-status" id="convertStatus"></div>
           </div>
         </section>
@@ -723,6 +729,7 @@
       document.getElementById('convertBtn').addEventListener('click', async () => {
         const fileInput = document.getElementById('convertFile');
         const status = document.getElementById('convertStatus');
+        const useLatex = document.getElementById('convertLatex').checked;
 
         if (!fileInput.files.length) {
           status.textContent = 'Vui lòng chọn file .docx';
@@ -734,6 +741,7 @@
         try {
           const formData = new FormData();
           formData.append('file', fileInput.files[0]);
+          formData.append('use_latex', useLatex ? '1' : '0');
 
           const res = await fetch('/convert-word-to-excel', { method: 'POST', body: formData });
 
