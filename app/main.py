@@ -2978,21 +2978,59 @@ def convert_word_to_excel(file: UploadFile = Form(...)) -> StreamingResponse:
         ws = wb.active
         ws.title = "Questions"
 
-        # Headers
-        headers = ["STT", "Câu hỏi", "A", "B", "C", "D", "Đáp án"]
+        # Headers matching the required format
+        headers = [
+            "Question Type",
+            "Question",
+            "Option 1",
+            "Option 2",
+            "Option 3",
+            "Option 4",
+            "Option 5",
+            "Correct Answer",
+            "Default Marks",
+            "Default Time To Solve",
+            "Difficulty Level",
+            "Hint",
+            "Solution"
+        ]
         for col, header in enumerate(headers, 1):
             ws.cell(row=1, column=col, value=header)
 
         # Data rows
         for idx, q in enumerate(questions, 1):
-            ws.cell(row=idx + 1, column=1, value=idx)
-            ws.cell(row=idx + 1, column=2, value=q.get("question", ""))
+            row = idx + 1
+            # Question Type - default to "MCQ" (Multiple Choice Question)
+            ws.cell(row=row, column=1, value="MCQ")
 
+            # Question content
+            ws.cell(row=row, column=2, value=q.get("question", ""))
+
+            # Options 1-5
             options = q.get("options", [])
-            for opt_idx, opt in enumerate(options[:4]):
-                ws.cell(row=idx + 1, column=3 + opt_idx, value=opt)
+            for opt_idx in range(5):
+                if opt_idx < len(options):
+                    ws.cell(row=row, column=3 + opt_idx, value=options[opt_idx])
+                else:
+                    ws.cell(row=row, column=3 + opt_idx, value="")
 
-            ws.cell(row=idx + 1, column=7, value=q.get("answer", ""))
+            # Correct Answer
+            ws.cell(row=row, column=8, value=q.get("answer", ""))
+
+            # Default Marks - empty by default
+            ws.cell(row=row, column=9, value="")
+
+            # Default Time To Solve - empty by default
+            ws.cell(row=row, column=10, value="")
+
+            # Difficulty Level - empty by default
+            ws.cell(row=row, column=11, value="")
+
+            # Hint - empty by default
+            ws.cell(row=row, column=12, value="")
+
+            # Solution - empty by default
+            ws.cell(row=row, column=13, value="")
 
         # Save to buffer
         buffer = io.BytesIO()
