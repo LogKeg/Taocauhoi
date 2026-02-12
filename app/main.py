@@ -1214,7 +1214,7 @@ def _parse_bilingual_questions(lines: List[str], table_options: List[List[str]] 
     section_header_pattern = re.compile(r'^Section\s+[A-Z]\s*:', re.IGNORECASE)
 
     def extract_options_from_line(line: str) -> List[str]:
-        """Extract options from a line with A) B) C) D) markers."""
+        """Extract options from a line with A) B) C) D) markers or EN-VIE format."""
         opts = []
         # Match uppercase A-E followed by . or ) and then actual content (not just dots)
         # Must be at start, after space/tab, and followed by real text
@@ -1232,14 +1232,38 @@ def _parse_bilingual_questions(lines: List[str], table_options: List[List[str]] 
                 # Skip if the option text is just dots or empty
                 if opt_text and opt_text not in ['...', '..', '.', '…']:
                     opts.append(opt_text)
+        # EN-VIE format: option A has no marker "text\tB) text\tC) text"
+        elif '\t' in line and re.search(r'B\s*\)', line, re.IGNORECASE):
+            b_markers = list(re.finditer(r'(?:^|(?<=\t))([B-E])\s*\)\s*', line, re.IGNORECASE))
+            if b_markers:
+                # Option A is the text before B)
+                first_b = b_markers[0]
+                opt_a = line[:first_b.start()].strip().rstrip('\t ')
+                if opt_a and opt_a not in ['...', '..', '.', '…']:
+                    opts.append(opt_a)
+                # Extract B), C), D), E) options
+                for idx, m in enumerate(b_markers):
+                    start = m.end()
+                    if idx + 1 < len(b_markers):
+                        end = b_markers[idx + 1].start()
+                    else:
+                        end = len(line)
+                    opt_text = line[start:end].strip().rstrip('\t ')
+                    if opt_text and opt_text not in ['...', '..', '.', '…']:
+                        opts.append(opt_text)
         return opts
 
     def is_option_line(line: str) -> bool:
-        """Check if a line looks like options (starts with A) and has B))."""
+        """Check if a line looks like options (starts with A) or has tab-separated B) C) D)."""
         if re.match(r'^A\s*[.\)]', line, re.IGNORECASE):
             return True
         if '\t' in line and re.search(r'A\s*[.\)].*B\s*[.\)]', line, re.IGNORECASE):
             return True
+        # EN-VIE format: option A has no marker, just "text\tB) text\tC) text"
+        if '\t' in line and re.search(r'B\s*\)', line, re.IGNORECASE):
+            markers = re.findall(r'[B-E]\s*\)', line, re.IGNORECASE)
+            if len(markers) >= 2:  # At least B) and C)
+                return True
         return False
 
     def has_fill_blank(text: str) -> bool:
@@ -3096,6 +3120,1069 @@ def _parse_math_exam_questions(lines: List[str]) -> List[dict]:
 
 
 # ============================================================================
+# ENGLISH EXAM PARSING
+# ============================================================================
+
+def _parse_english_exam_questions(doc: Document) -> List[dict]:
+    """
+    Parse English exam questions from Word document.
+    Handles multiple formats specific to English Level exams:
+    1. Nested 2x2 table options
+    2. Paragraphs as options (reading comprehension, dialogue)
+    3. Cloze passages with options in following table rows
+    4. Orphan options (options without visible question text - may have image)
+    5. Textbox content (dialogue context, additional question text)
+    """
+    ns = {'w': 'http://schemas.openxmlformats.org/wordprocessingml/2006/main'}
+
+    questions = []
+    seen_texts = set()
+    orphan_options = []  # Options without questions (text may be in image)
+
+    # Track cloze passages and their options
+    cloze_passage = None
+    cloze_blanks = []
+    cloze_options = []
+
+    def extract_textbox_content(cell) -> str:
+        """Extract text from textboxes in a cell (used for dialogue context)."""
+        xml = cell._element.xml
+        if 'w:txbxContent' not in xml:
+            return ''
+
+        matches = re.findall(r'<w:txbxContent[^>]*>(.*?)</w:txbxContent>', xml, re.DOTALL)
+        texts = []
+        seen = set()
+        for m in matches:
+            t_texts = re.findall(r'<w:t[^>]*>([^<]+)</w:t>', m)
+            content = ' '.join(t_texts).strip()
+            # Deduplicate (textboxes often duplicated in Word)
+            if content and content not in seen:
+                seen.add(content)
+                texts.append(content)
+        return ' '.join(texts)
+
+    def flush_cloze_questions():
+        """Add cloze questions to the list when we have collected all options."""
+        nonlocal cloze_passage, cloze_blanks, cloze_options
+        if cloze_passage and cloze_options:
+            for idx, blank_num in enumerate(cloze_blanks):
+                if idx < len(cloze_options):
+                    # Include full passage text for cloze questions
+                    questions.append({
+                        'question': f'Cloze ({blank_num}): {cloze_passage}',
+                        'options': cloze_options[idx][:4]
+                    })
+            cloze_passage = None
+            cloze_blanks = []
+            cloze_options = []
+
+    for ti, table in enumerate(doc.tables):
+        for ri, row in enumerate(table.rows):
+            for ci, cell in enumerate(row.cells):
+                paras = [p.text.strip() for p in cell.paragraphs if p.text.strip()]
+                cell_text = cell.text.strip()
+                textbox_content = extract_textbox_content(cell)
+
+                nested_tables = cell._element.findall('.//w:tbl', ns)
+
+                # Extract options from nested tables first
+                options = []
+                if nested_tables:
+                    for nt in nested_tables:
+                        rows_elem = nt.findall('.//w:tr', ns)
+                        for nrow in rows_elem:
+                            cells_elem = nrow.findall('.//w:tc', ns)
+                            for nc in cells_elem:
+                                t_elems = nc.findall('.//w:t', ns)
+                                text = ''.join([t.text or '' for t in t_elems]).strip()
+                                if text:
+                                    options.append(text)
+
+                # Skip completely empty cells
+                if not cell_text and not options and not textbox_content:
+                    continue
+
+                # Better duplicate key: include textbox content
+                para_opts_key = str(paras[1:5]) if len(paras) >= 5 else ''
+                cell_key = (cell_text[:100] if cell_text else '') + str(options[:2]) + para_opts_key + textbox_content[:50]
+                if cell_key in seen_texts:
+                    continue
+                seen_texts.add(cell_key)
+
+                # Check for cloze passage (has numbered blanks like (31))
+                numbered_blanks = re.findall(r'\((\d+)\)', cell_text)
+                if len(numbered_blanks) >= 2 and not nested_tables:
+                    # Flush any previous cloze questions first
+                    flush_cloze_questions()
+
+                    cloze_passage = cell_text
+                    cloze_blanks = numbered_blanks
+                    cloze_options = []
+                    continue
+
+                # Process nested table options
+                if options:
+                    # Normal question with nested table options (has question text)
+                    if len(options) >= 4 and paras:
+                        # First check if we have pending cloze - if so, this is NOT cloze options
+                        # because it has question text
+                        flush_cloze_questions()
+
+                        q_text = ' '.join(paras)
+                        # Include textbox content for dialogue/reading context
+                        if textbox_content:
+                            q_text = q_text + ' ' + textbox_content
+                        # Remove option text that may have leaked into question text
+                        for opt in options:
+                            q_text = q_text.replace(opt, '').strip()
+
+                        if q_text:
+                            questions.append({
+                                'question': q_text,
+                                'options': options[:4]
+                            })
+                    # Standalone options table (for cloze or orphan)
+                    elif len(options) >= 4 and not paras:
+                        if cloze_passage:
+                            cloze_options.append(options)
+                            # Check if we have collected all cloze options
+                            if len(cloze_options) >= len(cloze_blanks):
+                                flush_cloze_questions()
+                        else:
+                            orphan_options.append(options)
+                    continue
+
+                # Paragraphs as options (reading comprehension, dialogue, antonyms)
+                if len(paras) >= 5:
+                    # Flush any pending cloze questions first
+                    flush_cloze_questions()
+
+                    q_text = paras[0]
+                    opts = paras[1:5]
+                    # Include textbox content for context (dialogue, etc.)
+                    if textbox_content:
+                        q_text = q_text + ' ' + textbox_content
+                    if all(len(o) >= 2 for o in opts):
+                        questions.append({
+                            'question': q_text,
+                            'options': opts
+                        })
+                    continue
+
+    # Don't forget last cloze passage if not yet flushed
+    flush_cloze_questions()
+
+    # Handle orphan options - options without visible question text
+    # (question text may be in an image)
+    for opts in orphan_options:
+        questions.append({
+            'question': 'Question with options only (text may be in image)',
+            'options': opts[:4]
+        })
+
+    return questions
+
+
+def _parse_envie_questions(doc: Document) -> List[dict]:
+    """
+    Parse EN-VIE bilingual English exam questions.
+    These files have different formats:
+    1. Fill-blank questions followed by tab-separated options: "text\tB) text\tC) text"
+    2. Questions ending with ? followed by paragraph options (no A/B/C markers)
+    3. Matching questions with A) B) C) D) E) options
+    """
+    questions = []
+    paragraphs = [p.text.strip() for p in doc.paragraphs]
+
+    def extract_options_envie(line: str) -> List[str]:
+        """Extract options from EN-VIE format line."""
+        opts = []
+        # Format: "optA\tB) optB\tC) optC\tD) optD" or "optA  B) optB C) optC"
+        # Also handle format without tabs: "Beijing, China.	B) Athens, Greece.   C) Rome"
+        if re.search(r'B\s*\)', line, re.IGNORECASE):
+            # Find B) marker position
+            b_match = re.search(r'B\s*\)', line, re.IGNORECASE)
+            if b_match:
+                # Option A is text before B)
+                opt_a = line[:b_match.start()].strip().rstrip('\t ')
+                if opt_a:
+                    opts.append(opt_a)
+                else:
+                    # Image option - add placeholder
+                    opts.append('[Image A]')
+                # Find all B-E markers
+                markers = list(re.finditer(r'([B-E])\s*\)', line, re.IGNORECASE))
+                for idx, m in enumerate(markers):
+                    start = m.end()
+                    if idx + 1 < len(markers):
+                        end = markers[idx + 1].start()
+                    else:
+                        end = len(line)
+                    opt_text = line[start:end].strip().rstrip('\t ')
+                    if opt_text:
+                        opts.append(opt_text)
+                    else:
+                        # Image option - add placeholder
+                        opts.append(f'[Image {m.group(1).upper()}]')
+        # Format: "A) optA B) optB C) optC" (with A marker)
+        elif re.match(r'^A\s*\)', line, re.IGNORECASE):
+            markers = list(re.finditer(r'([A-E])\s*\)', line, re.IGNORECASE))
+            for idx, m in enumerate(markers):
+                start = m.end()
+                if idx + 1 < len(markers):
+                    end = markers[idx + 1].start()
+                else:
+                    end = len(line)
+                opt_text = line[start:end].strip().rstrip('\t ')
+                if opt_text:
+                    opts.append(opt_text)
+        # Format: "C) optC D) optD" or "D) optD E) optE" (continuation line)
+        elif re.match(r'^[C-E]\s*\)', line, re.IGNORECASE):
+            markers = list(re.finditer(r'([C-E])\s*\)', line, re.IGNORECASE))
+            for idx, m in enumerate(markers):
+                start = m.end()
+                if idx + 1 < len(markers):
+                    end = markers[idx + 1].start()
+                else:
+                    end = len(line)
+                opt_text = line[start:end].strip().rstrip('\t ')
+                if opt_text:
+                    opts.append(opt_text)
+        return opts
+
+    def is_option_line_envie(line: str) -> bool:
+        """Check if line contains options."""
+        # Options with B) marker (tab or space separated)
+        if re.search(r'B\s*\)', line, re.IGNORECASE):
+            return True
+        # Options starting with A)
+        if re.match(r'^A\s*\)', line, re.IGNORECASE):
+            return True
+        # Image-only options: "B)\tC)\tD)"
+        if re.match(r'^B\s*\)\s*\t', line, re.IGNORECASE):
+            return True
+        # Continuation line: "D) opt E) opt"
+        if re.match(r'^[D-E]\s*\)', line, re.IGNORECASE):
+            return True
+        return False
+
+    def has_fill_blank(text: str) -> bool:
+        return '…' in text or '___' in text or '...' in text
+
+    def is_sentence_with_blank(text: str) -> bool:
+        """Check if text is a sentence containing a fill-blank (transform sentence)."""
+        # Pattern: sentence with … marker, ending with period
+        if has_fill_blank(text) and text.endswith('.'):
+            return True
+        return False
+
+    def is_instruction_line(text: str) -> bool:
+        """Check if line is an instruction (not a question)."""
+        # If it has fill-blank marker, it's a question, not instruction
+        if has_fill_blank(text):
+            return False
+        lower = text.lower()
+        patterns = [
+            'for each question',
+            'read the following',
+            'read and look',
+            'read, look',
+            'choose the correct',
+            'choose the best',
+            'answer the questions',
+            'questions 1-',
+            'questions (1-',
+            'for questions',
+        ]
+        return any(p in lower for p in patterns)
+
+    # Track question numbers we've seen to detect standalone number patterns
+    seen_q_numbers = set()
+
+    i = 0
+    while i < len(paragraphs):
+        line = paragraphs[i].strip()
+        if not line:
+            i += 1
+            continue
+
+        # Skip pure option lines (they belong to previous question)
+        # But don't skip cloze lines - those are standalone cloze options/questions
+        if is_option_line_envie(line) and not has_fill_blank(line):
+            # Check if this is a standalone cloze option (A) at start with tab-separated B) C) D))
+            is_standalone_cloze = re.match(r'^A\s*\)', line) and '\t' in line and re.search(r'B\s*\).*C\s*\).*D\s*\)', line)
+            # Check if this is a numbered cloze question "22. A) opt B) opt..."
+            is_numbered_cloze = re.match(r'^(\d+)\.\s*A\s*\)', line)
+            if not is_standalone_cloze and not is_numbered_cloze:
+                i += 1
+                continue
+
+        # Case 0a: Wallaby Q1-5 special format (must be BEFORE instruction skip)
+        # Structure: "For each question (1-5)..." instruction
+        # Then: passage paragraphs for Q1 (no number marker, can be multiple paragraphs)
+        # Then: "2.", "3.", "4.", "5." markers (all consecutive)
+        # Then: 15 option paragraphs (3 for each Q1-5)
+        if 'question (1-5)' in line.lower() or 'questions (1-5)' in line.lower():
+            # Find all consecutive standalone numbers and passages before them
+            j = i + 1
+            passages_before_nums = []
+            standalone_nums = []
+
+            # First pass: collect everything before we see standalone numbers
+            while j < len(paragraphs):
+                next_para = paragraphs[j].strip()
+                if not next_para:
+                    j += 1
+                    continue
+                # Check for standalone number
+                num_match = re.match(r'^(\d+)\.$', next_para)
+                if num_match:
+                    standalone_nums.append(int(num_match.group(1)))
+                    j += 1
+                    # Continue collecting more numbers
+                    while j < len(paragraphs):
+                        np = paragraphs[j].strip()
+                        if not np:
+                            j += 1
+                            continue
+                        nm = re.match(r'^(\d+)\.$', np)
+                        if nm:
+                            standalone_nums.append(int(nm.group(1)))
+                            j += 1
+                        else:
+                            break
+                    break
+                else:
+                    passages_before_nums.append(next_para)
+                    j += 1
+
+            # If we found numbers 2-5 pattern
+            if standalone_nums and 2 in standalone_nums:
+                # Count questions (1 + number of standalone markers)
+                num_questions = 1 + len(standalone_nums)
+                # Collect 3 options per question
+                opts_list = []
+                while j < len(paragraphs) and len(opts_list) < num_questions * 3:
+                    opt_para = paragraphs[j].strip()
+                    if not opt_para:
+                        j += 1
+                        continue
+                    if is_instruction_line(opt_para) or is_option_line_envie(opt_para):
+                        break
+                    opts_list.append(opt_para)
+                    j += 1
+
+                # Create questions from collected options
+                if len(opts_list) >= num_questions * 3:
+                    for q_idx in range(num_questions):
+                        q_opts = opts_list[q_idx*3:(q_idx+1)*3]
+                        if len(q_opts) == 3:
+                            questions.append({
+                                'question': f'Reading comprehension Q{q_idx+1}',
+                                'options': q_opts
+                            })
+                            seen_q_numbers.add(str(q_idx + 1))
+                    i = j
+                    continue
+            i += 1
+            continue
+
+        # Skip general instruction lines (after handling Q1-5 special case)
+        if is_instruction_line(line):
+            i += 1
+            continue
+
+        # Case 0b: Standalone question number "1." or "2." etc.
+        # Followed by 3 option paragraphs (normal format)
+        q_num_match = re.match(r'^(\d+)\.$', line)
+        if q_num_match:
+            q_num = q_num_match.group(1)
+            if q_num not in seen_q_numbers:
+                seen_q_numbers.add(q_num)
+                # Collect next 3 non-empty paragraphs as options
+                opts = []
+                j = i + 1
+                while j < len(paragraphs) and len(opts) < 3:
+                    opt_line = paragraphs[j].strip()
+                    if not opt_line:
+                        j += 1
+                        continue
+                    # Stop if we hit another question number or option line
+                    if re.match(r'^\d+\.$', opt_line) or is_option_line_envie(opt_line):
+                        break
+                    if is_instruction_line(opt_line):
+                        j += 1
+                        continue
+                    opts.append(opt_line)
+                    j += 1
+
+                if len(opts) == 3:
+                    questions.append({
+                        'question': f'Question {q_num} (reading comprehension)',
+                        'options': opts
+                    })
+                    i = j
+                    continue
+            i += 1
+            continue
+
+        # Find next non-empty line
+        next_line = None
+        next_idx = i + 1
+        while next_idx < len(paragraphs):
+            if paragraphs[next_idx].strip():
+                next_line = paragraphs[next_idx].strip()
+                break
+            next_idx += 1
+
+        # Case 1: Fill-blank question followed by option line(s)
+        if has_fill_blank(line):
+            # Case 1a: Options in tab-separated format
+            if next_line and is_option_line_envie(next_line):
+                opts = extract_options_envie(next_line)
+                j = next_idx + 1
+                # Check for multi-line options (C) D) on next line)
+                while j < len(paragraphs) and len(opts) < 4:
+                    cont_line = paragraphs[j].strip()
+                    if not cont_line:
+                        j += 1
+                        continue
+                    # Check if line starts with C) or D) (continuation)
+                    if re.match(r'^[C-E]\s*\)', cont_line, re.IGNORECASE):
+                        more_opts = extract_options_envie(cont_line)
+                        if more_opts:
+                            opts.extend(more_opts)
+                            j += 1
+                            continue
+                    break
+                if opts:
+                    questions.append({
+                        'question': line,
+                        'options': opts
+                    })
+                    i = j
+                    continue
+
+            # Case 1b: Options as separate paragraphs (no A/B/C markers)
+            # Common in Story format
+            if next_line and not is_option_line_envie(next_line):
+                opts = []
+                j = i + 1
+                while j < len(paragraphs) and len(opts) < 4:
+                    opt_line = paragraphs[j].strip()
+                    if not opt_line:
+                        j += 1
+                        continue
+                    # Stop if we hit another question or option line
+                    if opt_line.endswith('?') or is_option_line_envie(opt_line) or has_fill_blank(opt_line):
+                        break
+                    # Skip instruction lines
+                    if is_instruction_line(opt_line):
+                        j += 1
+                        continue
+                    opts.append(opt_line)
+                    j += 1
+
+                if len(opts) >= 3:  # Need at least 3 options
+                    questions.append({
+                        'question': line,
+                        'options': opts[:4]
+                    })
+                    i = j
+                    continue
+
+        # Case 2: Question ending with ? followed by option line (text or image)
+        if line.endswith('?') and len(line) > 10:
+            # First check if next line is an option line (image options)
+            if next_line and is_option_line_envie(next_line):
+                opts = extract_options_envie(next_line)
+                if opts:
+                    questions.append({
+                        'question': line,
+                        'options': opts
+                    })
+                    i = next_idx + 1
+                    continue
+
+            # Otherwise collect next 3 paragraphs as options (no markers)
+            # Common in Q1-5 sections with reading comprehension
+            opts = []
+            j = i + 1
+            while j < len(paragraphs) and len(opts) < 3:
+                opt_line = paragraphs[j].strip()
+                if not opt_line:
+                    j += 1
+                    continue
+                # Stop if we hit another question or option line
+                if opt_line.endswith('?') or is_option_line_envie(opt_line) or has_fill_blank(opt_line):
+                    break
+                # Skip instruction lines
+                if is_instruction_line(opt_line):
+                    j += 1
+                    continue
+                # This looks like an option
+                opts.append(opt_line)
+                j += 1
+
+            if len(opts) == 3:  # EN-VIE Q1-5 has exactly 3 options
+                questions.append({
+                    'question': line,
+                    'options': opts
+                })
+                i = j
+                continue
+
+        # Case 2b: Dialogue question NOT ending with ? (Grey Kangaroo Q12, Q14, Q15)
+        # Format: "I think we should come up with a plan B." followed by 3 response options
+        # Distinguishing features:
+        # - Short sentence ending with period (dialogue prompt)
+        # - Following 3 lines are responses (not option markers like A) B))
+        # - Must be in dialogue section (after "For each question (11-15)")
+        if line.endswith('.') and len(line) > 15 and len(line) < 80 and not has_fill_blank(line):
+            # First check for special format: next line has "optA\tB) optB" and following line has "C) optC"
+            # This is Grey Kangaroo Q14 format
+            j = i + 1
+            while j < len(paragraphs):
+                np = paragraphs[j].strip()
+                if not np:
+                    j += 1
+                    continue
+                break
+
+            if j < len(paragraphs):
+                first_opt_line = paragraphs[j].strip()
+                # Check for "optA\tB) optB" pattern
+                ab_match = re.search(r'^(.+?)\tB\s*\)\s*(.+)$', first_opt_line)
+                if ab_match:
+                    opt_a = ab_match.group(1).strip()
+                    opt_b = ab_match.group(2).strip()
+                    # Look for C) option on next line
+                    j += 1
+                    while j < len(paragraphs):
+                        np = paragraphs[j].strip()
+                        if not np:
+                            j += 1
+                            continue
+                        break
+                    opt_c = None
+                    if j < len(paragraphs):
+                        c_line = paragraphs[j].strip()
+                        c_match = re.match(r'^C\s*\)\s*(.+)$', c_line, re.IGNORECASE)
+                        if c_match:
+                            opt_c = c_match.group(1).strip()
+                            j += 1
+                    if opt_a and opt_b and opt_c:
+                        questions.append({
+                            'question': line,
+                            'options': [opt_a, opt_b, opt_c]
+                        })
+                        i = j
+                        continue
+
+            # Otherwise check for dialogue responses (no markers)
+            dialogue_opts = []
+            j = i + 1
+            while j < len(paragraphs) and len(dialogue_opts) < 4:
+                opt_line = paragraphs[j].strip()
+                if not opt_line:
+                    j += 1
+                    continue
+                # Stop if we hit a question, option line with markers, or instruction
+                if opt_line.endswith('?') or has_fill_blank(opt_line) or is_instruction_line(opt_line):
+                    break
+                # Stop if line has B) C) markers (this is an option line for different question)
+                if re.search(r'B\s*\)', opt_line):
+                    break
+                # Dialogue responses are short sentences (< 60 chars) ending with period
+                if len(opt_line) < 70 and opt_line.endswith('.'):
+                    dialogue_opts.append(opt_line)
+                    j += 1
+                else:
+                    break
+
+            # Dialogue questions have exactly 3-4 response options
+            if len(dialogue_opts) == 3 or len(dialogue_opts) == 4:
+                questions.append({
+                    'question': line,
+                    'options': dialogue_opts[:3]
+                })
+                i = j
+                continue
+
+        # Case 3: Matching question - description followed by option line with 5 choices
+        # e.g., "Maria loves comfort food..." followed by "The Safari. B) Origo. C)..."
+        # Skip numbered cloze format "22. A) ..."
+        if len(line) > 30 and not line.endswith('?') and not has_fill_blank(line) and not re.match(r'^(\d+)\.\s*A\s*\)', line):
+            if next_line and is_option_line_envie(next_line):
+                # Check if options have 5 choices (matching format)
+                opts = extract_options_envie(next_line)
+                if len(opts) >= 4:  # Matching usually has 5 options
+                    questions.append({
+                        'question': line,
+                        'options': opts[:5]
+                    })
+                    i = next_idx + 1
+                    continue
+
+        # Case 4: Question ending with , followed by paragraph options (incomplete sentence)
+        # e.g., "According to the notice," followed by 3 options
+        if line.endswith(',') and len(line) > 15:
+            opts = []
+            j = i + 1
+            while j < len(paragraphs) and len(opts) < 3:
+                opt_line = paragraphs[j].strip()
+                if not opt_line:
+                    j += 1
+                    continue
+                if opt_line.endswith('?') or is_option_line_envie(opt_line) or has_fill_blank(opt_line):
+                    break
+                if is_instruction_line(opt_line):
+                    j += 1
+                    continue
+                opts.append(opt_line)
+                j += 1
+
+            if len(opts) == 3:
+                questions.append({
+                    'question': line,
+                    'options': opts
+                })
+                i = j
+                continue
+
+        # Case 5a: Reading comprehension with C) marker on option 2 line
+        # Format: "Abbreviations in the likes of BRB and LOL" + opt1 + "opt2\tC) opt3"
+        # Skip numbered cloze format "22. A) ..."
+        # Skip if line ends with '.' AND has commas (looks like option list, not question)
+        looks_like_option = line.endswith('.') and ',' in line and len(line) < 60
+        if len(line) > 20 and len(line) < 150 and not line.endswith('?') and not has_fill_blank(line) and not is_instruction_line(line) and not re.match(r'^(\d+)\.\s*A\s*\)', line) and not looks_like_option:
+            j = i + 1
+            opt1 = None
+            while j < len(paragraphs):
+                np = paragraphs[j].strip()
+                if not np:
+                    j += 1
+                    continue
+                opt1 = np
+                break
+
+            if opt1 and j + 1 < len(paragraphs):
+                opt2_line = paragraphs[j + 1].strip() if j + 1 < len(paragraphs) else ""
+                c_marker = re.search(r'\tC\s*\)|(\s{2,})C\s*\)', opt2_line)
+                if c_marker:
+                    opt2 = opt2_line[:c_marker.start()].strip()
+                    opt3_match = re.search(r'C\s*\)\s*(.+)$', opt2_line, re.IGNORECASE)
+                    opt3 = opt3_match.group(1).strip() if opt3_match else ""
+
+                    if opt2 and opt3:
+                        questions.append({
+                            'question': line,
+                            'options': [opt1, opt2, opt3]
+                        })
+                        i = j + 2
+                        continue
+
+        # Case 5b-new: Grey Kangaroo Q1-5 reading comprehension (MUST come before 5b)
+        # Format: stem line (no ? ending), then "opt1\tB) opt2" then "C) opt3"
+        # Example: "Traditionally, child narrators are regarded as"
+        #          "voices that employ a gloomy tone.\tB) innocent and genuine."
+        #          "C) devoid of the depth needed to explore serious themes."
+        if len(line) > 15 and len(line) < 80 and not line.endswith('?') and not line.endswith('.') and not has_fill_blank(line) and not is_instruction_line(line) and not re.match(r'^(\d+)\.\s*A\s*\)', line):
+            # Check if next line has format "opt1\tB) opt2" (option A + B in one line)
+            j = i + 1
+            while j < len(paragraphs):
+                np = paragraphs[j].strip()
+                if not np:
+                    j += 1
+                    continue
+                break
+
+            if j < len(paragraphs):
+                first_opt_line = paragraphs[j].strip()
+                # Check for "opt1\tB) opt2" or "opt1  B) opt2" pattern
+                b_match = re.search(r'(.+?)(?:\t|\s{2,})B\s*\)\s*(.+)$', first_opt_line)
+                if b_match:
+                    opt_a = b_match.group(1).strip()
+                    opt_b = b_match.group(2).strip()
+
+                    # Look for C) option on next line
+                    j += 1
+                    while j < len(paragraphs):
+                        np = paragraphs[j].strip()
+                        if not np:
+                            j += 1
+                            continue
+                        break
+
+                    opt_c = None
+                    if j < len(paragraphs):
+                        c_line = paragraphs[j].strip()
+                        c_match = re.match(r'^C\s*\)\s*(.+)$', c_line, re.IGNORECASE)
+                        if c_match:
+                            opt_c = c_match.group(1).strip()
+                            j += 1
+
+                    if opt_a and opt_b and opt_c:
+                        questions.append({
+                            'question': line,
+                            'options': [opt_a, opt_b, opt_c]
+                        })
+                        i = j
+                        continue
+
+        # Case 5b: Reading comprehension with 3 plain paragraph options (Q12-15 format)
+        # Stem is short (< 70 chars), followed by 3 options without markers
+        # Each option starts with lowercase (continuation of stem sentence)
+        # Skip numbered cloze format "22. A) ..."
+        if len(line) > 8 and len(line) < 70 and not line.endswith('?') and not line.endswith('.') and not has_fill_blank(line) and not is_instruction_line(line) and not re.match(r'^(\d+)\.\s*A\s*\)', line):
+            # Collect next 3 non-empty paragraphs
+            opts = []
+            j = i + 1
+            while j < len(paragraphs) and len(opts) < 3:
+                np = paragraphs[j].strip()
+                if not np:
+                    j += 1
+                    continue
+                # Stop if we hit instruction or question-like line
+                if is_instruction_line(np) or np.endswith('?') or is_option_line_envie(np):
+                    break
+                # Options should start with lowercase (continuation) or be short sentences
+                if len(np) < 100:
+                    opts.append(np)
+                    j += 1
+                else:
+                    break
+
+            if len(opts) == 3:
+                questions.append({
+                    'question': line,
+                    'options': opts
+                })
+                i = j
+                continue
+
+        # Case 5c: Matching question - "Match each prefix..." or "Match the questions..." followed by table rows then options
+        if 'match' in line.lower() and ('column' in line.lower() or 'prefix' in line.lower() or 'questions' in line.lower() or 'left' in line.lower()):
+            # Skip table rows until we find options A) 1.../2.../
+            j = i + 1
+            table_rows = []
+            while j < len(paragraphs):
+                np = paragraphs[j].strip()
+                if not np:
+                    j += 1
+                    continue
+                # Check for option line "A) 1e/2b/..."
+                if re.match(r'^A\s*\)\s*\d', np):
+                    break
+                # Collect table rows
+                if '\t' in np or re.match(r'^\w+\s+[a-e]\.', np):
+                    table_rows.append(np)
+                j += 1
+
+            # Extract options from option lines
+            opts = []
+            while j < len(paragraphs) and len(opts) < 5:
+                np = paragraphs[j].strip()
+                if not np:
+                    j += 1
+                    continue
+                # Extract A-E options
+                if re.match(r'^[A-E]\s*\)', np):
+                    markers = list(re.finditer(r'([A-E])\s*\)', np, re.IGNORECASE))
+                    for idx, m in enumerate(markers):
+                        start = m.end()
+                        if idx + 1 < len(markers):
+                            end = markers[idx + 1].start()
+                        else:
+                            end = len(np)
+                        opt_text = np[start:end].strip()
+                        if opt_text:
+                            opts.append(opt_text)
+                    j += 1
+                    continue
+                break
+
+            if len(opts) >= 3:
+                questions.append({
+                    'question': line,
+                    'options': opts[:5]
+                })
+                i = j
+                continue
+
+        # Case 6: Question + next line options with 5 choices (Wallaby Q31-50)
+        # Format: "The Forbidden City is located in …" on one line
+        # Then: "Beijing, China.\tB) Athens, Greece.   C) Rome..." on next line
+        # Also handles multi-line options (D) E) on subsequent line)
+        # Skip numbered cloze format "22. A) ..." which is handled by Case 7
+        if len(line) > 15 and not is_instruction_line(line) and not re.match(r'^(\d+)\.\s*A\s*\)', line):
+            if next_line and is_option_line_envie(next_line):
+                opts = extract_options_envie(next_line)
+                j = next_idx + 1
+                # Check for continuation line (D) E) options)
+                while j < len(paragraphs) and len(opts) < 5:
+                    cont_line = paragraphs[j].strip()
+                    if not cont_line:
+                        j += 1
+                        continue
+                    # Check for D) E) continuation
+                    if re.match(r'^[D-E]\s*\)', cont_line, re.IGNORECASE):
+                        more_opts = extract_options_envie(cont_line)
+                        if more_opts:
+                            opts.extend(more_opts)
+                            j += 1
+                            continue
+                    break
+                if len(opts) >= 3:
+                    questions.append({
+                        'question': line,
+                        'options': opts[:5]
+                    })
+                    i = j
+                    continue
+
+        # Case 7: Cloze question in paragraph format
+        # Format: "22.\tA) neither\tB) both\tC) either\tD) whether"
+        cloze_match = re.match(r'^(\d+)\.\s*A\s*\)', line)
+        if cloze_match:
+            q_num = cloze_match.group(1)
+            opts = extract_options_envie(line[cloze_match.start():])
+            # If A) not extracted properly, re-extract starting from A)
+            a_pos = re.search(r'A\s*\)', line)
+            if a_pos:
+                opts_text = line[a_pos.start():]
+                markers = list(re.finditer(r'([A-E])\s*\)', opts_text, re.IGNORECASE))
+                opts = []
+                for idx, m in enumerate(markers):
+                    start = m.end()
+                    if idx + 1 < len(markers):
+                        end = markers[idx + 1].start()
+                    else:
+                        end = len(opts_text)
+                    opt_text = opts_text[start:end].strip().rstrip('\t ')
+                    if opt_text:
+                        opts.append(opt_text)
+            if len(opts) >= 3:
+                questions.append({
+                    'question': f'Cloze question {q_num}',
+                    'options': opts[:4]
+                })
+                i += 1
+                continue
+
+        # Case 8: Cloze options without number (Q25-30 format)
+        # Format: "A) yet\tB) whereas\tC) also\tD) while" - only options, no question number
+        # These appear after numbered cloze questions in the same section
+        # Each line is OPTIONS for ONE cloze question (not question + options from next line)
+        if re.match(r'^A\s*\)', line) and '\t' in line:
+            opts_text = line
+            markers = list(re.finditer(r'([A-E])\s*\)', opts_text, re.IGNORECASE))
+            opts = []
+            for idx, m in enumerate(markers):
+                start = m.end()
+                if idx + 1 < len(markers):
+                    end = markers[idx + 1].start()
+                else:
+                    end = len(opts_text)
+                opt_text = opts_text[start:end].strip().rstrip('\t ')
+                if opt_text:
+                    opts.append(opt_text)
+            if len(opts) >= 3:
+                # This line IS the options for a cloze question (no question text, just options)
+                # Question text is in the passage as a numbered blank like (26)
+                questions.append({
+                    'question': 'Cloze question (unnumbered)',
+                    'options': opts[:4]
+                })
+                i += 1
+                continue
+
+        i += 1
+
+    # Parse cloze questions from tables
+    # Format: Table rows with "16.\tA) option" in first cell, B)/C)/D) in other cells
+    for table in doc.tables:
+        for row in table.rows:
+            cells = [cell.text.strip() for cell in row.cells]
+            if not cells or not cells[0]:
+                continue
+
+            # Check if first cell has numbered question format "16.\tA) option"
+            first_cell = cells[0]
+            match = re.match(r'^(\d+)\.\s*A\s*\)\s*(.+)$', first_cell.replace('\t', ' '))
+            if match:
+                q_num = match.group(1)
+                opt_a = match.group(2).strip()
+                opts = [opt_a]
+
+                # Extract B, C, D options from other cells
+                for cell_text in cells[1:]:
+                    opt_match = re.match(r'^([B-E])\s*\)\s*(.+)$', cell_text.strip())
+                    if opt_match:
+                        opts.append(opt_match.group(2).strip())
+
+                if len(opts) >= 3:
+                    questions.append({
+                        'question': f'Cloze question {q_num}',
+                        'options': opts[:4]
+                    })
+                continue
+
+            # Check for table with mixed question/options (Wallaby format)
+            # Cell might have "Question?\nOption A." format
+            for cell_text in cells:
+                # Look for question ending with ? followed by option on new line
+                if '?' in cell_text and '\n' in cell_text:
+                    lines = cell_text.split('\n')
+                    for li, line in enumerate(lines):
+                        if line.strip().endswith('?'):
+                            q_text = line.strip()
+                            # Next line is option A
+                            opts = []
+                            if li + 1 < len(lines):
+                                opt_a = lines[li + 1].strip().rstrip('.')
+                                if opt_a:
+                                    opts.append(opt_a)
+                            # Get B, C options from other cells in same row
+                            for other_cell in cells[1:]:
+                                opt_match = re.match(r'^([B-E])\s*\)\s*(.+)$', other_cell.strip())
+                                if opt_match:
+                                    opts.append(opt_match.group(2).strip().rstrip('.'))
+
+                            if q_text and len(opts) >= 3:
+                                questions.append({
+                                    'question': q_text,
+                                    'options': opts[:5]
+                                })
+                            break
+
+            # Check if row has only options (D, E) - belongs to previous question
+            # Skip for now as it's handled above
+
+            # Joey format: Row with "A) option" in cells + embedded question number
+            # e.g., "A) Table tennis.\n34. Pick out the odd one." in first cell
+            # Options B-E in other cells
+            if cells and re.match(r'^A\s*\)', cells[0]):
+                first_cell = cells[0]
+                # Check if first cell has embedded question
+                lines = first_cell.split('\n')
+                opt_a_text = None
+                embedded_q = None
+                for ln in lines:
+                    ln = ln.strip()
+                    if re.match(r'^A\s*\)', ln):
+                        # Extract option A text
+                        opt_a_match = re.match(r'^A\s*\)\s*(.+?)\.?$', ln)
+                        if opt_a_match:
+                            opt_a_text = opt_a_match.group(1).strip()
+                    elif re.match(r'^\d+\.', ln):
+                        # This is embedded question for next row
+                        embedded_q = re.sub(r'^\d+\.\s*', '', ln).strip()
+
+                if opt_a_text:
+                    opts = [opt_a_text]
+                    # Get B-E options from other cells
+                    for cell_text in cells[1:]:
+                        opt_match = re.match(r'^([B-E])\s*\)\s*(.+?)\.?$', cell_text.strip())
+                        if opt_match:
+                            opts.append(opt_match.group(2).strip())
+
+                    if len(opts) >= 3:
+                        # This is options for a question (need to find question from context)
+                        # Store for later matching or use placeholder
+                        questions.append({
+                            'question': 'Table question (options in table row)',
+                            'options': opts[:5]
+                        })
+
+    # Parse cloze questions from textboxes
+    # Textboxes may contain: "21. A) sparked B) spotted C) split D) squandered"
+    from lxml import etree
+    try:
+        body = doc.element.body
+        xml_str = etree.tostring(body, encoding='unicode')
+        textbox_matches = re.findall(r'<w:txbxContent[^>]*>(.*?)</w:txbxContent>', xml_str, re.DOTALL)
+
+        seen_cloze_nums = set()
+        for match in textbox_matches:
+            texts = re.findall(r'<w:t[^>]*>([^<]+)</w:t>', match)
+            content = ' '.join(texts).strip()
+
+            # Look for cloze option format: "21. A) option B) option C) option D) option"
+            cloze_match = re.match(r'^(\d+)\.\s*A\s*\)\s*', content)
+            if cloze_match:
+                q_num = cloze_match.group(1)
+                if q_num in seen_cloze_nums:
+                    continue
+                seen_cloze_nums.add(q_num)
+
+                # Extract options
+                markers = list(re.finditer(r'([A-D])\s*\)\s*', content))
+                opts = []
+                for idx, m in enumerate(markers):
+                    start = m.end()
+                    if idx + 1 < len(markers):
+                        end = markers[idx + 1].start()
+                    else:
+                        end = len(content)
+                    opt_text = content[start:end].strip()
+                    if opt_text:
+                        opts.append(opt_text)
+
+                if len(opts) >= 3:
+                    questions.append({
+                        'question': f'Cloze question {q_num}',
+                        'options': opts[:4]
+                    })
+
+        # Find cloze numbers in passages that don't have options (image-based questions)
+        # These appear as (26), (27), (28) in text but no corresponding option lines
+        cloze_in_passage = set()
+        cloze_with_options = set()
+
+        for match in textbox_matches:
+            texts = re.findall(r'<w:t[^>]*>([^<]+)</w:t>', match)
+            content = ''.join(texts).strip()
+
+            # Options: "21. A) ..." or "21.A) ..."
+            opt_match = re.match(r'^(\d+)\.?\s*A\s*\)', content)
+            if opt_match:
+                cloze_with_options.add(int(opt_match.group(1)))
+
+            # Passage blanks: "(26)" or "(27)"
+            blanks = re.findall(r'\((\d+)\)', content)
+            for b in blanks:
+                cloze_in_passage.add(int(b))
+
+        # Also check paragraphs for cloze options
+        for para in doc.paragraphs:
+            text = para.text.strip()
+            opt_match = re.match(r'^(\d+)\.\s*A\s*\)', text)
+            if opt_match:
+                cloze_with_options.add(int(opt_match.group(1)))
+
+        # Create placeholder questions for cloze numbers without options
+        # Only add if within the range of cloze numbers that have options (to avoid adding extras at the end)
+        missing_cloze = cloze_in_passage - cloze_with_options
+        if cloze_with_options:
+            max_cloze_with_options = max(cloze_with_options)
+            for cloze_num in sorted(missing_cloze):
+                # Only add if cloze number is less than max cloze that has options
+                # This ensures we don't create questions for trailing passage markers
+                if 20 <= cloze_num < max_cloze_with_options:
+                    questions.append({
+                        'question': f'Cloze question {cloze_num} (image-based)',
+                        'options': ['[Option A in image]', '[Option B in image]', '[Option C in image]', '[Option D in image]']
+                    })
+
+    except Exception:
+        pass  # lxml may not be available
+
+    return questions
+
+
+# ============================================================================
 # CONVERT WORD TO EXCEL
 # ============================================================================
 
@@ -3127,8 +4214,23 @@ def convert_word_to_excel(
         # Check if this is a Math exam format (Question 1., Question 2., etc.)
         is_math_format = any(re.match(r'^Question\s+\d+', line, re.IGNORECASE) for line in lines[:20])
 
+        # Check if this is an English Level exam format
+        # These have "Section A:", "Section B:" headers and questions in tables with nested option grids
+        is_english_level_format = (
+            any('Section A' in line or 'Section B' in line for line in lines[:15]) and
+            file.filename and 'LEVEL' in file.filename.upper()
+        )
+
+        # Check if this is an EN-VIE bilingual format
+        # These have "EN-VIE" in filename and specific patterns
+        is_envie_format = file.filename and 'EN-VIE' in file.filename.upper()
+
         if is_math_format:
             questions = _parse_math_exam_questions(lines)
+        elif is_english_level_format:
+            questions = _parse_english_exam_questions(doc)
+        elif is_envie_format:
+            questions = _parse_envie_questions(doc)
         else:
             questions = _parse_bilingual_questions(lines, table_options)
 
