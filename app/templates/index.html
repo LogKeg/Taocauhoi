@@ -585,7 +585,7 @@
             output.innerHTML = createdQuestions.map((q, i) => `
               <div class="created-question">
                 <div class="q-number">Câu ${i + 1}</div>
-                <div class="q-content">${q.content || ''}</div>
+                <div class="q-content">${(q.content || '').replace(/\n/g, '<br>')}</div>
                 <div class="q-options">${(q.options || []).map((o, j) => `<span>${String.fromCharCode(65 + j)}) ${o}</span>`).join(' ')}</div>
                 <div class="q-answer">Đáp án: ${q.correct_answer || ''}</div>
               </div>
@@ -719,7 +719,7 @@
             }
             return `<div class="created-question">
               <div class="q-number">Câu ${i + 1}</div>
-              <div class="q-content">${q.content || ''}</div>
+              <div class="q-content">${(q.content || '').replace(/\n/g, '<br>')}</div>
               <div class="q-options">${(q.options || []).map((o, j) => `<span>${String.fromCharCode(65 + j)}) ${o}</span>`).join(' ')}</div>
               ${q.correct_answer ? `<div class="q-answer">Đáp án: ${q.correct_answer}</div>` : ''}
             </div>`;
