@@ -1881,7 +1881,9 @@ async def export_exam(request: Request):
             if options:
                 labels = ['A', 'B', 'C', 'D', 'E']
                 for j, opt in enumerate(options[:5]):
-                    doc.add_paragraph(f"    {labels[j]}) {opt}")
+                    # Strip existing label if present (e.g., "A) text" -> "text")
+                    opt_clean = re.sub(r'^[A-Ea-e]\s*[.)]\s*', '', str(opt).strip())
+                    doc.add_paragraph(f"    {labels[j]}) {opt_clean}")
 
             doc.add_paragraph("")  # Blank line
 
@@ -1926,7 +1928,9 @@ async def export_exam(request: Request):
             if options:
                 labels = ['A', 'B', 'C', 'D', 'E']
                 for j, opt in enumerate(options[:5]):
-                    opt_line = f"    {labels[j]}) {opt}"
+                    # Strip existing label if present (e.g., "A) text" -> "text")
+                    opt_clean = re.sub(r'^[A-Ea-e]\s*[.)]\s*', '', str(opt).strip())
+                    opt_line = f"    {labels[j]}) {opt_clean}"
                     opt_wrapped = _wrap_text(opt_line, width - 120, font_name, font_size)
                     for part in opt_wrapped:
                         if y < 80:
@@ -5074,21 +5078,36 @@ async def generate_similar_exam(
                 opts_text = "\n".join([f"  {labels[j]}) {opt}" for j, opt in enumerate(q_options[:5])])
             sample_text += f"Q{i}: {q_content}\nOptions:\n{opts_text}\n\n"
 
-        # Detect if bilingual (EN-VIE format)
-        is_bilingual = 'EN-VIE' in (file.filename or '').upper() or any(
-            'Tiếng Việt' in q.get('question', '') or 'Vietnamese' in q.get('question', '')
-            for q in batch
+        # Detect if bilingual (EN-VIE format) - check multiple indicators
+        sample_content = sample_text.lower()
+        is_bilingual = (
+            'EN-VIE' in (file.filename or '').upper() or
+            'tiếng việt' in sample_content or
+            'vietnamese' in sample_content or
+            # Common Vietnamese words in English exams
+            'nghĩa là' in sample_content or
+            'có nghĩa' in sample_content or
+            'dịch sang' in sample_content or
+            # Check for Vietnamese characters in sample
+            any(c in sample_content for c in 'àáảãạăắằẳẵặâấầẩẫậèéẻẽẹêếềểễệìíỉĩịòóỏõọôốồổỗộơớờởỡợùúủũụưứừửữựỳýỷỹỵđ')
         )
 
         bilingual_instruction = ""
         if is_bilingual:
-            bilingual_instruction = """IMPORTANT: This is a BILINGUAL English-Vietnamese exam.
-Each question MUST have BOTH languages:
-- English question first
-- Vietnamese translation (Tiếng Việt:) after
+            bilingual_instruction = """CRITICAL - BILINGUAL FORMAT REQUIRED:
+This is a BILINGUAL English-Vietnamese exam. You MUST create questions in BOTH languages.
 
-Example format:
-"What is 2+2? / Tiếng Việt: 2 cộng 2 bằng bao nhiêu?"
+FORMAT FOR EACH QUESTION:
+[English question text]
+Tiếng Việt: [Vietnamese translation of the question]
+
+EXAMPLE:
+"What is the capital of France?
+Tiếng Việt: Thủ đô của Pháp là gì?"
+
+OPTIONS must also be bilingual if the original has bilingual options.
+
+DO NOT create English-only questions. EVERY question needs Vietnamese translation.
 """
 
         prompt = f"""Create {len(batch)} NEW similar multiple-choice questions based on the samples below.
@@ -5097,16 +5116,27 @@ Difficulty level: {difficulty_text}
 {bilingual_instruction}
 CRITICAL RULES:
 1. Each question MUST include ALL necessary data (numbers, formulas, context)
-2. Each question MUST have exactly 4 options (A, B, C, D) with SPECIFIC values
-3. Questions must be COMPLETE and SELF-CONTAINED (reader can solve without extra info)
+2. Each question MUST have exactly 4 options in the "options" array
+3. Questions must be COMPLETE and SELF-CONTAINED
 4. For math: include ALL numbers, formulas, equations needed to solve
 5. Keep the same format and style as the original
 
 SAMPLE QUESTIONS:
 {sample_text}
 
-Return ONLY a valid JSON array (no markdown, no explanation):
-[{{"content":"full question text with all data","options":["option A text","option B text","option C text","option D text"],"correct_answer":"A"}}]"""
+IMPORTANT JSON FORMAT:
+- Return exactly {len(batch)} question objects in a JSON array
+- Each object has: "content" (question text), "options" (array of 4 strings), "correct_answer" (A/B/C/D)
+- The "options" array must contain 4 answer choices as separate strings
+- DO NOT put each option as a separate question object
+
+CORRECT EXAMPLE (1 question with 4 options in array):
+[{{"content":"What shape has 5 faces?","options":["Cube","Rectangle","Square","Rhombus"],"correct_answer":"A"}}]
+
+WRONG EXAMPLE (DO NOT DO THIS - options as separate questions):
+[{{"content":"What shape has 5 faces?"}},{{"content":"A) Cube"}},{{"content":"B) Rectangle"}}]
+
+Return ONLY valid JSON array, no markdown, no explanation:"""
 
         try:
             response = await _call_ai_engine(ai_engine, prompt, settings)
@@ -5119,7 +5149,58 @@ Return ONLY a valid JSON array (no markdown, no explanation):
                 json_str = re.sub(r',\s*}', '}', json_str)  # Remove trailing comma in objects
                 try:
                     batch_questions = json.loads(json_str)
-                    all_generated.extend(batch_questions)
+
+                    # Fix malformed responses where options are separate objects
+                    # Detect: objects without "options" array but content starts with A), B), etc.
+                    fixed_questions = []
+                    current_question = None
+                    current_options = []
+
+                    for item in batch_questions:
+                        content = item.get("content", "")
+                        options = item.get("options", [])
+
+                        # Check if this looks like an option line (A), B), C), D))
+                        option_match = re.match(r'^([A-D])\s*[.)]\s*(.+)$', content.strip(), re.IGNORECASE)
+
+                        if options and len(options) >= 2:
+                            # This is a proper question with options
+                            if current_question:
+                                # Save previous question first
+                                if current_options:
+                                    current_question["options"] = current_options
+                                fixed_questions.append(current_question)
+                            fixed_questions.append(item)
+                            current_question = None
+                            current_options = []
+                        elif option_match:
+                            # This is an option line (A), B), etc.)
+                            opt_text = option_match.group(2).strip()
+                            current_options.append(opt_text)
+                        elif content and not option_match:
+                            # This is a question without options
+                            if current_question:
+                                # Save previous question
+                                if current_options:
+                                    current_question["options"] = current_options
+                                if current_question.get("options"):
+                                    fixed_questions.append(current_question)
+                            current_question = item
+                            current_options = []
+
+                    # Don't forget the last question
+                    if current_question:
+                        if current_options:
+                            current_question["options"] = current_options
+                        if current_question.get("options"):
+                            fixed_questions.append(current_question)
+
+                    # Use fixed questions if we found malformed data
+                    if fixed_questions:
+                        all_generated.extend(fixed_questions)
+                    else:
+                        all_generated.extend(batch_questions)
+
                 except json.JSONDecodeError:
                     # Try to fix truncated JSON by finding complete objects
                     # Find all complete JSON objects

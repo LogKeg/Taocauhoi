@@ -107,7 +107,8 @@ body {
   background: linear-gradient(180deg, var(--gradient-start), var(--gradient-end));
   border-radius: 0 4px 4px 0;
   transform: scaleY(0);
-  transition: transform 0.2s ease;
+  opacity: 0;
+  transition: transform 0.2s ease, opacity 0.2s ease;
 }
 
 .nav-item:hover {
@@ -128,6 +129,7 @@ body {
 
 .nav-item:not(.active):hover::before {
   transform: scaleY(1);
+  opacity: 1;
 }
 
 .nav-item.active:hover {
@@ -318,6 +320,10 @@ ol.output-list li strong {
   border-radius: 10px;
   font-size: 14px;
   border-left: 4px solid var(--accent);
+}
+
+.gen-status:empty {
+  display: none;
 }
 
 .result-panel {
