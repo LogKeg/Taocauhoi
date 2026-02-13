@@ -45,11 +45,31 @@
             <div class="create-options">
               <div class="auto-grid">
                 <div>
+                  <label for="createSubject">Môn học</label>
+                  <select id="createSubject">
+                    <option value="auto">Tự động nhận dạng</option>
+                    <option value="science">Khoa học / Science</option>
+                    <option value="math">Toán / Math</option>
+                    <option value="english">Tiếng Anh / English</option>
+                    <option value="history">Lịch sử / History</option>
+                    <option value="geography">Địa lý / Geography</option>
+                  </select>
+                </div>
+                <div>
                   <label for="createDifficulty">Độ khó so với đề mẫu</label>
                   <select id="createDifficulty">
                     <option value="same">Tương đương</option>
                     <option value="easier">Dễ hơn</option>
                     <option value="harder">Khó hơn</option>
+                  </select>
+                </div>
+                <div>
+                  <label for="createBilingual">Ngôn ngữ</label>
+                  <select id="createBilingual">
+                    <option value="auto">Tự động nhận dạng</option>
+                    <option value="bilingual">Song ngữ (EN-VIE)</option>
+                    <option value="english">Chỉ tiếng Anh</option>
+                    <option value="vietnamese">Chỉ tiếng Việt</option>
                   </select>
                 </div>
                 <div>
@@ -552,6 +572,8 @@
           const formData = new FormData();
           formData.append('file', fileInput.files[0]);
           formData.append('difficulty', difficulty);
+          formData.append('subject', document.getElementById('createSubject').value);
+          formData.append('bilingual', document.getElementById('createBilingual').value);
           formData.append('ai_engine', document.getElementById('createEngine').value || activeEngine);
 
           const res = await fetch('/api/generate-similar-exam', { method: 'POST', body: formData });

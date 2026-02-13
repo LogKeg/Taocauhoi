@@ -5016,6 +5016,8 @@ async def parse_exam(file: UploadFile):
 async def generate_similar_exam(
     file: UploadFile,
     difficulty: str = Form("same"),
+    subject: str = Form("auto"),
+    bilingual: str = Form("auto"),
     ai_engine: str = Form("openai"),
 ):
     """Generate similar questions based on an exam file, one by one matching the original."""
@@ -5061,33 +5063,38 @@ async def generate_similar_exam(
     BATCH_SIZE = 5
     all_generated = []
 
-    # Detect subject/topic from sample questions content
-    all_sample_text = ""
-    for q in sample_questions[:10]:  # Check first 10 questions
-        all_sample_text += q.get('question', '') + " " + " ".join(q.get('options', []))
-    all_sample_lower = all_sample_text.lower()
-
-    # Subject detection based on keywords
-    detected_subject = "general"
-    if any(kw in all_sample_lower for kw in ['science', 'khoa học', 'biology', 'sinh học', 'chemistry', 'hóa học', 'physics', 'vật lý', 'animal', 'plant', 'cell', 'tế bào', 'organism', 'ecosystem', 'hệ sinh thái', 'energy', 'năng lượng', 'matter', 'vật chất', 'force', 'lực']):
-        detected_subject = "science"
-    elif any(kw in all_sample_lower for kw in ['math', 'toán', 'calculate', 'tính', 'equation', 'phương trình', 'number', 'số', 'triangle', 'tam giác', 'rectangle', 'hình chữ nhật', 'area', 'diện tích', 'perimeter', 'chu vi', 'fraction', 'phân số', 'multiply', 'nhân', 'divide', 'chia', 'add', 'cộng', 'subtract', 'trừ']):
-        detected_subject = "math"
-    elif any(kw in all_sample_lower for kw in ['history', 'lịch sử', 'war', 'chiến tranh', 'king', 'vua', 'dynasty', 'triều đại', 'century', 'thế kỷ', 'emperor', 'hoàng đế']):
-        detected_subject = "history"
-    elif any(kw in all_sample_lower for kw in ['geography', 'địa lý', 'country', 'quốc gia', 'continent', 'châu lục', 'river', 'sông', 'mountain', 'núi', 'capital', 'thủ đô', 'ocean', 'đại dương']):
-        detected_subject = "geography"
-    elif any(kw in all_sample_lower for kw in ['english', 'tiếng anh', 'vocabulary', 'từ vựng', 'grammar', 'ngữ pháp', 'verb', 'động từ', 'noun', 'danh từ', 'adjective', 'tính từ', 'sentence', 'câu', 'word', 'từ', 'meaning', 'nghĩa']):
-        detected_subject = "english"
-
+    # Subject names mapping
     subject_names = {
         "science": "Science/Khoa học",
         "math": "Math/Toán học",
         "history": "History/Lịch sử",
         "geography": "Geography/Địa lý",
         "english": "English/Tiếng Anh",
-        "general": "General"
+        "general": "General",
+        "auto": "General"
     }
+
+    # Use user-selected subject or auto-detect
+    if subject != "auto":
+        detected_subject = subject
+    else:
+        # Auto-detect subject from sample questions content
+        all_sample_text = ""
+        for q in sample_questions[:10]:  # Check first 10 questions
+            all_sample_text += q.get('question', '') + " " + " ".join(q.get('options', []))
+        all_sample_lower = all_sample_text.lower()
+
+        detected_subject = "general"
+        if any(kw in all_sample_lower for kw in ['science', 'khoa học', 'biology', 'sinh học', 'chemistry', 'hóa học', 'physics', 'vật lý', 'animal', 'plant', 'cell', 'tế bào', 'organism', 'ecosystem', 'hệ sinh thái', 'energy', 'năng lượng', 'matter', 'vật chất', 'force', 'lực']):
+            detected_subject = "science"
+        elif any(kw in all_sample_lower for kw in ['math', 'toán', 'calculate', 'tính', 'equation', 'phương trình', 'number', 'số', 'triangle', 'tam giác', 'rectangle', 'hình chữ nhật', 'area', 'diện tích', 'perimeter', 'chu vi', 'fraction', 'phân số', 'multiply', 'nhân', 'divide', 'chia', 'add', 'cộng', 'subtract', 'trừ']):
+            detected_subject = "math"
+        elif any(kw in all_sample_lower for kw in ['history', 'lịch sử', 'war', 'chiến tranh', 'king', 'vua', 'dynasty', 'triều đại', 'century', 'thế kỷ', 'emperor', 'hoàng đế']):
+            detected_subject = "history"
+        elif any(kw in all_sample_lower for kw in ['geography', 'địa lý', 'country', 'quốc gia', 'continent', 'châu lục', 'river', 'sông', 'mountain', 'núi', 'capital', 'thủ đô', 'ocean', 'đại dương']):
+            detected_subject = "geography"
+        elif any(kw in all_sample_lower for kw in ['english', 'tiếng anh', 'vocabulary', 'từ vựng', 'grammar', 'ngữ pháp', 'verb', 'động từ', 'noun', 'danh từ', 'adjective', 'tính từ', 'sentence', 'câu', 'word', 'từ', 'meaning', 'nghĩa']):
+            detected_subject = "english"
 
     for batch_start in range(0, len(sample_questions), BATCH_SIZE):
         batch = sample_questions[batch_start:batch_start + BATCH_SIZE]
@@ -5106,22 +5113,32 @@ async def generate_similar_exam(
                 opts_text = "\n".join([f"  {labels[j]}) {opt}" for j, opt in enumerate(q_options[:5])])
             sample_text += f"Q{i}: {q_content}\nOptions:\n{opts_text}\n\n"
 
-        # Detect if bilingual (EN-VIE format) - check multiple indicators
+        # Determine bilingual mode based on user selection or auto-detect
         sample_content = sample_text.lower()
-        is_bilingual = (
-            'EN-VIE' in (file.filename or '').upper() or
-            'tiếng việt' in sample_content or
-            'vietnamese' in sample_content or
-            # Common Vietnamese words in English exams
-            'nghĩa là' in sample_content or
-            'có nghĩa' in sample_content or
-            'dịch sang' in sample_content or
-            # Check for Vietnamese characters in sample
-            any(c in sample_content for c in 'àáảãạăắằẳẵặâấầẩẫậèéẻẽẹêếềểễệìíỉĩịòóỏõọôốồổỗộơớờởỡợùúủũụưứừửữựỳýỷỹỵđ')
-        )
+        if bilingual == "bilingual":
+            is_bilingual_mode = True
+            language_mode = "bilingual"
+        elif bilingual == "english":
+            is_bilingual_mode = False
+            language_mode = "english"
+        elif bilingual == "vietnamese":
+            is_bilingual_mode = False
+            language_mode = "vietnamese"
+        else:  # auto
+            # Auto-detect bilingual format
+            is_bilingual_mode = (
+                'EN-VIE' in (file.filename or '').upper() or
+                'tiếng việt' in sample_content or
+                'vietnamese' in sample_content or
+                'nghĩa là' in sample_content or
+                'có nghĩa' in sample_content or
+                'dịch sang' in sample_content or
+                any(c in sample_content for c in 'àáảãạăắằẳẵặâấầẩẫậèéẻẽẹêếềểễệìíỉĩịòóỏõọôốồổỗộơớờởỡợùúủũụưứừửữựỳýỷỹỵđ')
+            )
+            language_mode = "bilingual" if is_bilingual_mode else "english"
 
         bilingual_instruction = ""
-        if is_bilingual:
+        if language_mode == "bilingual":
             bilingual_instruction = """
 === CRITICAL: BILINGUAL FORMAT (SONG NGỮ) ===
 This is a BILINGUAL English-Vietnamese exam. EVERY question MUST be in BOTH languages.
@@ -5142,6 +5159,13 @@ Options:
 
 DO NOT create English-only questions. EVERY question MUST have Vietnamese translation.
 ==============================================
+"""
+        elif language_mode == "vietnamese":
+            bilingual_instruction = """
+=== LANGUAGE: VIETNAMESE ONLY (CHỈ TIẾNG VIỆT) ===
+Create questions in VIETNAMESE only. Do not include English translations.
+Tạo câu hỏi HOÀN TOÀN bằng tiếng Việt, không có tiếng Anh.
+=================================================
 """
 
         subject_instruction = f"""

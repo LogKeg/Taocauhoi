@@ -210,13 +210,32 @@ label {
 
 .auto-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
   gap: 12px;
   align-items: end;
 }
 
 .auto-grid button {
   height: 42px;
+}
+
+.auto-grid-5 {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 12px;
+  align-items: end;
+}
+
+@media (max-width: 1100px) {
+  .auto-grid-5 {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+@media (max-width: 700px) {
+  .auto-grid-5 {
+    grid-template-columns: 1fr;
+  }
 }
 
 button {
