@@ -5061,6 +5061,34 @@ async def generate_similar_exam(
     BATCH_SIZE = 5
     all_generated = []
 
+    # Detect subject/topic from sample questions content
+    all_sample_text = ""
+    for q in sample_questions[:10]:  # Check first 10 questions
+        all_sample_text += q.get('question', '') + " " + " ".join(q.get('options', []))
+    all_sample_lower = all_sample_text.lower()
+
+    # Subject detection based on keywords
+    detected_subject = "general"
+    if any(kw in all_sample_lower for kw in ['science', 'khoa học', 'biology', 'sinh học', 'chemistry', 'hóa học', 'physics', 'vật lý', 'animal', 'plant', 'cell', 'tế bào', 'organism', 'ecosystem', 'hệ sinh thái', 'energy', 'năng lượng', 'matter', 'vật chất', 'force', 'lực']):
+        detected_subject = "science"
+    elif any(kw in all_sample_lower for kw in ['math', 'toán', 'calculate', 'tính', 'equation', 'phương trình', 'number', 'số', 'triangle', 'tam giác', 'rectangle', 'hình chữ nhật', 'area', 'diện tích', 'perimeter', 'chu vi', 'fraction', 'phân số', 'multiply', 'nhân', 'divide', 'chia', 'add', 'cộng', 'subtract', 'trừ']):
+        detected_subject = "math"
+    elif any(kw in all_sample_lower for kw in ['history', 'lịch sử', 'war', 'chiến tranh', 'king', 'vua', 'dynasty', 'triều đại', 'century', 'thế kỷ', 'emperor', 'hoàng đế']):
+        detected_subject = "history"
+    elif any(kw in all_sample_lower for kw in ['geography', 'địa lý', 'country', 'quốc gia', 'continent', 'châu lục', 'river', 'sông', 'mountain', 'núi', 'capital', 'thủ đô', 'ocean', 'đại dương']):
+        detected_subject = "geography"
+    elif any(kw in all_sample_lower for kw in ['english', 'tiếng anh', 'vocabulary', 'từ vựng', 'grammar', 'ngữ pháp', 'verb', 'động từ', 'noun', 'danh từ', 'adjective', 'tính từ', 'sentence', 'câu', 'word', 'từ', 'meaning', 'nghĩa']):
+        detected_subject = "english"
+
+    subject_names = {
+        "science": "Science/Khoa học",
+        "math": "Math/Toán học",
+        "history": "History/Lịch sử",
+        "geography": "Geography/Địa lý",
+        "english": "English/Tiếng Anh",
+        "general": "General"
+    }
+
     for batch_start in range(0, len(sample_questions), BATCH_SIZE):
         batch = sample_questions[batch_start:batch_start + BATCH_SIZE]
         batch_num = batch_start // BATCH_SIZE + 1
@@ -5094,34 +5122,50 @@ async def generate_similar_exam(
 
         bilingual_instruction = ""
         if is_bilingual:
-            bilingual_instruction = """CRITICAL - BILINGUAL FORMAT REQUIRED:
-This is a BILINGUAL English-Vietnamese exam. You MUST create questions in BOTH languages.
+            bilingual_instruction = """
+=== CRITICAL: BILINGUAL FORMAT (SONG NGỮ) ===
+This is a BILINGUAL English-Vietnamese exam. EVERY question MUST be in BOTH languages.
 
-FORMAT FOR EACH QUESTION:
-[English question text]
-Tiếng Việt: [Vietnamese translation of the question]
+COPY THE EXACT FORMAT from the sample questions:
+- If sample has "English text\\nTiếng Việt: Vietnamese text" → use same format
+- If sample has English options with Vietnamese translations → do the same
+- LOOK at the sample questions and REPLICATE their exact bilingual structure
 
-EXAMPLE:
-"What is the capital of France?
-Tiếng Việt: Thủ đô của Pháp là gì?"
+EXAMPLE FORMAT (if sample uses this style):
+"What process do plants use to make food?
+Tiếng Việt: Thực vật sử dụng quá trình nào để tạo ra thức ăn?"
+Options:
+  A) Photosynthesis / Quang hợp
+  B) Respiration / Hô hấp
+  C) Digestion / Tiêu hóa
+  D) Fermentation / Lên men
 
-OPTIONS must also be bilingual if the original has bilingual options.
+DO NOT create English-only questions. EVERY question MUST have Vietnamese translation.
+==============================================
+"""
 
-DO NOT create English-only questions. EVERY question needs Vietnamese translation.
+        subject_instruction = f"""
+=== CRITICAL: SUBJECT/TOPIC REQUIREMENT ===
+Detected subject: {subject_names[detected_subject]}
+You MUST create questions about the SAME SUBJECT as the samples.
+- If samples are about SCIENCE → create SCIENCE questions (plants, animals, energy, matter, cells, etc.)
+- If samples are about MATH → create MATH questions (numbers, calculations, geometry, etc.)
+- If samples are about HISTORY → create HISTORY questions
+- DO NOT mix subjects. DO NOT create math questions for a science exam.
+===========================================
 """
 
         prompt = f"""Create {len(batch)} NEW similar multiple-choice questions based on the samples below.
 Difficulty level: {difficulty_text}
-
+{subject_instruction}
 {bilingual_instruction}
 CRITICAL RULES:
-1. Each question MUST include ALL necessary data (numbers, formulas, context)
-2. Each question MUST have exactly 4 options in the "options" array
-3. Questions must be COMPLETE and SELF-CONTAINED
-4. For math: include ALL numbers, formulas, equations needed to solve
-5. Keep the same format and style as the original
+1. SAME SUBJECT: Questions MUST be about {subject_names[detected_subject]} - the same topic as samples
+2. SAME FORMAT: Copy the exact structure and style from samples (including bilingual format if present)
+3. Each question MUST have exactly 4 options in the "options" array
+4. Questions must be COMPLETE and SELF-CONTAINED with all necessary data
 
-SAMPLE QUESTIONS:
+SAMPLE QUESTIONS (STUDY THESE CAREFULLY - match their subject and format):
 {sample_text}
 
 IMPORTANT JSON FORMAT:
