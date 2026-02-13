@@ -5140,25 +5140,28 @@ async def generate_similar_exam(
         bilingual_instruction = ""
         if language_mode == "bilingual":
             bilingual_instruction = """
-=== CRITICAL: BILINGUAL FORMAT (SONG NGỮ) ===
-This is a BILINGUAL English-Vietnamese exam. EVERY question MUST be in BOTH languages.
+=== CRITICAL: BILINGUAL FORMAT (SONG NGỮ) - MUST FOLLOW ===
 
-COPY THE EXACT FORMAT from the sample questions:
-- If sample has "English text\\nTiếng Việt: Vietnamese text" → use same format
-- If sample has English options with Vietnamese translations → do the same
-- LOOK at the sample questions and REPLICATE their exact bilingual structure
+IMPORTANT: The "content" field MUST contain BOTH English AND Vietnamese text.
 
-EXAMPLE FORMAT (if sample uses this style):
-"What process do plants use to make food?
-Tiếng Việt: Thực vật sử dụng quá trình nào để tạo ra thức ăn?"
-Options:
-  A) Photosynthesis / Quang hợp
-  B) Respiration / Hô hấp
-  C) Digestion / Tiêu hóa
-  D) Fermentation / Lên men
+REQUIRED FORMAT for "content" field:
+[English question text]
+[Vietnamese question text on NEW LINE]
 
-DO NOT create English-only questions. EVERY question MUST have Vietnamese translation.
-==============================================
+CORRECT EXAMPLE of "content" value:
+"What is the process by which plants make food?\\nThực vật sử dụng quá trình nào để tạo ra thức ăn?"
+
+WRONG EXAMPLE (English only - DO NOT DO THIS):
+"What is the process by which plants make food?"
+
+WRONG EXAMPLE (Vietnamese only - DO NOT DO THIS):
+"Thực vật sử dụng quá trình nào để tạo ra thức ăn?"
+
+For OPTIONS: Include both languages separated by " / " like:
+["Photosynthesis / Quang hợp", "Respiration / Hô hấp", "Digestion / Tiêu hóa", "Fermentation / Lên men"]
+
+EVERY "content" field MUST have English text followed by \\n then Vietnamese text.
+=============================================================
 """
         elif language_mode == "vietnamese":
             bilingual_instruction = """
@@ -5197,12 +5200,15 @@ IMPORTANT JSON FORMAT:
 - Each object has: "content" (question text), "options" (array of 4 strings), "correct_answer" (A/B/C/D)
 - The "options" array must contain 4 answer choices as separate strings
 - DO NOT put each option as a separate question object
+{"- FOR BILINGUAL: content MUST have both English and Vietnamese with newline between them" if language_mode == "bilingual" else ""}
 
-CORRECT EXAMPLE (1 question with 4 options in array):
-[{{"content":"What shape has 5 faces?","options":["Cube","Rectangle","Square","Rhombus"],"correct_answer":"A"}}]
+{"CORRECT BILINGUAL EXAMPLE:" if language_mode == "bilingual" else "CORRECT EXAMPLE:"}
+[{{"content":"{"What process do plants use to make food?\\nThực vật sử dụng quá trình nào để tạo ra thức ăn?" if language_mode == "bilingual" else "What shape has 5 faces?"}","options":["{"Photosynthesis / Quang hợp" if language_mode == "bilingual" else "Cube"}","{"Respiration / Hô hấp" if language_mode == "bilingual" else "Rectangle"}","{"Digestion / Tiêu hóa" if language_mode == "bilingual" else "Square"}","{"Fermentation / Lên men" if language_mode == "bilingual" else "Rhombus"}"],"correct_answer":"A"}}]
 
 WRONG EXAMPLE (DO NOT DO THIS - options as separate questions):
 [{{"content":"What shape has 5 faces?"}},{{"content":"A) Cube"}},{{"content":"B) Rectangle"}}]
+{"WRONG EXAMPLE (DO NOT DO THIS - English only without Vietnamese):" if language_mode == "bilingual" else ""}
+{"[{{\"content\":\"What process do plants use to make food?\",\"options\":[\"Photosynthesis\",\"Respiration\",\"Digestion\",\"Fermentation\"],\"correct_answer\":\"A\"}}]" if language_mode == "bilingual" else ""}
 
 Return ONLY valid JSON array, no markdown, no explanation:"""
 
