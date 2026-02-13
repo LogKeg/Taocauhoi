@@ -333,7 +333,7 @@ GEMINI_API_KEY = _saved.get("gemini_key") or os.getenv("GEMINI_API_KEY", "")
 GEMINI_MODEL = _saved.get("gemini_model") or os.getenv("GEMINI_MODEL", "gemini-2.0-flash")
 
 OLLAMA_BASE = _saved.get("ollama_base") or os.getenv("OLLAMA_BASE", "http://localhost:11434")
-OLLAMA_MODEL = _saved.get("ollama_model") or os.getenv("OLLAMA_MODEL", "llama3.2")
+OLLAMA_MODEL = _saved.get("ollama_model") or os.getenv("OLLAMA_MODEL", "llama3.2:latest")
 
 
 def _normalize_name(value: str) -> str:
@@ -1852,6 +1852,103 @@ def export(
     )
 
 
+@app.post("/api/export-exam")
+async def export_exam(request: Request):
+    """Export exam questions with full content and options."""
+    data = await request.json()
+    questions = data.get("questions", [])
+    fmt = data.get("format", "docx")
+    title = data.get("title", "Đề thi")
+
+    if not questions:
+        raise HTTPException(status_code=400, detail="Không có câu hỏi để xuất")
+
+    if fmt == "docx":
+        doc = Document()
+        doc.add_heading(title, level=1)
+
+        for i, q in enumerate(questions, 1):
+            content = q.get("content", "")
+            options = q.get("options", [])
+            correct = q.get("correct_answer", "")
+
+            # Add question
+            p = doc.add_paragraph()
+            p.add_run(f"Câu {i}. ").bold = True
+            p.add_run(content)
+
+            # Add options
+            if options:
+                labels = ['A', 'B', 'C', 'D', 'E']
+                for j, opt in enumerate(options[:5]):
+                    doc.add_paragraph(f"    {labels[j]}) {opt}")
+
+            doc.add_paragraph("")  # Blank line
+
+        buffer = io.BytesIO()
+        doc.save(buffer)
+        buffer.seek(0)
+        return StreamingResponse(
+            buffer,
+            media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            headers={"Content-Disposition": f"attachment; filename=de_thi.docx"},
+        )
+
+    if fmt == "pdf":
+        font_name, _ = _get_pdf_font()
+        buffer = io.BytesIO()
+        c = canvas.Canvas(buffer, pagesize=A4)
+        width, height = A4
+        y = height - 60
+        font_size = 12
+
+        c.setFont(font_name, 16)
+        c.drawString(50, y, title)
+        y -= 40
+        c.setFont(font_name, font_size)
+
+        for i, q in enumerate(questions, 1):
+            content = q.get("content", "")
+            options = q.get("options", [])
+
+            # Question
+            line = f"Câu {i}. {content}"
+            wrapped = _wrap_text(line, width - 100, font_name, font_size)
+            for part in wrapped:
+                if y < 80:
+                    c.showPage()
+                    c.setFont(font_name, font_size)
+                    y = height - 60
+                c.drawString(50, y, part)
+                y -= 18
+
+            # Options
+            if options:
+                labels = ['A', 'B', 'C', 'D', 'E']
+                for j, opt in enumerate(options[:5]):
+                    opt_line = f"    {labels[j]}) {opt}"
+                    opt_wrapped = _wrap_text(opt_line, width - 120, font_name, font_size)
+                    for part in opt_wrapped:
+                        if y < 80:
+                            c.showPage()
+                            c.setFont(font_name, font_size)
+                            y = height - 60
+                        c.drawString(70, y, part)
+                        y -= 16
+
+            y -= 10  # Space between questions
+
+        c.save()
+        buffer.seek(0)
+        return StreamingResponse(
+            buffer,
+            media_type="application/pdf",
+            headers={"Content-Disposition": f"attachment; filename=de_thi.pdf"},
+        )
+
+    raise HTTPException(status_code=400, detail="Format không hỗ trợ")
+
+
 @app.post("/ai-settings")
 async def update_ai_settings(request: Request) -> dict:
     global OPENAI_API_KEY, OPENAI_MODEL, OPENAI_API_BASE
@@ -1871,7 +1968,7 @@ async def update_ai_settings(request: Request) -> dict:
     if "ollama_base" in data:
         OLLAMA_BASE = data["ollama_base"].strip() or "http://localhost:11434"
     if "ollama_model" in data:
-        OLLAMA_MODEL = data["ollama_model"].strip() or "llama3.2"
+        OLLAMA_MODEL = data["ollama_model"].strip() or "llama3.2:latest"
     _save_settings_to_file({
         "openai_key": OPENAI_API_KEY,
         "openai_model": OPENAI_MODEL,
@@ -2777,7 +2874,7 @@ def _load_ai_settings() -> dict:
 
 async def _call_ai_engine(engine: str, prompt: str, settings: dict) -> str:
     """Helper function to call different AI engines"""
-    async with httpx.AsyncClient(timeout=120.0) as client:
+    async with httpx.AsyncClient(timeout=300.0) as client:  # 5 minutes timeout for large prompts
         if engine == "openai":
             # Try multiple key names for compatibility
             api_key = settings.get("openai_key") or settings.get("openai_api_key") or OPENAI_API_KEY
@@ -4954,54 +5051,107 @@ async def generate_similar_exam(
         "harder": "KHÓ HƠN (phức tạp hơn, đòi hỏi tư duy cao hơn)"
     }.get(difficulty, "tương đương về độ khó")
 
-    # Format sample questions for prompt
-    sample_text = ""
-    for i, q in enumerate(sample_questions[:50], 1):  # Limit to 50 questions
-        q_content = q.get('question', '')[:200]
-        q_options = q.get('options', [])
-        opts_text = " | ".join(q_options[:5]) if q_options else "N/A"
-        sample_text += f"Câu {i}: {q_content}\nĐáp án: {opts_text}\n\n"
-
     settings = _load_ai_settings()
 
-    prompt = f"""Dựa trên {len(sample_questions)} câu hỏi mẫu sau, hãy tạo {len(sample_questions)} câu hỏi MỚI, mỗi câu tương ứng với 1 câu mẫu về CHỦ ĐỀ và DẠNG BÀI.
+    # Process in batches of 5 questions for faster response
+    BATCH_SIZE = 5
+    all_generated = []
 
-ĐỘ KHÓ: {difficulty_text}
+    for batch_start in range(0, len(sample_questions), BATCH_SIZE):
+        batch = sample_questions[batch_start:batch_start + BATCH_SIZE]
+        batch_num = batch_start // BATCH_SIZE + 1
+        total_batches = (len(sample_questions) + BATCH_SIZE - 1) // BATCH_SIZE
 
-ĐỀ MẪU:
-{sample_text[:8000]}
+        # Format batch questions with FULL content
+        sample_text = ""
+        for i, q in enumerate(batch, 1):
+            q_content = q.get('question', '')  # Full content, no truncation
+            q_options = q.get('options', [])
+            # Format options with labels
+            opts_text = ""
+            if q_options:
+                labels = ['A', 'B', 'C', 'D', 'E']
+                opts_text = "\n".join([f"  {labels[j]}) {opt}" for j, opt in enumerate(q_options[:5])])
+            sample_text += f"Q{i}: {q_content}\nOptions:\n{opts_text}\n\n"
 
-YÊU CẦU QUAN TRỌNG:
-1. Tạo ĐÚNG {len(sample_questions)} câu hỏi mới
-2. Câu mới thứ i phải CÙNG CHỦ ĐỀ với câu mẫu thứ i
-3. Giữ nguyên số lượng đáp án (3, 4 hoặc 5 tùy câu mẫu)
-4. Nội dung phải KHÁC câu mẫu nhưng cùng dạng bài
-5. Độ khó: {difficulty_text}
+        # Detect if bilingual (EN-VIE format)
+        is_bilingual = 'EN-VIE' in (file.filename or '').upper() or any(
+            'Tiếng Việt' in q.get('question', '') or 'Vietnamese' in q.get('question', '')
+            for q in batch
+        )
 
-Trả về JSON array với ĐÚNG {len(sample_questions)} phần tử:
-[
-    {{
-        "content": "nội dung câu hỏi mới",
-        "options": ["đáp án A", "đáp án B", "đáp án C", "đáp án D"],
-        "correct_answer": "A"
-    }}
-]
+        bilingual_instruction = ""
+        if is_bilingual:
+            bilingual_instruction = """IMPORTANT: This is a BILINGUAL English-Vietnamese exam.
+Each question MUST have BOTH languages:
+- English question first
+- Vietnamese translation (Tiếng Việt:) after
 
-CHỈ TRẢ VỀ JSON ARRAY, KHÔNG CÓ TEXT KHÁC."""
+Example format:
+"What is 2+2? / Tiếng Việt: 2 cộng 2 bằng bao nhiêu?"
+"""
 
-    try:
-        response = await _call_ai_engine(ai_engine, prompt, settings)
-        json_match = re.search(r'\[[\s\S]*\]', response)
-        if json_match:
-            questions = json.loads(json_match.group())
-            return {
-                "ok": True,
-                "original_file": file.filename,
-                "original_count": len(sample_questions),
-                "generated_questions": questions,
-                "count": len(questions),
-                "difficulty": difficulty,
-            }
-        return {"ok": False, "error": "Không thể phân tích kết quả AI"}
-    except Exception as e:
-        return {"ok": False, "error": str(e)}
+        prompt = f"""Create {len(batch)} NEW similar multiple-choice questions based on the samples below.
+Difficulty level: {difficulty_text}
+
+{bilingual_instruction}
+CRITICAL RULES:
+1. Each question MUST include ALL necessary data (numbers, formulas, context)
+2. Each question MUST have exactly 4 options (A, B, C, D) with SPECIFIC values
+3. Questions must be COMPLETE and SELF-CONTAINED (reader can solve without extra info)
+4. For math: include ALL numbers, formulas, equations needed to solve
+5. Keep the same format and style as the original
+
+SAMPLE QUESTIONS:
+{sample_text}
+
+Return ONLY a valid JSON array (no markdown, no explanation):
+[{{"content":"full question text with all data","options":["option A text","option B text","option C text","option D text"],"correct_answer":"A"}}]"""
+
+        try:
+            response = await _call_ai_engine(ai_engine, prompt, settings)
+            # Try to extract JSON array from response
+            json_match = re.search(r'\[[\s\S]*\]', response)
+            if json_match:
+                json_str = json_match.group()
+                # Clean up common JSON issues from LLM responses
+                json_str = re.sub(r',\s*]', ']', json_str)  # Remove trailing comma
+                json_str = re.sub(r',\s*}', '}', json_str)  # Remove trailing comma in objects
+                try:
+                    batch_questions = json.loads(json_str)
+                    all_generated.extend(batch_questions)
+                except json.JSONDecodeError:
+                    # Try to fix truncated JSON by finding complete objects
+                    # Find all complete JSON objects
+                    objects = re.findall(r'\{[^{}]*"content"[^{}]*"options"[^{}]*\}', json_str)
+                    for obj_str in objects:
+                        try:
+                            obj = json.loads(obj_str)
+                            all_generated.append(obj)
+                        except:
+                            pass
+                    if not objects:
+                        raise ValueError("Invalid JSON response")
+            else:
+                # No JSON array found, try to parse line by line
+                raise ValueError("No JSON array in response")
+        except Exception as e:
+            error_msg = str(e)[:100]
+            # If batch fails, add placeholder
+            for _ in batch:
+                all_generated.append({
+                    "content": f"Lỗi tạo câu hỏi: {error_msg}",
+                    "options": ["A", "B", "C", "D"],
+                    "correct_answer": "A"
+                })
+
+    if all_generated:
+        return {
+            "ok": True,
+            "original_file": file.filename,
+            "original_count": len(sample_questions),
+            "generated_questions": all_generated,
+            "count": len(all_generated),
+            "difficulty": difficulty,
+        }
+    return {"ok": False, "error": "Không thể tạo câu hỏi. Vui lòng thử lại."}
