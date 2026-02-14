@@ -1088,10 +1088,80 @@ def _parse_cell_based_questions(doc: Document) -> List[dict]:
 
     Options may be:
     - Prefixed: A. option / B. option
-    - Non-prefixed: Just listed as separate lines with " / " bilingual separator
+    - Non-prefixed bilingual: lines with "/" separator (EN/VN)
+    - Non-prefixed simple: short answer options like "20 m", "40 m"
 
     Returns list of parsed questions, or empty list if format doesn't match.
     """
+    from docx.oxml.ns import qn
+
+    def get_cell_text_from_row(row) -> str:
+        """Get text from first cell, handling edge cases where row.cells is empty.
+        Also extracts options from nested tables (2x2 grid format)."""
+        # First try normal cell access
+        if row.cells:
+            cell = row.cells[0]
+            # Check for nested tables with options
+            nested_tables = cell._element.findall('.//' + qn('w:tbl'))
+            if nested_tables:
+                # Get main paragraphs (before nested table)
+                main_paras = []
+                for p in cell.paragraphs:
+                    p_text = p.text.strip()
+                    if p_text:
+                        main_paras.append(p_text)
+                # Get options from nested table
+                options = []
+                for nt in nested_tables:
+                    for tr in nt.findall('.//' + qn('w:tr')):
+                        for tc in tr.findall('.//' + qn('w:tc')):
+                            t_elements = tc.findall('.//' + qn('w:t'))
+                            cell_text = ''.join([t.text or '' for t in t_elements]).strip()
+                            if cell_text:
+                                options.append(cell_text)
+                # Format: question lines + option lines
+                if main_paras and options:
+                    # Format options as separate lines
+                    return '\n'.join(main_paras + options)
+            return cell.text.strip()
+
+        # Fallback: extract directly from XML, preserving paragraph breaks
+        tc_elements = row._tr.findall(qn('w:tc'))
+        if tc_elements:
+            tc = tc_elements[0]
+            # Check for nested tables
+            nested_tbls = tc.findall('.//' + qn('w:tbl'))
+            if nested_tbls:
+                # Get text from main paragraphs (not in nested table)
+                main_paras = []
+                for p in tc.findall(qn('w:p')):  # Direct children only
+                    t_elements = p.findall('.//' + qn('w:t'))
+                    p_text = ''.join([t.text or '' for t in t_elements]).strip()
+                    if p_text:
+                        main_paras.append(p_text)
+                # Get options from nested table
+                options = []
+                for nt in nested_tbls:
+                    for tr in nt.findall('.//' + qn('w:tr')):
+                        for tc_inner in tr.findall('.//' + qn('w:tc')):
+                            t_elements = tc_inner.findall('.//' + qn('w:t'))
+                            cell_text = ''.join([t.text or '' for t in t_elements]).strip()
+                            if cell_text:
+                                options.append(cell_text)
+                if main_paras and options:
+                    return '\n'.join(main_paras + options)
+
+            # No nested table - get all paragraphs
+            p_elements = tc.findall('.//' + qn('w:p'))
+            paragraphs = []
+            for p in p_elements:
+                t_elements = p.findall('.//' + qn('w:t'))
+                p_text = ''.join([t.text or '' for t in t_elements]).strip()
+                if p_text:
+                    paragraphs.append(p_text)
+            return '\n'.join(paragraphs)
+        return ''
+
     questions = []
 
     if not doc.tables:
@@ -1104,78 +1174,121 @@ def _parse_cell_based_questions(doc: Document) -> List[dict]:
         return []
 
     # Check first few cells to see if it matches expected format
-    # Must have options (A. style) OR bilingual separator " / " with multiple lines
+    # Must have options (A. style) OR bilingual separator "/" with multiple lines
     has_valid_format = False
     for row in table.rows[:3]:
-        if not row.cells:
+        cell_text = get_cell_text_from_row(row)
+        if not cell_text:
             continue
-        cell_text = row.cells[0].text.strip()
-        lines = cell_text.split('\n')
-        # Valid if: has A. style options OR has multiple lines with " / " (bilingual options)
+        lines = [l.strip() for l in cell_text.split('\n') if l.strip()]
+        # Valid if: has A. style options
         if re.search(r'\n[A-E]\.\s+', cell_text):
             has_valid_format = True
             break
-        # Check for non-prefixed bilingual options (at least 3 lines with " / ")
-        bilingual_lines = [l for l in lines if ' / ' in l]
+        # Check for bilingual lines (with / separator - may or may not have spaces)
+        bilingual_lines = [l for l in lines if '/' in l and len(l) > 5]
         if len(bilingual_lines) >= 3:
+            has_valid_format = True
+            break
+        # Check for question structure: 2+ lines ending with ?, then 3+ short answer lines
+        question_ends = [i for i, l in enumerate(lines) if l.endswith('?')]
+        if question_ends and len(lines) - question_ends[-1] - 1 >= 3:
             has_valid_format = True
             break
     if not has_valid_format:
         return []
 
+    def is_bilingual_separator(line: str) -> bool:
+        """Check if line contains bilingual separator (/ with or without spaces)."""
+        return '/' in line and len(line) > 5
+
+    def is_question_line(line: str) -> bool:
+        """Check if line is part of question (ends with ? or is long enough)."""
+        return line.endswith('?') or len(line) > 80
+
     # Parse each cell as a complete question
     for row in table.rows:
-        if not row.cells:
-            continue
-        cell_text = row.cells[0].text.strip()
+        cell_text = get_cell_text_from_row(row)
         if not cell_text:
             continue
 
-        lines = cell_text.split('\n')
+        lines = [l.strip() for l in cell_text.split('\n') if l.strip()]
+        if len(lines) < 2:  # Need at least 2 lines (EN + VN for fill-blank)
+            continue
+
         question_lines = []
         options = []
 
         # First pass: try to find A., B., C. style options
-        has_prefixed_options = any(re.match(r'^[A-E]\.\s+', line.strip()) for line in lines)
+        has_prefixed_options = any(re.match(r'^[A-E]\.\s+', line) for line in lines)
 
-        for line in lines:
-            line = line.strip()
-            if not line:
-                continue
-
-            if has_prefixed_options:
-                # Check if line is an option (starts with A., B., C., D., E.)
+        if has_prefixed_options:
+            for line in lines:
                 opt_match = re.match(r'^([A-E])\.\s+(.+)$', line)
                 if opt_match:
                     options.append(opt_match.group(2))
                 else:
                     question_lines.append(line)
+        else:
+            # Non-prefixed format: find where question ends and options begin
+            # Strategy 1: question lines end with "?" or are very long
+            # Strategy 2: options are shorter lines with "/" separator
+
+            # Check if we have bilingual options (lines with "/" that are shorter)
+            bilingual_option_lines = []
+            for i, line in enumerate(lines):
+                # Options typically: shorter than question, contain "/" for bilingual
+                if '/' in line and len(line) < 120 and i >= 2:
+                    bilingual_option_lines.append(i)
+
+            if len(bilingual_option_lines) >= 3:
+                # Found bilingual options - split at first option
+                first_opt_idx = bilingual_option_lines[0]
+                question_lines = lines[:first_opt_idx]
+                options = lines[first_opt_idx:]
             else:
-                # Non-prefixed format: options are lines with " / " (bilingual)
-                # that come after the question lines
-                # Question lines end with "?" and options don't
-                if options:
-                    # Already collecting options
-                    if ' / ' in line:
-                        options.append(line)
-                    else:
-                        question_lines.append(line)
-                elif ' / ' in line and not line.endswith('?'):
-                    # This is an option line (bilingual with EN / VN)
-                    options.append(line)
+                # Find the last line that looks like a question
+                last_question_idx = -1
+                for i, line in enumerate(lines):
+                    if line.endswith('?') or (len(line) > 100 and i < len(lines) - 3):
+                        last_question_idx = i
+
+                if last_question_idx >= 0 and last_question_idx < len(lines) - 2:
+                    # Everything up to last_question_idx is question
+                    question_lines = lines[:last_question_idx + 1]
+                    # Everything after is options
+                    options = lines[last_question_idx + 1:]
                 else:
-                    question_lines.append(line)
+                    # Fallback: check for bilingual options with "/"
+                    for line in lines:
+                        if options:
+                            # Already collecting options
+                            if is_bilingual_separator(line) or (len(line) < 50 and not line.endswith('?')):
+                                options.append(line)
+                            else:
+                                question_lines.append(line)
+                        elif is_bilingual_separator(line) and not line.endswith('?'):
+                            # This is an option line (bilingual with EN/VN)
+                            options.append(line)
+                        else:
+                            question_lines.append(line)
 
         # Accept questions with options OR fill-in-blank questions (contain ___ or ...)
-        if question_lines:
-            question_text = '\n'.join(question_lines)
-            is_fill_blank = '___' in question_text or '________' in question_text
+        # For fill-blank without options: include all lines as question
+        all_text = '\n'.join(lines)
+        is_fill_blank = '___' in all_text or '________' in all_text
 
-            if options or is_fill_blank:
-                questions.append({
-                    "question": question_text,
-                    "options": options  # May be empty for fill-in-blank
-                })
+        if question_lines and options:
+            questions.append({
+                "question": '\n'.join(question_lines),
+                "options": options
+            })
+        elif is_fill_blank and len(lines) >= 2:
+            # Fill-in-blank question (may not have separate options)
+            questions.append({
+                "question": all_text,
+                "options": []  # No options for fill-in-blank
+            })
 
     return questions
 
