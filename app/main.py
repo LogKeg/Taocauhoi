@@ -4788,6 +4788,11 @@ def convert_word_to_excel(
         # Try cell-based parser first (for ASMO Science format: 1 cell = 1 question)
         questions = _parse_cell_based_questions(doc)
 
+        # Default format flags
+        is_math_format = False
+        is_english_level_format = False
+        is_envie_format = False
+
         if not questions:
             # Use unified extraction for lines (handles paragraphs, textboxes, tables)
             lines, table_options = _extract_docx_lines(doc, include_textboxes=True, use_latex=latex_enabled)
