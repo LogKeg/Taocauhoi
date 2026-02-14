@@ -4785,31 +4785,35 @@ def convert_word_to_excel(
         content = file.file.read()
         doc = Document(io.BytesIO(content))
 
-        # Use unified extraction for lines (handles paragraphs, textboxes, tables)
-        lines, table_options = _extract_docx_lines(doc, include_textboxes=True, use_latex=latex_enabled)
+        # Try cell-based parser first (for ASMO Science format: 1 cell = 1 question)
+        questions = _parse_cell_based_questions(doc)
 
-        # Check if this is a Math exam format (Question 1., Question 2., etc.)
-        is_math_format = any(re.match(r'^Question\s+\d+', line, re.IGNORECASE) for line in lines[:20])
+        if not questions:
+            # Use unified extraction for lines (handles paragraphs, textboxes, tables)
+            lines, table_options = _extract_docx_lines(doc, include_textboxes=True, use_latex=latex_enabled)
 
-        # Check if this is an English Level exam format
-        # These have "Section A:", "Section B:" headers and questions in tables with nested option grids
-        is_english_level_format = (
-            any('Section A' in line or 'Section B' in line for line in lines[:15]) and
-            file.filename and 'LEVEL' in file.filename.upper()
-        )
+            # Check if this is a Math exam format (Question 1., Question 2., etc.)
+            is_math_format = any(re.match(r'^Question\s+\d+', line, re.IGNORECASE) for line in lines[:20])
 
-        # Check if this is an EN-VIE bilingual format
-        # These have "EN-VIE" in filename and specific patterns
-        is_envie_format = file.filename and 'EN-VIE' in file.filename.upper()
+            # Check if this is an English Level exam format
+            # These have "Section A:", "Section B:" headers and questions in tables with nested option grids
+            is_english_level_format = (
+                any('Section A' in line or 'Section B' in line for line in lines[:15]) and
+                file.filename and 'LEVEL' in file.filename.upper()
+            )
 
-        if is_math_format:
-            questions = _parse_math_exam_questions(lines)
-        elif is_english_level_format:
-            questions = _parse_english_exam_questions(doc)
-        elif is_envie_format:
-            questions = _parse_envie_questions(doc)
-        else:
-            questions = _parse_bilingual_questions(lines, table_options)
+            # Check if this is an EN-VIE bilingual format
+            # These have "EN-VIE" in filename and specific patterns
+            is_envie_format = file.filename and 'EN-VIE' in file.filename.upper()
+
+            if is_math_format:
+                questions = _parse_math_exam_questions(lines)
+            elif is_english_level_format:
+                questions = _parse_english_exam_questions(doc)
+            elif is_envie_format:
+                questions = _parse_envie_questions(doc)
+            else:
+                questions = _parse_bilingual_questions(lines, table_options)
 
         # Create Excel file
         try:
@@ -5218,25 +5222,29 @@ async def generate_similar_exam(
     content = await file.read()
     doc = Document(io.BytesIO(content))
 
-    # Extract lines and parse questions
-    lines, table_options = _extract_docx_lines(doc)
+    # Try cell-based parser first (for ASMO Science format: 1 cell = 1 question)
+    sample_questions = _parse_cell_based_questions(doc)
 
-    # Detect format and use appropriate parser
-    is_math_format = any(re.match(r'^Question\s+\d+', line, re.IGNORECASE) for line in lines[:20])
-    is_english_level_format = (
-        any('Section A' in line or 'Section B' in line for line in lines[:15]) and
-        file.filename and 'LEVEL' in file.filename.upper()
-    )
-    is_envie_format = file.filename and 'EN-VIE' in file.filename.upper()
+    if not sample_questions:
+        # Extract lines and parse questions
+        lines, table_options = _extract_docx_lines(doc)
 
-    if is_math_format:
-        sample_questions = _parse_math_exam_questions(lines)
-    elif is_english_level_format:
-        sample_questions = _parse_english_exam_questions(doc)
-    elif is_envie_format:
-        sample_questions = _parse_envie_questions(doc)
-    else:
-        sample_questions = _parse_bilingual_questions(lines, table_options)
+        # Detect format and use appropriate parser
+        is_math_format = any(re.match(r'^Question\s+\d+', line, re.IGNORECASE) for line in lines[:20])
+        is_english_level_format = (
+            any('Section A' in line or 'Section B' in line for line in lines[:15]) and
+            file.filename and 'LEVEL' in file.filename.upper()
+        )
+        is_envie_format = file.filename and 'EN-VIE' in file.filename.upper()
+
+        if is_math_format:
+            sample_questions = _parse_math_exam_questions(lines)
+        elif is_english_level_format:
+            sample_questions = _parse_english_exam_questions(doc)
+        elif is_envie_format:
+            sample_questions = _parse_envie_questions(doc)
+        else:
+            sample_questions = _parse_bilingual_questions(lines, table_options)
 
     if not sample_questions:
         return {"ok": False, "error": "Không tìm thấy câu hỏi trong file"}
