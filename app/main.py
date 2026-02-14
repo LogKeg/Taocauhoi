@@ -1079,6 +1079,107 @@ def _extract_docx_content(doc: Document, include_textboxes: bool = True, use_lat
     return "\n\n".join(all_text)
 
 
+def _parse_cell_based_questions(doc: Document) -> List[dict]:
+    """
+    Parse questions from documents where each table cell contains a complete question.
+    This format is used in ASMO Science exams where:
+    - Each row has 1 cell
+    - Each cell contains: Question EN, Question VN, Options A-E (or fill-in-blank)
+
+    Options may be:
+    - Prefixed: A. option / B. option
+    - Non-prefixed: Just listed as separate lines with " / " bilingual separator
+
+    Returns list of parsed questions, or empty list if format doesn't match.
+    """
+    questions = []
+
+    if not doc.tables:
+        return []
+
+    # Check if this is the expected format: table with multiple rows
+    # Accept 1-2 columns (some exams have 2 columns but we only use the first)
+    table = doc.tables[0]
+    if len(table.columns) > 2 or len(table.rows) < 5:
+        return []
+
+    # Check first few cells to see if it matches expected format
+    # Must have options (A. style) OR bilingual separator " / " with multiple lines
+    has_valid_format = False
+    for row in table.rows[:3]:
+        if not row.cells:
+            continue
+        cell_text = row.cells[0].text.strip()
+        lines = cell_text.split('\n')
+        # Valid if: has A. style options OR has multiple lines with " / " (bilingual options)
+        if re.search(r'\n[A-E]\.\s+', cell_text):
+            has_valid_format = True
+            break
+        # Check for non-prefixed bilingual options (at least 3 lines with " / ")
+        bilingual_lines = [l for l in lines if ' / ' in l]
+        if len(bilingual_lines) >= 3:
+            has_valid_format = True
+            break
+    if not has_valid_format:
+        return []
+
+    # Parse each cell as a complete question
+    for row in table.rows:
+        if not row.cells:
+            continue
+        cell_text = row.cells[0].text.strip()
+        if not cell_text:
+            continue
+
+        lines = cell_text.split('\n')
+        question_lines = []
+        options = []
+
+        # First pass: try to find A., B., C. style options
+        has_prefixed_options = any(re.match(r'^[A-E]\.\s+', line.strip()) for line in lines)
+
+        for line in lines:
+            line = line.strip()
+            if not line:
+                continue
+
+            if has_prefixed_options:
+                # Check if line is an option (starts with A., B., C., D., E.)
+                opt_match = re.match(r'^([A-E])\.\s+(.+)$', line)
+                if opt_match:
+                    options.append(opt_match.group(2))
+                else:
+                    question_lines.append(line)
+            else:
+                # Non-prefixed format: options are lines with " / " (bilingual)
+                # that come after the question lines
+                # Question lines end with "?" and options don't
+                if options:
+                    # Already collecting options
+                    if ' / ' in line:
+                        options.append(line)
+                    else:
+                        question_lines.append(line)
+                elif ' / ' in line and not line.endswith('?'):
+                    # This is an option line (bilingual with EN / VN)
+                    options.append(line)
+                else:
+                    question_lines.append(line)
+
+        # Accept questions with options OR fill-in-blank questions (contain ___ or ...)
+        if question_lines:
+            question_text = '\n'.join(question_lines)
+            is_fill_blank = '___' in question_text or '________' in question_text
+
+            if options or is_fill_blank:
+                questions.append({
+                    "question": question_text,
+                    "options": options  # May be empty for fill-in-blank
+                })
+
+    return questions
+
+
 def _extract_docx_lines(doc: Document, include_textboxes: bool = True, use_latex: bool = False) -> tuple:
     """
     Extract all text lines from a Word document as a list.
@@ -3080,6 +3181,17 @@ async def parse_exam_file(file: UploadFile):
     content = await file.read()
     doc = Document(io.BytesIO(content))
 
+    # Try cell-based parser first (for ASMO Science format: 1 cell = 1 question)
+    questions = _parse_cell_based_questions(doc)
+    if questions:
+        return {
+            "ok": True,
+            "filename": file.filename,
+            "total_lines": len(questions),
+            "questions": questions,
+            "count": len(questions),
+        }
+
     # Extract lines from document
     lines, table_options = _extract_docx_lines(doc)
 
@@ -4975,41 +5087,7 @@ Chỉ trả về JSON array, không giải thích."""
         return {"ok": False, "error": str(e)}
 
 
-@app.post("/api/parse-exam")
-async def parse_exam(file: UploadFile):
-    """Parse exam file to get question list."""
-    if not file.filename.endswith('.docx'):
-        raise HTTPException(status_code=400, detail="Chỉ hỗ trợ file .docx")
-
-    content = await file.read()
-    doc = Document(io.BytesIO(content))
-
-    # Extract lines from document
-    lines, table_options = _extract_docx_lines(doc)
-
-    # Detect format and use appropriate parser
-    is_math_format = any(re.match(r'^Question\s+\d+', line, re.IGNORECASE) for line in lines[:20])
-    is_english_level_format = (
-        any('Section A' in line or 'Section B' in line for line in lines[:15]) and
-        file.filename and 'LEVEL' in file.filename.upper()
-    )
-    is_envie_format = file.filename and 'EN-VIE' in file.filename.upper()
-
-    if is_math_format:
-        questions = _parse_math_exam_questions(lines)
-    elif is_english_level_format:
-        questions = _parse_english_exam_questions(doc)
-    elif is_envie_format:
-        questions = _parse_envie_questions(doc)
-    else:
-        questions = _parse_bilingual_questions(lines, table_options)
-
-    return {
-        "ok": True,
-        "filename": file.filename,
-        "questions": questions,
-        "count": len(questions),
-    }
+# Note: /api/parse-exam endpoint is defined earlier in the file
 
 
 @app.post("/api/generate-similar-exam")
