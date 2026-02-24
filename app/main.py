@@ -5956,7 +5956,44 @@ async def grade_answer_sheets(
 
         # Kiểm tra định dạng file
         ext = file.filename.lower().split(".")[-1]
-        if ext not in ["jpg", "jpeg", "png", "bmp", "tiff"]:
+        supported_image_formats = ["jpg", "jpeg", "png", "bmp", "tiff"]
+
+        if ext == "pdf":
+            # Đọc PDF và chấm từng trang như một phiếu riêng
+            try:
+                import fitz  # PyMuPDF
+                content = await file.read()
+                pdf_doc = fitz.open(stream=content, filetype="pdf")
+
+                for page_num in range(len(pdf_doc)):
+                    page = pdf_doc[page_num]
+                    # Render page thành ảnh với DPI cao
+                    mat = fitz.Matrix(2.0, 2.0)  # 2x zoom = ~144 DPI
+                    pix = page.get_pixmap(matrix=mat)
+                    img_bytes = pix.tobytes("png")
+
+                    page_filename = f"{file.filename}_trang_{page_num + 1}"
+                    result = _grade_single_sheet(img_bytes, answers, template_type)
+
+                    if "error" in result:
+                        results.append({
+                            "filename": page_filename,
+                            "error": result["error"]
+                        })
+                    else:
+                        result["filename"] = page_filename
+                        results.append(result)
+                        all_scores.append(result["score"])
+
+                pdf_doc.close()
+            except Exception as e:
+                results.append({
+                    "filename": file.filename,
+                    "error": f"Lỗi đọc PDF: {str(e)}"
+                })
+            continue
+
+        elif ext not in supported_image_formats:
             results.append({
                 "filename": file.filename,
                 "error": "Định dạng file không được hỗ trợ"
