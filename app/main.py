@@ -7517,8 +7517,21 @@ async def export_grading_results(
     except json.JSONDecodeError:
         raise HTTPException(status_code=400, detail="Dữ liệu không hợp lệ")
 
-    template = ANSWER_TEMPLATES.get(template_type, ANSWER_TEMPLATES["IKSC_BENJAMIN"])
-    num_questions = template["questions"]
+    # Lấy số câu từ kết quả thực tế (từ details của bài đầu tiên có kết quả)
+    # Thay vì dùng template_type có thể sai
+    num_questions = 30  # Default
+    for result in data:
+        if "details" in result and result["details"]:
+            num_questions = len(result["details"])
+            break
+        elif "total" in result:
+            num_questions = result["total"]
+            break
+
+    # Fallback to template if no results
+    if num_questions == 30:
+        template = ANSWER_TEMPLATES.get(template_type, ANSWER_TEMPLATES["IKSC_BENJAMIN"])
+        num_questions = template["questions"]
 
     wb = openpyxl.Workbook()
     ws = wb.active
