@@ -5514,3 +5514,510 @@ Return ONLY valid JSON array, no markdown, no explanation:"""
             "difficulty": difficulty,
         }
     return {"ok": False, "error": "Không thể tạo câu hỏi. Vui lòng thử lại."}
+
+
+# ============================================================================
+# OMR (Optical Mark Recognition) - Chấm bài trắc nghiệm
+# ============================================================================
+
+# Cấu hình mẫu phiếu trả lời
+ANSWER_TEMPLATES = {
+    "IKSC": {  # Khoa học - International Kangaroo Science Contest
+        "name": "Khoa học (IKSC)",
+        "questions": 30,
+        "options": 5,  # A-E
+        "questions_per_row": 4,
+        "scoring": {"correct": 4, "wrong": -1, "blank": 0, "base": 30}
+    },
+    "IKLC": {  # Tiếng Anh - International Kangaroo Linguistic Contest
+        "name": "Tiếng Anh (IKLC)",
+        "questions": 50,
+        "options": 5,  # A-E
+        "questions_per_row": 4,
+        "scoring": {"correct": 1, "wrong": -0.25, "blank": 0, "base": 5}
+    }
+}
+
+
+def _preprocess_omr_image(image_bytes: bytes):
+    """Tiền xử lý ảnh cho OMR"""
+    import cv2
+    import numpy as np
+
+    # Đọc ảnh từ bytes
+    nparr = np.frombuffer(image_bytes, np.uint8)
+    img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+
+    if img is None:
+        return None, None
+
+    # Chuyển sang grayscale
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+
+    # Làm mờ để giảm nhiễu
+    blurred = cv2.GaussianBlur(gray, (5, 5), 0)
+
+    # Binary threshold với Otsu
+    _, binary = cv2.threshold(blurred, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
+
+    return img, binary
+
+
+def _find_answer_grid_region(binary_image, original_image):
+    """Tìm vùng chứa lưới đáp án trong ảnh"""
+    import cv2
+    import numpy as np
+
+    # Tìm contours
+    contours, _ = cv2.findContours(binary_image, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+    if not contours:
+        return None
+
+    # Tìm contour lớn nhất (có thể là vùng đáp án)
+    # Sắp xếp theo diện tích
+    contours = sorted(contours, key=cv2.contourArea, reverse=True)
+
+    height, width = binary_image.shape[:2]
+
+    # Tìm vùng có tỉ lệ phù hợp với lưới đáp án
+    for contour in contours[:10]:
+        x, y, w, h = cv2.boundingRect(contour)
+
+        # Bỏ qua các vùng quá nhỏ hoặc quá lớn
+        area_ratio = (w * h) / (width * height)
+        if area_ratio < 0.1 or area_ratio > 0.9:
+            continue
+
+        # Trả về vùng bounding box
+        return (x, y, w, h)
+
+    # Nếu không tìm thấy, trả về toàn bộ ảnh
+    return (0, 0, width, height)
+
+
+def _detect_bubbles(binary_image, template_type: str = "IKSC"):
+    """Phát hiện các bubble trong ảnh"""
+    import cv2
+    import numpy as np
+
+    template = ANSWER_TEMPLATES.get(template_type, ANSWER_TEMPLATES["IKSC"])
+    num_questions = template["questions"]
+    num_options = template["options"]
+    questions_per_row = template["questions_per_row"]
+
+    # Tìm contours
+    contours, _ = cv2.findContours(binary_image.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+    # Lọc các contour có dạng bubble (gần vuông/tròn)
+    bubbles = []
+    for contour in contours:
+        (x, y, w, h) = cv2.boundingRect(contour)
+        aspect_ratio = w / float(h) if h > 0 else 0
+
+        # Bubble phải gần vuông và có kích thước hợp lý
+        if 0.7 <= aspect_ratio <= 1.3 and 15 <= w <= 60 and 15 <= h <= 60:
+            bubbles.append((x, y, w, h, contour))
+
+    return bubbles
+
+
+def _analyze_bubble_fill(binary_image, bubble_contour, threshold: float = 0.35):
+    """Phân tích xem bubble có được tô hay không"""
+    import cv2
+    import numpy as np
+
+    # Tạo mask cho bubble
+    mask = np.zeros(binary_image.shape, dtype=np.uint8)
+    cv2.drawContours(mask, [bubble_contour], -1, 255, -1)
+
+    # Đếm pixel trong mask
+    total_pixels = cv2.countNonZero(mask)
+    if total_pixels == 0:
+        return False, 0
+
+    # Đếm pixel được tô (giao của mask và binary image)
+    filled = cv2.bitwise_and(binary_image, binary_image, mask=mask)
+    filled_pixels = cv2.countNonZero(filled)
+
+    fill_ratio = filled_pixels / total_pixels
+
+    return fill_ratio > threshold, fill_ratio
+
+
+def _group_bubbles_to_questions(bubbles, template_type: str = "IKSC"):
+    """Nhóm các bubble thành câu hỏi"""
+    import numpy as np
+
+    template = ANSWER_TEMPLATES.get(template_type, ANSWER_TEMPLATES["IKSC"])
+    num_questions = template["questions"]
+    num_options = template["options"]
+    questions_per_row = template["questions_per_row"]
+
+    if not bubbles:
+        return []
+
+    # Sắp xếp bubble theo y (hàng) rồi theo x (cột)
+    sorted_bubbles = sorted(bubbles, key=lambda b: (b[1], b[0]))
+
+    # Nhóm theo hàng dựa trên tọa độ y
+    rows = []
+    current_row = [sorted_bubbles[0]]
+    y_threshold = 30  # Ngưỡng để phân biệt hàng
+
+    for bubble in sorted_bubbles[1:]:
+        if abs(bubble[1] - current_row[0][1]) < y_threshold:
+            current_row.append(bubble)
+        else:
+            rows.append(sorted(current_row, key=lambda b: b[0]))
+            current_row = [bubble]
+    rows.append(sorted(current_row, key=lambda b: b[0]))
+
+    # Mỗi hàng chứa questions_per_row câu hỏi × num_options lựa chọn
+    expected_bubbles_per_row = questions_per_row * num_options
+
+    questions = []
+    question_idx = 0
+
+    for row in rows:
+        # Chia hàng thành các nhóm 5 bubble (A-E) cho mỗi câu hỏi
+        for i in range(0, len(row), num_options):
+            if question_idx >= num_questions:
+                break
+            question_bubbles = row[i:i+num_options]
+            if len(question_bubbles) == num_options:
+                questions.append({
+                    "index": question_idx + 1,
+                    "bubbles": question_bubbles
+                })
+                question_idx += 1
+
+    return questions
+
+
+def _grade_single_sheet(image_bytes: bytes, answer_key: List[str], template_type: str = "IKSC"):
+    """Chấm một phiếu trả lời"""
+    import cv2
+    import numpy as np
+
+    template = ANSWER_TEMPLATES.get(template_type, ANSWER_TEMPLATES["IKSC"])
+    num_questions = template["questions"]
+    scoring = template["scoring"]
+    option_labels = ["A", "B", "C", "D", "E"]
+
+    # Tiền xử lý ảnh
+    original, binary = _preprocess_omr_image(image_bytes)
+    if binary is None:
+        return {"error": "Không thể đọc ảnh"}
+
+    # Phát hiện bubbles
+    bubbles = _detect_bubbles(binary, template_type)
+
+    if len(bubbles) < num_questions * 5 * 0.5:  # Ít nhất 50% số bubble mong đợi
+        return {"error": f"Không phát hiện đủ bubble. Tìm thấy: {len(bubbles)}, cần: {num_questions * 5}"}
+
+    # Nhóm bubble thành câu hỏi
+    questions = _group_bubbles_to_questions(bubbles, template_type)
+
+    if len(questions) < num_questions * 0.5:
+        return {"error": f"Không nhóm được đủ câu hỏi. Tìm thấy: {len(questions)}, cần: {num_questions}"}
+
+    # Phân tích từng câu hỏi
+    student_answers = []
+    details = []
+    correct_count = 0
+    wrong_count = 0
+    blank_count = 0
+
+    for q_idx, question in enumerate(questions[:num_questions]):
+        # Tìm bubble được tô đậm nhất
+        max_fill = 0
+        selected_option = None
+        fill_ratios = []
+
+        for opt_idx, bubble in enumerate(question["bubbles"]):
+            is_filled, fill_ratio = _analyze_bubble_fill(binary, bubble[4])
+            fill_ratios.append(fill_ratio)
+
+            if fill_ratio > max_fill:
+                max_fill = fill_ratio
+                if is_filled:
+                    selected_option = option_labels[opt_idx]
+
+        # Kiểm tra nếu có nhiều đáp án được chọn
+        filled_count = sum(1 for r in fill_ratios if r > 0.35)
+        if filled_count > 1:
+            selected_option = "MULTI"  # Đánh dấu chọn nhiều đáp án
+
+        student_answers.append(selected_option)
+
+        # So sánh với đáp án
+        correct_answer = answer_key[q_idx] if q_idx < len(answer_key) else None
+
+        if selected_option is None:
+            status = "blank"
+            blank_count += 1
+        elif selected_option == "MULTI":
+            status = "invalid"
+            wrong_count += 1
+        elif selected_option == correct_answer:
+            status = "correct"
+            correct_count += 1
+        else:
+            status = "wrong"
+            wrong_count += 1
+
+        details.append({
+            "q": q_idx + 1,
+            "student": selected_option,
+            "correct": correct_answer,
+            "status": status,
+            "fill_ratios": [round(r, 3) for r in fill_ratios]
+        })
+
+    # Tính điểm
+    score = (
+        scoring["base"] +
+        correct_count * scoring["correct"] +
+        wrong_count * scoring["wrong"] +
+        blank_count * scoring["blank"]
+    )
+
+    return {
+        "answers": student_answers,
+        "score": round(score, 2),
+        "correct": correct_count,
+        "wrong": wrong_count,
+        "blank": blank_count,
+        "total": num_questions,
+        "details": details
+    }
+
+
+@app.get("/api/answer-templates")
+async def get_answer_templates():
+    """Lấy danh sách mẫu phiếu trả lời"""
+    templates = []
+    for key, value in ANSWER_TEMPLATES.items():
+        templates.append({
+            "id": key,
+            "name": value["name"],
+            "questions": value["questions"],
+            "options": value["options"],
+            "scoring": value["scoring"]
+        })
+    return {"ok": True, "templates": templates}
+
+
+@app.post("/api/grade-sheets")
+async def grade_answer_sheets(
+    files: List[UploadFile],
+    template_type: str = Form("IKSC"),
+    answer_key: str = Form(None),
+    answer_file: UploadFile = None
+):
+    """Chấm nhiều phiếu trả lời"""
+    import json
+
+    template = ANSWER_TEMPLATES.get(template_type)
+    if not template:
+        raise HTTPException(status_code=400, detail=f"Loại mẫu không hợp lệ: {template_type}")
+
+    num_questions = template["questions"]
+
+    # Lấy đáp án từ JSON hoặc file Excel
+    answers = []
+
+    if answer_file and answer_file.filename:
+        # Đọc từ file Excel
+        try:
+            import openpyxl
+            content = await answer_file.read()
+            wb = openpyxl.load_workbook(io.BytesIO(content))
+            ws = wb.active
+
+            for row in ws.iter_rows(min_row=2, max_col=2):
+                if row[1].value:
+                    answers.append(str(row[1].value).strip().upper())
+        except Exception as e:
+            raise HTTPException(status_code=400, detail=f"Lỗi đọc file đáp án: {str(e)}")
+    elif answer_key:
+        # Parse JSON
+        try:
+            answers = json.loads(answer_key)
+            if isinstance(answers, str):
+                # Nếu là chuỗi như "ABCDE...", tách thành list
+                answers = list(answers.upper())
+            answers = [str(a).upper() for a in answers]
+        except json.JSONDecodeError:
+            # Nếu không phải JSON, thử tách theo dấu phẩy hoặc ký tự
+            if "," in answer_key:
+                answers = [a.strip().upper() for a in answer_key.split(",")]
+            else:
+                answers = list(answer_key.upper().replace(" ", ""))
+
+    if len(answers) < num_questions:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Thiếu đáp án. Cần {num_questions} đáp án, chỉ có {len(answers)}"
+        )
+
+    # Chấm từng phiếu
+    results = []
+    all_scores = []
+
+    for file in files:
+        if not file.filename:
+            continue
+
+        # Kiểm tra định dạng file
+        ext = file.filename.lower().split(".")[-1]
+        if ext not in ["jpg", "jpeg", "png", "bmp", "tiff"]:
+            results.append({
+                "filename": file.filename,
+                "error": "Định dạng file không được hỗ trợ"
+            })
+            continue
+
+        try:
+            content = await file.read()
+            result = _grade_single_sheet(content, answers, template_type)
+
+            if "error" in result:
+                results.append({
+                    "filename": file.filename,
+                    "error": result["error"]
+                })
+            else:
+                result["filename"] = file.filename
+                results.append(result)
+                all_scores.append(result["score"])
+        except Exception as e:
+            results.append({
+                "filename": file.filename,
+                "error": f"Lỗi xử lý: {str(e)}"
+            })
+
+    # Tính tổng kết
+    summary = {
+        "total_sheets": len(results),
+        "graded": len(all_scores),
+        "errors": len(results) - len(all_scores),
+        "average_score": round(sum(all_scores) / len(all_scores), 2) if all_scores else 0,
+        "highest": max(all_scores) if all_scores else 0,
+        "lowest": min(all_scores) if all_scores else 0
+    }
+
+    return {
+        "ok": True,
+        "template": template_type,
+        "results": results,
+        "summary": summary
+    }
+
+
+@app.post("/api/grade-sheets/export")
+async def export_grading_results(
+    results: str = Form(...),
+    template_type: str = Form("IKSC")
+):
+    """Xuất kết quả chấm bài ra Excel"""
+    import openpyxl
+    from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
+
+    try:
+        data = json.loads(results)
+    except json.JSONDecodeError:
+        raise HTTPException(status_code=400, detail="Dữ liệu không hợp lệ")
+
+    template = ANSWER_TEMPLATES.get(template_type, ANSWER_TEMPLATES["IKSC"])
+    num_questions = template["questions"]
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Kết quả chấm bài"
+
+    # Styles
+    header_font = Font(bold=True, color="FFFFFF")
+    header_fill = PatternFill(start_color="4472C4", end_color="4472C4", fill_type="solid")
+    correct_fill = PatternFill(start_color="C6EFCE", end_color="C6EFCE", fill_type="solid")
+    wrong_fill = PatternFill(start_color="FFC7CE", end_color="FFC7CE", fill_type="solid")
+    center_align = Alignment(horizontal="center", vertical="center")
+    thin_border = Border(
+        left=Side(style='thin'),
+        right=Side(style='thin'),
+        top=Side(style='thin'),
+        bottom=Side(style='thin')
+    )
+
+    # Headers
+    headers = ["STT", "Tên file", "Điểm", "Đúng", "Sai", "Bỏ trống"]
+    for i in range(1, num_questions + 1):
+        headers.append(f"Câu {i}")
+
+    for col, header in enumerate(headers, 1):
+        cell = ws.cell(row=1, column=col, value=header)
+        cell.font = header_font
+        cell.fill = header_fill
+        cell.alignment = center_align
+        cell.border = thin_border
+
+    # Data rows
+    for row_idx, result in enumerate(data, 2):
+        if "error" in result:
+            ws.cell(row=row_idx, column=1, value=row_idx - 1)
+            ws.cell(row=row_idx, column=2, value=result.get("filename", ""))
+            ws.cell(row=row_idx, column=3, value="Lỗi: " + result["error"])
+            continue
+
+        ws.cell(row=row_idx, column=1, value=row_idx - 1).alignment = center_align
+        ws.cell(row=row_idx, column=2, value=result.get("filename", ""))
+        ws.cell(row=row_idx, column=3, value=result.get("score", 0)).alignment = center_align
+        ws.cell(row=row_idx, column=4, value=result.get("correct", 0)).alignment = center_align
+        ws.cell(row=row_idx, column=5, value=result.get("wrong", 0)).alignment = center_align
+        ws.cell(row=row_idx, column=6, value=result.get("blank", 0)).alignment = center_align
+
+        # Chi tiết từng câu
+        details = result.get("details", [])
+        for detail in details:
+            col = 6 + detail["q"]
+            cell = ws.cell(row=row_idx, column=col, value=detail.get("student", ""))
+            cell.alignment = center_align
+            cell.border = thin_border
+
+            if detail["status"] == "correct":
+                cell.fill = correct_fill
+            elif detail["status"] in ["wrong", "invalid"]:
+                cell.fill = wrong_fill
+
+    # Đáp án đúng ở hàng cuối
+    answer_row = len(data) + 2
+    ws.cell(row=answer_row, column=1, value="").alignment = center_align
+    ws.cell(row=answer_row, column=2, value="ĐÁP ÁN ĐÚNG").font = Font(bold=True)
+
+    if data and "details" in data[0]:
+        for detail in data[0]["details"]:
+            col = 6 + detail["q"]
+            cell = ws.cell(row=answer_row, column=col, value=detail.get("correct", ""))
+            cell.alignment = center_align
+            cell.font = Font(bold=True)
+            cell.fill = PatternFill(start_color="FFFF00", end_color="FFFF00", fill_type="solid")
+
+    # Điều chỉnh độ rộng cột
+    ws.column_dimensions["A"].width = 5
+    ws.column_dimensions["B"].width = 25
+    ws.column_dimensions["C"].width = 8
+    ws.column_dimensions["D"].width = 6
+    ws.column_dimensions["E"].width = 6
+    ws.column_dimensions["F"].width = 10
+
+    # Lưu file
+    output = io.BytesIO()
+    wb.save(output)
+    output.seek(0)
+
+    return StreamingResponse(
+        output,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f"attachment; filename=ket_qua_cham_bai_{template_type}.xlsx"}
+    )

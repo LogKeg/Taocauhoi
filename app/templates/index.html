@@ -25,6 +25,7 @@
         <button class="nav-item" data-tab="tab-convert">Word → Excel</button>
         <button class="nav-item" data-tab="tab-bank">Ngân hàng câu hỏi</button>
         <button class="nav-item" data-tab="tab-history">Lịch sử sử dụng</button>
+        <button class="nav-item" data-tab="tab-grading">Chấm bài</button>
         <button class="nav-item" data-tab="tab-settings">Cài đặt</button>
         <button class="nav-item" data-tab="tab-blob" id="navBlob" hidden>Quản lý Blob</button>
       </nav>
@@ -217,6 +218,82 @@
           <div class="panel">
             <div class="history-list" id="historyList">
               <p>Chưa có lịch sử.</p>
+            </div>
+          </div>
+        </section>
+
+        <!-- Tab: Chấm bài trắc nghiệm -->
+        <section class="tab-panel" id="tab-grading">
+          <div class="panel">
+            <h2>Chấm bài trắc nghiệm</h2>
+            <p>Upload ảnh phiếu trả lời đã scan/chụp để chấm điểm tự động.</p>
+
+            <div class="auto-grid" style="margin-bottom: 1rem;">
+              <div>
+                <label for="gradingTemplate">Loại đề thi</label>
+                <select id="gradingTemplate">
+                  <option value="IKSC">Khoa học (IKSC) - 30 câu</option>
+                  <option value="IKLC">Tiếng Anh (IKLC) - 50 câu</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="grading-section">
+              <h3>Bước 1: Nhập đáp án đúng</h3>
+              <div class="answer-input-tabs">
+                <button type="button" class="answer-tab active" data-mode="manual">Nhập thủ công</button>
+                <button type="button" class="answer-tab" data-mode="excel">Upload Excel</button>
+              </div>
+
+              <div id="manualAnswerInput">
+                <p style="margin: 0.5rem 0; color: var(--muted);">Chọn đáp án đúng cho từng câu (A-E):</p>
+                <div class="answer-grid" id="answerGrid"></div>
+              </div>
+
+              <div id="excelAnswerInput" hidden>
+                <p style="margin: 0.5rem 0; color: var(--muted);">Upload file Excel với cột: Câu hỏi | Đáp án</p>
+                <input type="file" id="answerExcelFile" accept=".xlsx,.xls" />
+                <span id="answerFileStatus" style="margin-left: 0.5rem;"></span>
+              </div>
+            </div>
+
+            <div class="grading-section" style="margin-top: 1.5rem;">
+              <h3>Bước 2: Upload phiếu trả lời</h3>
+              <div class="upload-area">
+                <input type="file" id="sheetImages" accept="image/*" multiple />
+                <span id="sheetCount" style="margin-left: 0.5rem;">0 file đã chọn</span>
+              </div>
+            </div>
+
+            <div style="margin-top: 1.5rem;">
+              <button id="gradeBtn" type="button" class="primary-btn">Chấm bài</button>
+            </div>
+            <div class="gen-status" id="gradingStatus"></div>
+          </div>
+
+          <div class="panel result-panel" id="gradingResult" hidden>
+            <div class="output-header">
+              <h2>Kết quả chấm bài</h2>
+              <div class="actions">
+                <button id="exportGradingExcel">Xuất Excel</button>
+              </div>
+            </div>
+            <div class="grading-summary" id="gradingSummary"></div>
+            <div class="grading-table-container">
+              <table class="grading-table" id="gradingTable">
+                <thead>
+                  <tr>
+                    <th>STT</th>
+                    <th>Tên file</th>
+                    <th>Điểm</th>
+                    <th>Đúng</th>
+                    <th>Sai</th>
+                    <th>Bỏ trống</th>
+                    <th>Chi tiết</th>
+                  </tr>
+                </thead>
+                <tbody></tbody>
+              </table>
             </div>
           </div>
         </section>
@@ -1156,6 +1233,267 @@
         bankPage = 0;
         loadBankQuestions();
         loadBankStats();
+      });
+
+      /* ---- Grading (Chấm bài) ---- */
+      const gradingTemplate = document.getElementById('gradingTemplate');
+      const answerGrid = document.getElementById('answerGrid');
+      const sheetImages = document.getElementById('sheetImages');
+      const sheetCount = document.getElementById('sheetCount');
+      const gradeBtn = document.getElementById('gradeBtn');
+      const gradingStatus = document.getElementById('gradingStatus');
+      const gradingResult = document.getElementById('gradingResult');
+      const gradingSummary = document.getElementById('gradingSummary');
+      const gradingTable = document.getElementById('gradingTable');
+      let gradingResults = [];
+
+      // Template info
+      const templateInfo = {
+        IKSC: { questions: 30, name: 'Khoa học (IKSC)' },
+        IKLC: { questions: 50, name: 'Tiếng Anh (IKLC)' }
+      };
+
+      // Generate answer grid
+      function generateAnswerGrid() {
+        const template = gradingTemplate.value;
+        const numQ = templateInfo[template]?.questions || 30;
+        answerGrid.innerHTML = '';
+
+        for (let i = 1; i <= numQ; i++) {
+          const row = document.createElement('div');
+          row.className = 'answer-row';
+          row.innerHTML = `
+            <span class="q-num">${i}</span>
+            <div class="options">
+              ${['A', 'B', 'C', 'D', 'E'].map(opt => `
+                <label class="option-label">
+                  <input type="radio" name="q${i}" value="${opt}" />
+                  <span>${opt}</span>
+                </label>
+              `).join('')}
+            </div>
+          `;
+          answerGrid.appendChild(row);
+        }
+      }
+
+      gradingTemplate.addEventListener('change', generateAnswerGrid);
+      generateAnswerGrid();
+
+      // Answer input tabs
+      document.querySelectorAll('.answer-tab').forEach(tab => {
+        tab.addEventListener('click', () => {
+          document.querySelectorAll('.answer-tab').forEach(t => t.classList.remove('active'));
+          tab.classList.add('active');
+          const mode = tab.dataset.mode;
+          document.getElementById('manualAnswerInput').hidden = mode !== 'manual';
+          document.getElementById('excelAnswerInput').hidden = mode !== 'excel';
+        });
+      });
+
+      // Sheet file count
+      sheetImages.addEventListener('change', () => {
+        sheetCount.textContent = `${sheetImages.files.length} file đã chọn`;
+      });
+
+      // Excel answer file status
+      document.getElementById('answerExcelFile').addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        document.getElementById('answerFileStatus').textContent = file ? file.name : '';
+      });
+
+      // Get answers from grid
+      function getAnswersFromGrid() {
+        const template = gradingTemplate.value;
+        const numQ = templateInfo[template]?.questions || 30;
+        const answers = [];
+        for (let i = 1; i <= numQ; i++) {
+          const selected = document.querySelector(`input[name="q${i}"]:checked`);
+          answers.push(selected ? selected.value : '');
+        }
+        return answers;
+      }
+
+      // Grade button click
+      gradeBtn.addEventListener('click', async () => {
+        if (!sheetImages.files.length) {
+          gradingStatus.textContent = 'Vui lòng chọn ảnh phiếu trả lời!';
+          return;
+        }
+
+        const template = gradingTemplate.value;
+        const numQ = templateInfo[template]?.questions || 30;
+
+        // Get answers
+        const activeTab = document.querySelector('.answer-tab.active');
+        const answerFile = document.getElementById('answerExcelFile').files[0];
+        let answers = [];
+
+        if (activeTab?.dataset.mode === 'excel' && answerFile) {
+          // Will send file to server
+        } else {
+          answers = getAnswersFromGrid();
+          const filledCount = answers.filter(a => a).length;
+          if (filledCount < numQ) {
+            if (!confirm(`Chỉ có ${filledCount}/${numQ} đáp án được chọn. Tiếp tục chấm?`)) {
+              return;
+            }
+          }
+        }
+
+        gradingStatus.textContent = 'Đang chấm bài...';
+        gradeBtn.disabled = true;
+
+        try {
+          const formData = new FormData();
+          formData.append('template_type', template);
+
+          // Add answer key
+          if (activeTab?.dataset.mode === 'excel' && answerFile) {
+            formData.append('answer_file', answerFile);
+          } else {
+            formData.append('answer_key', JSON.stringify(answers));
+          }
+
+          // Add sheet images
+          for (const file of sheetImages.files) {
+            formData.append('files', file);
+          }
+
+          const res = await fetch('/api/grade-sheets', { method: 'POST', body: formData });
+          const data = await res.json();
+
+          if (data.ok) {
+            gradingResults = data.results || [];
+            renderGradingResults(data);
+            gradingStatus.textContent = `Đã chấm xong ${data.summary?.graded || 0} bài`;
+          } else {
+            gradingStatus.textContent = 'Lỗi: ' + (data.detail || data.error || 'Không xác định');
+          }
+        } catch (err) {
+          gradingStatus.textContent = 'Lỗi: ' + err.message;
+        } finally {
+          gradeBtn.disabled = false;
+        }
+      });
+
+      // Render grading results
+      function renderGradingResults(data) {
+        gradingResult.hidden = false;
+        const summary = data.summary || {};
+
+        gradingSummary.innerHTML = `
+          <div class="summary-cards">
+            <div class="summary-card">
+              <span class="label">Tổng số bài</span>
+              <span class="value">${summary.total_sheets || 0}</span>
+            </div>
+            <div class="summary-card">
+              <span class="label">Đã chấm</span>
+              <span class="value">${summary.graded || 0}</span>
+            </div>
+            <div class="summary-card">
+              <span class="label">Điểm TB</span>
+              <span class="value">${summary.average_score || 0}</span>
+            </div>
+            <div class="summary-card">
+              <span class="label">Cao nhất</span>
+              <span class="value">${summary.highest || 0}</span>
+            </div>
+            <div class="summary-card">
+              <span class="label">Thấp nhất</span>
+              <span class="value">${summary.lowest || 0}</span>
+            </div>
+          </div>
+        `;
+
+        const tbody = gradingTable.querySelector('tbody');
+        tbody.innerHTML = (data.results || []).map((r, idx) => {
+          if (r.error) {
+            return `<tr class="error-row">
+              <td>${idx + 1}</td>
+              <td>${r.filename || ''}</td>
+              <td colspan="5" style="color: var(--danger);">Lỗi: ${r.error}</td>
+            </tr>`;
+          }
+          return `<tr>
+            <td>${idx + 1}</td>
+            <td>${r.filename || ''}</td>
+            <td><strong>${r.score}</strong></td>
+            <td style="color: var(--success);">${r.correct}</td>
+            <td style="color: var(--danger);">${r.wrong}</td>
+            <td>${r.blank}</td>
+            <td><button class="view-detail-btn" data-index="${idx}">Xem</button></td>
+          </tr>`;
+        }).join('');
+
+        // Detail button handlers
+        tbody.querySelectorAll('.view-detail-btn').forEach(btn => {
+          btn.addEventListener('click', () => {
+            const idx = parseInt(btn.dataset.index);
+            showGradingDetail(gradingResults[idx]);
+          });
+        });
+      }
+
+      // Show grading detail modal
+      function showGradingDetail(result) {
+        if (!result || !result.details) return;
+        const modal = document.getElementById('historyModal');
+        const title = document.getElementById('modalTitle');
+        const body = document.getElementById('modalBody');
+        const footer = document.querySelector('.modal-footer');
+        footer.hidden = true;
+
+        title.textContent = `Chi tiết: ${result.filename} - Điểm: ${result.score}`;
+        body.innerHTML = `
+          <div class="detail-summary">
+            <span>Đúng: <strong style="color: var(--success);">${result.correct}</strong></span>
+            <span>Sai: <strong style="color: var(--danger);">${result.wrong}</strong></span>
+            <span>Bỏ trống: <strong>${result.blank}</strong></span>
+          </div>
+          <table class="detail-table">
+            <thead>
+              <tr><th>Câu</th><th>Trả lời</th><th>Đáp án</th><th>Kết quả</th></tr>
+            </thead>
+            <tbody>
+              ${result.details.map(d => `
+                <tr class="${d.status}">
+                  <td>${d.q}</td>
+                  <td>${d.student || '-'}</td>
+                  <td>${d.correct || '-'}</td>
+                  <td>${d.status === 'correct' ? '✓' : d.status === 'blank' ? '-' : '✗'}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        `;
+        modal.hidden = false;
+      }
+
+      // Export grading to Excel
+      document.getElementById('exportGradingExcel').addEventListener('click', async () => {
+        if (!gradingResults.length) {
+          alert('Không có kết quả để xuất!');
+          return;
+        }
+
+        try {
+          const formData = new FormData();
+          formData.append('results', JSON.stringify(gradingResults));
+          formData.append('template_type', gradingTemplate.value);
+
+          const res = await fetch('/api/grade-sheets/export', { method: 'POST', body: formData });
+          const blob = await res.blob();
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `ket_qua_cham_bai_${gradingTemplate.value}.xlsx`;
+          a.click();
+          URL.revokeObjectURL(url);
+        } catch (err) {
+          alert('Lỗi xuất Excel: ' + err.message);
+        }
       });
 
       /* ---- Init ---- */
