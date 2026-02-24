@@ -5619,42 +5619,108 @@ ANSWER_TEMPLATES = {
 }
 
 
-def _extract_student_info_ocr(image_bytes: bytes) -> dict:
-    """Trích xuất thông tin học sinh từ phiếu bằng OCR (EasyOCR)"""
+def _detect_template_from_image(image_bytes: bytes) -> dict:
+    """Nhận diện loại đề và cấp độ từ phiếu bằng OCR (EasyOCR)
+
+    Trả về dict với keys:
+    - detected_template: template_type đầy đủ (ví dụ: "IKSC_BENJAMIN")
+    - detected_contest: IKSC hoặc IKLC
+    - detected_level: PRE_ECOLIER, ECOLIER, BENJAMIN, CADET, JUNIOR, STUDENT
+    """
     import cv2
     import numpy as np
+
+    result = {
+        "detected_template": "",
+        "detected_contest": "",
+        "detected_level": ""
+    }
 
     try:
         import easyocr
     except ImportError:
-        return {}
+        return result
 
     # Đọc ảnh
     nparr = np.frombuffer(image_bytes, np.uint8)
     img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
 
     if img is None:
-        return {}
+        return result
 
-    # Lấy phần trên của ảnh (chứa thông tin học sinh) - khoảng 25% trên
-    height = img.shape[0]
-    top_region = img[0:int(height * 0.25), :]
+    # Lấy phần trên của ảnh (chứa thông tin loại đề) - khoảng 15% trên
+    height, width = img.shape[:2]
+    top_region = img[0:int(height * 0.15), :]
 
-    # Khởi tạo EasyOCR reader với tiếng Việt và Anh
-    # gpu=False để chạy trên CPU (tương thích mọi máy)
+    # Khởi tạo EasyOCR reader
     try:
-        reader = easyocr.Reader(['vi', 'en'], gpu=False, verbose=False)
-        results = reader.readtext(top_region)
+        reader = easyocr.Reader(['en'], gpu=False, verbose=False)
+        ocr_results = reader.readtext(top_region)
     except:
-        try:
-            # Fallback chỉ tiếng Anh nếu tiếng Việt không khả dụng
-            reader = easyocr.Reader(['en'], gpu=False, verbose=False)
-            results = reader.readtext(top_region)
-        except:
-            return {}
+        return result
 
     # Ghép kết quả OCR thành text
-    text = '\n'.join([result[1] for result in results])
+    text = ' '.join([r[1] for r in ocr_results])
+    text_lower = text.lower()
+
+    # === NHẬN DIỆN LOẠI CUỘC THI (IKSC hoặc IKLC) ===
+    if 'science' in text_lower or 'iksc' in text_lower:
+        result["detected_contest"] = "IKSC"
+    elif 'linguistic' in text_lower or 'iklc' in text_lower or 'english' in text_lower:
+        result["detected_contest"] = "IKLC"
+
+    # === NHẬN DIỆN CẤP ĐỘ (LEVEL) ===
+    level_detected = ""
+
+    # Tìm theo CLASS pattern (ví dụ: "CLASS 5 & 6", "CLASS 5&6")
+    class_match = re.search(r'class\s*(\d+)\s*[&,]\s*(\d+)', text_lower)
+    if class_match:
+        class1 = int(class_match.group(1))
+        class2 = int(class_match.group(2))
+        if class1 == 1 and class2 == 2:
+            level_detected = "PRE_ECOLIER"
+        elif class1 == 3 and class2 == 4:
+            level_detected = "ECOLIER"
+        elif class1 == 5 and class2 == 6:
+            level_detected = "BENJAMIN"
+        elif class1 == 7 and class2 == 8:
+            level_detected = "CADET"
+        elif class1 == 9 and class2 == 10:
+            level_detected = "JUNIOR"
+        elif class1 == 11 and class2 == 12:
+            level_detected = "STUDENT"
+
+    # Nếu không tìm thấy theo class, thử tìm theo tên level
+    if not level_detected:
+        if 'pre-ecolier' in text_lower or 'preecolier' in text_lower:
+            level_detected = "PRE_ECOLIER"
+        elif 'benjamin' in text_lower:
+            level_detected = "BENJAMIN"
+        elif 'cadet' in text_lower:
+            level_detected = "CADET"
+        elif 'junior' in text_lower:
+            level_detected = "JUNIOR"
+        elif 'student' in text_lower:
+            level_detected = "STUDENT"
+        elif 'ecolier' in text_lower:
+            level_detected = "ECOLIER"
+
+    result["detected_level"] = level_detected
+
+    # Tạo template_type đầy đủ
+    if result["detected_contest"] and level_detected:
+        result["detected_template"] = f"{result['detected_contest']}_{level_detected}"
+
+    return result
+
+
+def _extract_student_info_ocr(image_bytes: bytes) -> dict:
+    """Trích xuất thông tin học sinh và loại đề từ phiếu bằng OCR (EasyOCR)"""
+    import cv2
+    import numpy as np
+
+    # Bắt đầu với việc nhận diện template
+    template_info = _detect_template_from_image(image_bytes)
 
     # Parse thông tin từ text
     info = {
@@ -5662,9 +5728,39 @@ def _extract_student_info_ocr(image_bytes: bytes) -> dict:
         "class": "",
         "dob": "",
         "id_no": "",
-        "school_name": ""
+        "school_name": "",
+        "detected_template": template_info.get("detected_template", ""),
+        "detected_contest": template_info.get("detected_contest", ""),
+        "detected_level": template_info.get("detected_level", "")
     }
 
+    try:
+        import easyocr
+    except ImportError:
+        return info
+
+    # Đọc ảnh
+    nparr = np.frombuffer(image_bytes, np.uint8)
+    img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+
+    if img is None:
+        return info
+
+    # Lấy phần trên của ảnh (chứa thông tin học sinh) - khoảng 25% trên
+    height, width = img.shape[:2]
+    top_region = img[0:int(height * 0.25), :]
+
+    # Khởi tạo EasyOCR reader
+    try:
+        reader = easyocr.Reader(['en'], gpu=False, verbose=False)
+        results = reader.readtext(top_region)
+    except:
+        return info
+
+    # Ghép kết quả OCR thành text
+    text = '\n'.join([result[1] for result in results])
+
+    # === PARSE THÔNG TIN HỌC SINH ===
     lines = text.split('\n')
     for line in lines:
         line_lower = line.lower().strip()
@@ -5681,15 +5777,11 @@ def _extract_student_info_ocr(image_bytes: bytes) -> dict:
                 if match:
                     info["full_name"] = match.group(1).strip()
 
-        # Tìm Class
-        elif 'class' in line_lower and 'school' not in line_lower:
+        # Tìm Class (thông tin lớp học của học sinh, không phải level)
+        elif 'class:' in line_lower and 'school' not in line_lower:
             parts = line.split(':')
             if len(parts) > 1:
                 info["class"] = parts[1].strip()
-            else:
-                match = re.search(r'class[:\s]*(.+)', line, re.IGNORECASE)
-                if match:
-                    info["class"] = match.group(1).strip()
 
         # Tìm DOB
         elif 'dob' in line_lower or 'date of birth' in line_lower or 'ngày sinh' in line_lower:
@@ -6619,263 +6711,250 @@ async def get_answer_templates():
     return {"ok": True, "templates": templates}
 
 
-@app.post("/api/grade-sheets")
-async def grade_answer_sheets(
-    files: List[UploadFile],
-    template_type: str = Form("IKSC"),
-    answer_key: str = Form(None),
-    answer_file: UploadFile = None
-):
-    """Chấm nhiều phiếu trả lời"""
-    import json
+def _parse_answer_key_for_template(answer_file_content: bytes, file_ext: str, template_type: str) -> List[str]:
+    """Parse đáp án từ file cho một template cụ thể"""
+    from collections import defaultdict
 
     template = ANSWER_TEMPLATES.get(template_type)
     if not template:
-        raise HTTPException(status_code=400, detail=f"Loại mẫu không hợp lệ: {template_type}")
+        return []
 
     num_questions = template["questions"]
-
-    # Lấy đáp án từ JSON hoặc file Excel
     answers = []
 
-    if answer_file and answer_file.filename:
-        content = await answer_file.read()
-        file_ext = answer_file.filename.lower().split(".")[-1]
+    if file_ext in ["xlsx", "xls"]:
+        # Đọc từ file Excel
+        import openpyxl
+        wb = openpyxl.load_workbook(io.BytesIO(answer_file_content))
+        ws = wb.active
 
-        if file_ext in ["xlsx", "xls"]:
-            # Đọc từ file Excel
-            try:
-                import openpyxl
-                wb = openpyxl.load_workbook(io.BytesIO(content))
-                ws = wb.active
+        for row in ws.iter_rows(min_row=2, max_col=2):
+            if row[1].value:
+                answers.append(str(row[1].value).strip().upper())
 
-                for row in ws.iter_rows(min_row=2, max_col=2):
-                    if row[1].value:
-                        answers.append(str(row[1].value).strip().upper())
-            except Exception as e:
-                raise HTTPException(status_code=400, detail=f"Lỗi đọc file Excel: {str(e)}")
+    elif file_ext == "pdf":
+        # Đọc từ file PDF
+        import fitz  # PyMuPDF
 
-        elif file_ext == "pdf":
-            # Đọc từ file PDF
-            try:
-                import fitz  # PyMuPDF
-                from collections import defaultdict
+        pdf_doc = fitz.open(stream=answer_file_content, filetype="pdf")
+        pdf_text = ""
+        for page in pdf_doc:
+            pdf_text += page.get_text() + "\n"
+        pdf_doc.close()
 
-                pdf_doc = fitz.open(stream=content, filetype="pdf")
-                pdf_text = ""
-                for page in pdf_doc:
-                    pdf_text += page.get_text() + "\n"
-                pdf_doc.close()
+        found_answers = {}
 
-                found_answers = {}
-
-                # Kiểm tra nếu là file IKLC (Linguistic Kangaroo) với format đặc biệt
-                # Format: nhiều cột (Start, Story, Joey, Wallaby, Grey K., Red K.)
-                is_iklc_format = "LINGUISTIC KANGAROO" in pdf_text.upper() or all(
-                    level in pdf_text for level in ["Joey", "Wallaby"]
-                )
-
-                if is_iklc_format and "IKLC" in template_type.upper():
-                    # Parse IKLC PDF với format nhiều cột
-                    # Levels: Start=24, Story=30, Joey/Wallaby/Grey K./Red K.=50
-                    # Tên trong file PDF:
-                    # - Start = Pre-Ecolier (Lớp 1-2)
-                    # - Story = Ecolier (Lớp 3-4)
-                    # - Joey = Benjamin (Lớp 5-6)
-                    # - Wallaby = Cadet (Lớp 7-8)
-                    # - Grey K. = Junior (Lớp 9-10)
-                    # - Red K. = Student (Lớp 11-12)
-                    iklc_levels = [
-                        ("start", 24),      # Pre-Ecolier (Lớp 1-2)
-                        ("story", 30),      # Ecolier (Lớp 3-4)
-                        ("joey", 50),       # Benjamin (Lớp 5-6)
-                        ("wallaby", 50),    # Cadet (Lớp 7-8)
-                        ("grey", 50),       # Junior (Lớp 9-10)
-                        ("red", 50),        # Student (Lớp 11-12)
-                    ]
-
-                    # Map template_type to level index
-                    level_map = {
-                        "IKLC_PRE_ECOLIER": 0,
-                        "IKLC_ECOLIER": 1,
-                        "IKLC_BENJAMIN": 2,
-                        "IKLC_CADET": 3,
-                        "IKLC_JUNIOR": 4,
-                        "IKLC_STUDENT": 5,
-                    }
-
-                    target_level_idx = level_map.get(template_type.upper(), -1)
-
-                    if target_level_idx >= 0:
-                        # Parse tất cả đáp án theo thứ tự xuất hiện
-                        pattern = r'\b(\d{1,2})\s*\n\s*([A-E](?:,\s*[A-E])?)\b'
-                        matches = re.findall(pattern, pdf_text, re.MULTILINE)
-
-                        # Group matches theo số câu
-                        # Số đáp án mỗi câu phụ thuộc vào số level có câu đó:
-                        # - Câu 1-24: 6 levels (Start, Story, Joey, Wallaby, Grey, Red)
-                        # - Câu 25-30: 5 levels (Story, Joey, Wallaby, Grey, Red)
-                        # - Câu 31-50: 4 levels (Joey, Wallaby, Grey, Red)
-                        matches_by_q = defaultdict(list)
-                        for q_num, answer in matches:
-                            q = int(q_num)
-                            ans = answer.strip()[0]  # Lấy ký tự đầu tiên
-                            matches_by_q[q].append(ans)
-
-                        # Lấy đáp án cho level cần tìm
-                        target_level_name, target_num_q = iklc_levels[target_level_idx]
-
-                        for q in range(1, target_num_q + 1):
-                            q_answers = matches_by_q.get(q, [])
-
-                            # Tính vị trí của target_level trong danh sách đáp án cho câu này
-                            # Đếm số level có câu hỏi này (đứng trước target_level)
-                            position = 0
-                            for i, (level_name, level_num_q) in enumerate(iklc_levels):
-                                if i == target_level_idx:
-                                    break
-                                if q <= level_num_q:
-                                    position += 1
-
-                            if position < len(q_answers):
-                                found_answers[q] = q_answers[position]
-
-                # Fallback: parse đơn giản
-                if not found_answers:
-                    found_answers = _extract_answers_from_text(pdf_text, num_questions)
-
-                # Chuyển dict thành list theo thứ tự
-                for i in range(1, num_questions + 1):
-                    answers.append(found_answers.get(i, ""))
-
-                if not any(answers):
-                    raise HTTPException(status_code=400, detail="Không tìm thấy đáp án trong file PDF")
-
-            except HTTPException:
-                raise
-            except Exception as e:
-                raise HTTPException(status_code=400, detail=f"Lỗi đọc file PDF: {str(e)}")
-
-        elif file_ext in ["docx", "doc"]:
-            # Đọc từ file Word
-            try:
-                doc = Document(io.BytesIO(content))
-                found_answers = {}
-
-                # Trước tiên, thử đọc từ bảng với format nhiều level
-                # Format: Cột 1 = số câu, các cột sau = đáp án của từng level
-                for table in doc.tables:
-                    if len(table.rows) > 1 and len(table.columns) >= 2:
-                        header = [cell.text.strip().lower() for cell in table.rows[0].cells]
-
-                        # Tìm cột chứa level phù hợp với template_type
-                        level_col = -1
-                        template_name = template.get("name", "").lower()
-
-                        # Map template_type to level name (exact match preferred)
-                        level_keywords = {
-                            "pre_ecolier": ["preecolier", "pre-ecolier", "pre ecolier", "pre_ecolier"],
-                            "ecolier": ["ecolier"],  # Will use exact match logic
-                            "benjamin": ["benjamin"],
-                            "cadet": ["cadet"],
-                            "junior": ["junior"],
-                            "student": ["student"],
-                        }
-
-                        # Tìm keyword phù hợp từ template_type
-                        search_keywords = []
-                        is_ecolier_only = False  # Special case for "ecolier" vs "preecolier"
-                        for key, keywords in level_keywords.items():
-                            if key in template_type.lower():
-                                search_keywords = keywords
-                                if key == "ecolier" and "pre" not in template_type.lower():
-                                    is_ecolier_only = True
-                                break
-
-                        # Tìm cột chứa level
-                        for col_idx, col_header in enumerate(header):
-                            # Special handling for "ecolier" to avoid matching "preecolier"
-                            if is_ecolier_only:
-                                if col_header == "ecolier" or (col_header.endswith("ecolier") and not col_header.startswith("pre")):
-                                    level_col = col_idx
-                                    break
-                            else:
-                                for keyword in search_keywords:
-                                    if keyword in col_header:
-                                        level_col = col_idx
-                                        break
-                            if level_col >= 0:
-                                break
-
-                        # Nếu tìm thấy cột level, đọc đáp án
-                        if level_col >= 0:
-                            for row_idx, row in enumerate(table.rows[1:], start=1):
-                                try:
-                                    q_num = int(row.cells[0].text.strip())
-                                    answer = row.cells[level_col].text.strip().upper()
-                                    if answer and answer in "ABCDE":
-                                        found_answers[q_num] = answer
-                                except (ValueError, IndexError):
-                                    continue
-
-                        # Nếu không tìm thấy level cụ thể, thử đọc cột 2 (đáp án duy nhất)
-                        if not found_answers and len(table.columns) == 2:
-                            for row in table.rows[1:]:
-                                try:
-                                    q_num = int(row.cells[0].text.strip())
-                                    answer = row.cells[1].text.strip().upper()
-                                    if answer and answer in "ABCDE":
-                                        found_answers[q_num] = answer
-                                except (ValueError, IndexError):
-                                    continue
-
-                # Nếu không tìm thấy từ bảng, thử đọc từ text
-                if not found_answers:
-                    doc_text = ""
-                    for para in doc.paragraphs:
-                        doc_text += para.text + "\n"
-                    for table in doc.tables:
-                        for row in table.rows:
-                            for cell in row.cells:
-                                doc_text += cell.text + " "
-                            doc_text += "\n"
-
-                    found_answers = _extract_answers_from_text(doc_text, num_questions)
-
-                # Chuyển dict thành list theo thứ tự
-                for i in range(1, num_questions + 1):
-                    answers.append(found_answers.get(i, ""))
-
-                if not any(answers):
-                    raise HTTPException(status_code=400, detail="Không tìm thấy đáp án trong file Word. Đảm bảo file có format đúng (bảng với cột số câu và cột đáp án).")
-
-            except HTTPException:
-                raise
-            except Exception as e:
-                raise HTTPException(status_code=400, detail=f"Lỗi đọc file Word: {str(e)}")
-
-        else:
-            raise HTTPException(status_code=400, detail=f"Định dạng file không được hỗ trợ: {file_ext}")
-    elif answer_key:
-        # Parse JSON
-        try:
-            answers = json.loads(answer_key)
-            if isinstance(answers, str):
-                # Nếu là chuỗi như "ABCDE...", tách thành list
-                answers = list(answers.upper())
-            answers = [str(a).upper() for a in answers]
-        except json.JSONDecodeError:
-            # Nếu không phải JSON, thử tách theo dấu phẩy hoặc ký tự
-            if "," in answer_key:
-                answers = [a.strip().upper() for a in answer_key.split(",")]
-            else:
-                answers = list(answer_key.upper().replace(" ", ""))
-
-    if len(answers) < num_questions:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Thiếu đáp án. Cần {num_questions} đáp án, chỉ có {len(answers)}"
+        # Kiểm tra nếu là file IKLC (Linguistic Kangaroo) với format đặc biệt
+        is_iklc_format = "LINGUISTIC KANGAROO" in pdf_text.upper() or all(
+            level in pdf_text for level in ["Joey", "Wallaby"]
         )
+
+        if is_iklc_format and "IKLC" in template_type.upper():
+            # Parse IKLC PDF với format nhiều cột
+            iklc_levels = [
+                ("start", 24),      # Pre-Ecolier (Lớp 1-2)
+                ("story", 30),      # Ecolier (Lớp 3-4)
+                ("joey", 50),       # Benjamin (Lớp 5-6)
+                ("wallaby", 50),    # Cadet (Lớp 7-8)
+                ("grey", 50),       # Junior (Lớp 9-10)
+                ("red", 50),        # Student (Lớp 11-12)
+            ]
+
+            level_map = {
+                "IKLC_PRE_ECOLIER": 0,
+                "IKLC_ECOLIER": 1,
+                "IKLC_BENJAMIN": 2,
+                "IKLC_CADET": 3,
+                "IKLC_JUNIOR": 4,
+                "IKLC_STUDENT": 5,
+            }
+
+            target_level_idx = level_map.get(template_type.upper(), -1)
+
+            if target_level_idx >= 0:
+                pattern = r'\b(\d{1,2})\s*\n\s*([A-E](?:,\s*[A-E])?)\b'
+                matches = re.findall(pattern, pdf_text, re.MULTILINE)
+
+                matches_by_q = defaultdict(list)
+                for q_num, answer in matches:
+                    q = int(q_num)
+                    ans = answer.strip()[0]
+                    matches_by_q[q].append(ans)
+
+                target_level_name, target_num_q = iklc_levels[target_level_idx]
+
+                for q in range(1, target_num_q + 1):
+                    q_answers = matches_by_q.get(q, [])
+                    position = 0
+                    for i, (level_name, level_num_q) in enumerate(iklc_levels):
+                        if i == target_level_idx:
+                            break
+                        if q <= level_num_q:
+                            position += 1
+
+                    if position < len(q_answers):
+                        found_answers[q] = q_answers[position]
+
+        # Fallback: parse đơn giản
+        if not found_answers:
+            found_answers = _extract_answers_from_text(pdf_text, num_questions)
+
+        for i in range(1, num_questions + 1):
+            answers.append(found_answers.get(i, ""))
+
+    elif file_ext in ["docx", "doc"]:
+        # Đọc từ file Word
+        doc = Document(io.BytesIO(answer_file_content))
+        found_answers = {}
+
+        level_keywords = {
+            "pre_ecolier": ["preecolier", "pre-ecolier", "pre ecolier", "pre_ecolier"],
+            "ecolier": ["ecolier"],
+            "benjamin": ["benjamin"],
+            "cadet": ["cadet"],
+            "junior": ["junior"],
+            "student": ["student"],
+        }
+
+        for table in doc.tables:
+            if len(table.rows) > 1 and len(table.columns) >= 2:
+                header = [cell.text.strip().lower() for cell in table.rows[0].cells]
+
+                level_col = -1
+                search_keywords = []
+                is_ecolier_only = False
+
+                for key, keywords in level_keywords.items():
+                    if key in template_type.lower():
+                        search_keywords = keywords
+                        if key == "ecolier" and "pre" not in template_type.lower():
+                            is_ecolier_only = True
+                        break
+
+                for col_idx, col_header in enumerate(header):
+                    if is_ecolier_only:
+                        if col_header == "ecolier" or (col_header.endswith("ecolier") and not col_header.startswith("pre")):
+                            level_col = col_idx
+                            break
+                    else:
+                        for keyword in search_keywords:
+                            if keyword in col_header:
+                                level_col = col_idx
+                                break
+                    if level_col >= 0:
+                        break
+
+                if level_col >= 0:
+                    for row in table.rows[1:]:
+                        try:
+                            q_num = int(row.cells[0].text.strip())
+                            answer = row.cells[level_col].text.strip().upper()
+                            if answer and answer in "ABCDE":
+                                found_answers[q_num] = answer
+                        except (ValueError, IndexError):
+                            continue
+
+                if not found_answers and len(table.columns) == 2:
+                    for row in table.rows[1:]:
+                        try:
+                            q_num = int(row.cells[0].text.strip())
+                            answer = row.cells[1].text.strip().upper()
+                            if answer and answer in "ABCDE":
+                                found_answers[q_num] = answer
+                        except (ValueError, IndexError):
+                            continue
+
+        if not found_answers:
+            doc_text = ""
+            for para in doc.paragraphs:
+                doc_text += para.text + "\n"
+            for table in doc.tables:
+                for row in table.rows:
+                    for cell in row.cells:
+                        doc_text += cell.text + " "
+                    doc_text += "\n"
+            found_answers = _extract_answers_from_text(doc_text, num_questions)
+
+        for i in range(1, num_questions + 1):
+            answers.append(found_answers.get(i, ""))
+
+    return answers
+
+
+@app.post("/api/grade-sheets")
+async def grade_answer_sheets(
+    files: List[UploadFile],
+    template_type: str = Form("IKSC_BENJAMIN"),
+    answer_key: str = Form(None),
+    answer_file: UploadFile = None,
+    auto_detect_template: bool = Form(True)  # Tự động nhận diện template từ phiếu
+):
+    """Chấm nhiều phiếu trả lời
+
+    Nếu auto_detect_template=True (mặc định), hệ thống sẽ tự động nhận diện
+    loại đề (IKSC/IKLC) và cấp độ (Benjamin, Cadet, etc.) từ phiếu trả lời
+    và lấy đáp án tương ứng từ file đáp án.
+    """
+    import json
+
+    # Đọc nội dung file đáp án (nếu có) để sử dụng sau
+    answer_file_content = None
+    answer_file_ext = None
+    if answer_file and answer_file.filename:
+        answer_file_content = await answer_file.read()
+        answer_file_ext = answer_file.filename.lower().split(".")[-1]
+
+    # Cache đáp án đã parse cho mỗi template
+    answers_cache = {}
+
+    def get_answers_for_template(tpl_type: str) -> List[str]:
+        """Lấy đáp án cho một template, sử dụng cache"""
+        if tpl_type in answers_cache:
+            return answers_cache[tpl_type]
+
+        template = ANSWER_TEMPLATES.get(tpl_type)
+        if not template:
+            return []
+
+        num_questions = template["questions"]
+        answers = []
+
+        if answer_file_content and answer_file_ext:
+            try:
+                answers = _parse_answer_key_for_template(answer_file_content, answer_file_ext, tpl_type)
+            except Exception:
+                pass
+
+        if not answers and answer_key:
+            # Parse từ answer_key string
+            try:
+                answers = json.loads(answer_key)
+                if isinstance(answers, str):
+                    answers = list(answers.upper())
+                answers = [str(a).upper() for a in answers]
+            except json.JSONDecodeError:
+                if "," in answer_key:
+                    answers = [a.strip().upper() for a in answer_key.split(",")]
+                else:
+                    answers = list(answer_key.upper().replace(" ", ""))
+
+        answers_cache[tpl_type] = answers
+        return answers
+
+    # Validate template mặc định
+    default_template = ANSWER_TEMPLATES.get(template_type)
+    if not default_template:
+        raise HTTPException(status_code=400, detail=f"Loại mẫu không hợp lệ: {template_type}")
+
+    # Nếu không tự động nhận diện, kiểm tra đáp án trước
+    if not auto_detect_template:
+        answers = get_answers_for_template(template_type)
+        num_questions = default_template["questions"]
+        if len(answers) < num_questions:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Thiếu đáp án. Cần {num_questions} đáp án, chỉ có {len(answers)}"
+            )
 
     # Chấm từng phiếu
     results = []
@@ -6898,21 +6977,43 @@ async def grade_answer_sheets(
 
                 for page_num in range(len(pdf_doc)):
                     page = pdf_doc[page_num]
-                    # Render page thành ảnh với DPI cao
-                    mat = fitz.Matrix(2.0, 2.0)  # 2x zoom = ~144 DPI
+                    mat = fitz.Matrix(2.0, 2.0)
                     pix = page.get_pixmap(matrix=mat)
                     img_bytes = pix.tobytes("png")
 
                     page_filename = f"{file.filename}_trang_{page_num + 1}"
-                    result = _grade_single_sheet(img_bytes, answers, template_type)
+
+                    # Tự động nhận diện template từ phiếu
+                    actual_template = template_type
+                    if auto_detect_template:
+                        student_info = _extract_student_info_ocr(img_bytes)
+                        detected = student_info.get("detected_template", "")
+                        if detected and detected in ANSWER_TEMPLATES:
+                            actual_template = detected
+
+                    # Lấy đáp án cho template
+                    answers = get_answers_for_template(actual_template)
+                    tpl = ANSWER_TEMPLATES.get(actual_template, default_template)
+
+                    if len(answers) < tpl["questions"]:
+                        results.append({
+                            "filename": page_filename,
+                            "detected_template": actual_template,
+                            "error": f"Không tìm thấy đáp án cho {tpl['name']}. Vui lòng kiểm tra file đáp án."
+                        })
+                        continue
+
+                    result = _grade_single_sheet(img_bytes, answers, actual_template)
 
                     if "error" in result:
                         results.append({
                             "filename": page_filename,
+                            "detected_template": actual_template,
                             "error": result["error"]
                         })
                     else:
                         result["filename"] = page_filename
+                        result["detected_template"] = actual_template
                         results.append(result)
                         all_scores.append(result["score"])
 
@@ -6933,15 +7034,38 @@ async def grade_answer_sheets(
 
         try:
             content = await file.read()
-            result = _grade_single_sheet(content, answers, template_type)
+
+            # Tự động nhận diện template từ phiếu
+            actual_template = template_type
+            if auto_detect_template:
+                student_info = _extract_student_info_ocr(content)
+                detected = student_info.get("detected_template", "")
+                if detected and detected in ANSWER_TEMPLATES:
+                    actual_template = detected
+
+            # Lấy đáp án cho template
+            answers = get_answers_for_template(actual_template)
+            tpl = ANSWER_TEMPLATES.get(actual_template, default_template)
+
+            if len(answers) < tpl["questions"]:
+                results.append({
+                    "filename": file.filename,
+                    "detected_template": actual_template,
+                    "error": f"Không tìm thấy đáp án cho {tpl['name']}. Vui lòng kiểm tra file đáp án."
+                })
+                continue
+
+            result = _grade_single_sheet(content, answers, actual_template)
 
             if "error" in result:
                 results.append({
                     "filename": file.filename,
+                    "detected_template": actual_template,
                     "error": result["error"]
                 })
             else:
                 result["filename"] = file.filename
+                result["detected_template"] = actual_template
                 results.append(result)
                 all_scores.append(result["score"])
         except Exception as e:
@@ -6962,7 +7086,7 @@ async def grade_answer_sheets(
 
     return {
         "ok": True,
-        "template": template_type,
+        "auto_detect": auto_detect_template,
         "results": results,
         "summary": summary
     }
