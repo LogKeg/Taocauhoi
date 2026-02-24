@@ -5612,6 +5612,110 @@ ANSWER_TEMPLATES = {
 }
 
 
+def _extract_student_info_ocr(image_bytes: bytes) -> dict:
+    """Trích xuất thông tin học sinh từ phiếu bằng OCR"""
+    import cv2
+    import numpy as np
+
+    try:
+        import pytesseract
+    except ImportError:
+        return {}
+
+    # Đọc ảnh
+    nparr = np.frombuffer(image_bytes, np.uint8)
+    img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+
+    if img is None:
+        return {}
+
+    # Chuyển sang grayscale
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+
+    # Lấy phần trên của ảnh (chứa thông tin học sinh) - khoảng 25% trên
+    height = img.shape[0]
+    top_region = gray[0:int(height * 0.25), :]
+
+    # Tăng contrast và threshold
+    _, binary = cv2.threshold(top_region, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+
+    # OCR với tiếng Việt và Anh
+    try:
+        text = pytesseract.image_to_string(binary, lang='vie+eng', config='--psm 6')
+    except:
+        try:
+            text = pytesseract.image_to_string(binary, lang='eng', config='--psm 6')
+        except:
+            return {}
+
+    # Parse thông tin từ text
+    info = {
+        "full_name": "",
+        "class": "",
+        "dob": "",
+        "id_no": "",
+        "school_name": ""
+    }
+
+    lines = text.split('\n')
+    for line in lines:
+        line_lower = line.lower().strip()
+
+        # Tìm Full Name
+        if 'full name' in line_lower or 'họ tên' in line_lower or 'name:' in line_lower:
+            # Lấy phần sau dấu :
+            parts = line.split(':')
+            if len(parts) > 1:
+                info["full_name"] = parts[1].strip()
+            else:
+                # Tìm trên cùng dòng sau label
+                match = re.search(r'(?:full name|họ tên|name)[:\s]*(.+)', line, re.IGNORECASE)
+                if match:
+                    info["full_name"] = match.group(1).strip()
+
+        # Tìm Class
+        elif 'class' in line_lower and 'school' not in line_lower:
+            parts = line.split(':')
+            if len(parts) > 1:
+                info["class"] = parts[1].strip()
+            else:
+                match = re.search(r'class[:\s]*(.+)', line, re.IGNORECASE)
+                if match:
+                    info["class"] = match.group(1).strip()
+
+        # Tìm DOB
+        elif 'dob' in line_lower or 'date of birth' in line_lower or 'ngày sinh' in line_lower:
+            parts = line.split(':')
+            if len(parts) > 1:
+                info["dob"] = parts[1].strip()
+            else:
+                match = re.search(r'(?:dob|date of birth|ngày sinh)[:\s]*(.+)', line, re.IGNORECASE)
+                if match:
+                    info["dob"] = match.group(1).strip()
+
+        # Tìm ID NO
+        elif 'id no' in line_lower or 'id:' in line_lower or 'số báo danh' in line_lower:
+            parts = line.split(':')
+            if len(parts) > 1:
+                info["id_no"] = parts[1].strip()
+            else:
+                match = re.search(r'(?:id no|id|số báo danh)[:\s]*(.+)', line, re.IGNORECASE)
+                if match:
+                    info["id_no"] = match.group(1).strip()
+
+        # Tìm School Name
+        elif 'school' in line_lower or 'trường' in line_lower:
+            parts = line.split(':')
+            if len(parts) > 1:
+                info["school_name"] = parts[1].strip()
+            else:
+                match = re.search(r'(?:school name|school|trường)[:\s]*(.+)', line, re.IGNORECASE)
+                if match:
+                    info["school_name"] = match.group(1).strip()
+
+    return info
+
+
 def _preprocess_omr_image(image_bytes: bytes):
     """Tiền xử lý ảnh cho OMR"""
     import cv2
@@ -5768,15 +5872,20 @@ def _group_bubbles_to_questions(bubbles, template_type: str = "IKSC"):
     return questions
 
 
-def _grade_single_sheet(image_bytes: bytes, answer_key: List[str], template_type: str = "IKSC"):
+def _grade_single_sheet(image_bytes: bytes, answer_key: List[str], template_type: str = "IKSC", extract_info: bool = True):
     """Chấm một phiếu trả lời"""
     import cv2
     import numpy as np
 
-    template = ANSWER_TEMPLATES.get(template_type, ANSWER_TEMPLATES["IKSC"])
+    template = ANSWER_TEMPLATES.get(template_type, ANSWER_TEMPLATES["IKSC_BENJAMIN"])
     num_questions = template["questions"]
     scoring = template["scoring"]
     option_labels = ["A", "B", "C", "D", "E"]
+
+    # Trích xuất thông tin học sinh bằng OCR
+    student_info = {}
+    if extract_info:
+        student_info = _extract_student_info_ocr(image_bytes)
 
     # Tiền xử lý ảnh
     original, binary = _preprocess_omr_image(image_bytes)
@@ -5863,7 +5972,8 @@ def _grade_single_sheet(image_bytes: bytes, answer_key: List[str], template_type
         "wrong": wrong_count,
         "blank": blank_count,
         "total": num_questions,
-        "details": details
+        "details": details,
+        "student_info": student_info
     }
 
 
@@ -6113,7 +6223,7 @@ async def grade_answer_sheets(
 @app.post("/api/grade-sheets/export")
 async def export_grading_results(
     results: str = Form(...),
-    template_type: str = Form("IKSC")
+    template_type: str = Form("IKSC_BENJAMIN")
 ):
     """Xuất kết quả chấm bài ra Excel"""
     import openpyxl
@@ -6124,7 +6234,7 @@ async def export_grading_results(
     except json.JSONDecodeError:
         raise HTTPException(status_code=400, detail="Dữ liệu không hợp lệ")
 
-    template = ANSWER_TEMPLATES.get(template_type, ANSWER_TEMPLATES["IKSC"])
+    template = ANSWER_TEMPLATES.get(template_type, ANSWER_TEMPLATES["IKSC_BENJAMIN"])
     num_questions = template["questions"]
 
     wb = openpyxl.Workbook()
@@ -6137,6 +6247,7 @@ async def export_grading_results(
     correct_fill = PatternFill(start_color="C6EFCE", end_color="C6EFCE", fill_type="solid")
     wrong_fill = PatternFill(start_color="FFC7CE", end_color="FFC7CE", fill_type="solid")
     center_align = Alignment(horizontal="center", vertical="center")
+    left_align = Alignment(horizontal="left", vertical="center")
     thin_border = Border(
         left=Side(style='thin'),
         right=Side(style='thin'),
@@ -6144,8 +6255,19 @@ async def export_grading_results(
         bottom=Side(style='thin')
     )
 
-    # Headers
-    headers = ["STT", "Tên file", "Điểm", "Đúng", "Sai", "Bỏ trống"]
+    # Headers - Thông tin học sinh + Điểm + Đáp án từng câu
+    headers = [
+        "STT",
+        "Họ và tên",
+        "Lớp",
+        "Ngày sinh",
+        "Số báo danh",
+        "Trường",
+        "Điểm",
+        "Đúng",
+        "Sai",
+        "Bỏ trống"
+    ]
     for i in range(1, num_questions + 1):
         headers.append(f"Câu {i}")
 
@@ -6161,20 +6283,27 @@ async def export_grading_results(
         if "error" in result:
             ws.cell(row=row_idx, column=1, value=row_idx - 1)
             ws.cell(row=row_idx, column=2, value=result.get("filename", ""))
-            ws.cell(row=row_idx, column=3, value="Lỗi: " + result["error"])
+            ws.cell(row=row_idx, column=7, value="Lỗi: " + result["error"])
             continue
 
+        # Lấy thông tin học sinh
+        student_info = result.get("student_info", {})
+
         ws.cell(row=row_idx, column=1, value=row_idx - 1).alignment = center_align
-        ws.cell(row=row_idx, column=2, value=result.get("filename", ""))
-        ws.cell(row=row_idx, column=3, value=result.get("score", 0)).alignment = center_align
-        ws.cell(row=row_idx, column=4, value=result.get("correct", 0)).alignment = center_align
-        ws.cell(row=row_idx, column=5, value=result.get("wrong", 0)).alignment = center_align
-        ws.cell(row=row_idx, column=6, value=result.get("blank", 0)).alignment = center_align
+        ws.cell(row=row_idx, column=2, value=student_info.get("full_name", "")).alignment = left_align
+        ws.cell(row=row_idx, column=3, value=student_info.get("class", "")).alignment = center_align
+        ws.cell(row=row_idx, column=4, value=student_info.get("dob", "")).alignment = center_align
+        ws.cell(row=row_idx, column=5, value=student_info.get("id_no", "")).alignment = center_align
+        ws.cell(row=row_idx, column=6, value=student_info.get("school_name", "")).alignment = left_align
+        ws.cell(row=row_idx, column=7, value=result.get("score", 0)).alignment = center_align
+        ws.cell(row=row_idx, column=8, value=result.get("correct", 0)).alignment = center_align
+        ws.cell(row=row_idx, column=9, value=result.get("wrong", 0)).alignment = center_align
+        ws.cell(row=row_idx, column=10, value=result.get("blank", 0)).alignment = center_align
 
         # Chi tiết từng câu
         details = result.get("details", [])
         for detail in details:
-            col = 6 + detail["q"]
+            col = 10 + detail["q"]
             cell = ws.cell(row=row_idx, column=col, value=detail.get("student", ""))
             cell.alignment = center_align
             cell.border = thin_border
@@ -6191,7 +6320,7 @@ async def export_grading_results(
 
     if data and "details" in data[0]:
         for detail in data[0]["details"]:
-            col = 6 + detail["q"]
+            col = 10 + detail["q"]
             cell = ws.cell(row=answer_row, column=col, value=detail.get("correct", ""))
             cell.alignment = center_align
             cell.font = Font(bold=True)
@@ -6199,11 +6328,15 @@ async def export_grading_results(
 
     # Điều chỉnh độ rộng cột
     ws.column_dimensions["A"].width = 5
-    ws.column_dimensions["B"].width = 25
-    ws.column_dimensions["C"].width = 8
-    ws.column_dimensions["D"].width = 6
-    ws.column_dimensions["E"].width = 6
-    ws.column_dimensions["F"].width = 10
+    ws.column_dimensions["B"].width = 25  # Họ và tên
+    ws.column_dimensions["C"].width = 8   # Lớp
+    ws.column_dimensions["D"].width = 12  # Ngày sinh
+    ws.column_dimensions["E"].width = 12  # Số báo danh
+    ws.column_dimensions["F"].width = 30  # Trường
+    ws.column_dimensions["G"].width = 8   # Điểm
+    ws.column_dimensions["H"].width = 6   # Đúng
+    ws.column_dimensions["I"].width = 6   # Sai
+    ws.column_dimensions["J"].width = 10  # Bỏ trống
 
     # Lưu file
     output = io.BytesIO()

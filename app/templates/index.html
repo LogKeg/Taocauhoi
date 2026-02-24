@@ -301,7 +301,10 @@
                 <thead>
                   <tr>
                     <th>STT</th>
-                    <th>Tên file</th>
+                    <th>Họ và tên</th>
+                    <th>Lớp</th>
+                    <th>SBD</th>
+                    <th>Trường</th>
                     <th>Điểm</th>
                     <th>Đúng</th>
                     <th>Sai</th>
@@ -1439,16 +1442,20 @@
 
         const tbody = gradingTable.querySelector('tbody');
         tbody.innerHTML = (data.results || []).map((r, idx) => {
+          const info = r.student_info || {};
           if (r.error) {
             return `<tr class="error-row">
               <td>${idx + 1}</td>
               <td>${r.filename || ''}</td>
-              <td colspan="5" style="color: var(--danger);">Lỗi: ${r.error}</td>
+              <td colspan="8" style="color: var(--danger);">Lỗi: ${r.error}</td>
             </tr>`;
           }
           return `<tr>
             <td>${idx + 1}</td>
-            <td>${r.filename || ''}</td>
+            <td>${info.full_name || '-'}</td>
+            <td>${info.class || '-'}</td>
+            <td>${info.id_no || '-'}</td>
+            <td>${info.school_name || '-'}</td>
             <td><strong>${r.score}</strong></td>
             <td style="color: var(--success);">${r.correct}</td>
             <td style="color: var(--danger);">${r.wrong}</td>
