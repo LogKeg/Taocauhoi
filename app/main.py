@@ -5558,6 +5558,13 @@ ANSWER_TEMPLATES = {
         "questions_per_row": 4,
         "scoring": {"correct": 4, "wrong": -1, "blank": 0, "base": 30}
     },
+    "IKSC_STUDENT": {
+        "name": "Khoa học - Student (Lớp 11-12)",
+        "questions": 30,
+        "options": 5,
+        "questions_per_row": 4,
+        "scoring": {"correct": 4, "wrong": -1, "blank": 0, "base": 30}
+    },
     # IKLC - Tiếng Anh (Linguistic Contest)
     "IKLC_PRE_ECOLIER": {
         "name": "Tiếng Anh - Pre-Ecolier (Lớp 1-2)",
@@ -5613,12 +5620,12 @@ ANSWER_TEMPLATES = {
 
 
 def _extract_student_info_ocr(image_bytes: bytes) -> dict:
-    """Trích xuất thông tin học sinh từ phiếu bằng OCR"""
+    """Trích xuất thông tin học sinh từ phiếu bằng OCR (EasyOCR)"""
     import cv2
     import numpy as np
 
     try:
-        import pytesseract
+        import easyocr
     except ImportError:
         return {}
 
@@ -5629,24 +5636,25 @@ def _extract_student_info_ocr(image_bytes: bytes) -> dict:
     if img is None:
         return {}
 
-    # Chuyển sang grayscale
-    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-
     # Lấy phần trên của ảnh (chứa thông tin học sinh) - khoảng 25% trên
     height = img.shape[0]
-    top_region = gray[0:int(height * 0.25), :]
+    top_region = img[0:int(height * 0.25), :]
 
-    # Tăng contrast và threshold
-    _, binary = cv2.threshold(top_region, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-
-    # OCR với tiếng Việt và Anh
+    # Khởi tạo EasyOCR reader với tiếng Việt và Anh
+    # gpu=False để chạy trên CPU (tương thích mọi máy)
     try:
-        text = pytesseract.image_to_string(binary, lang='vie+eng', config='--psm 6')
+        reader = easyocr.Reader(['vi', 'en'], gpu=False, verbose=False)
+        results = reader.readtext(top_region)
     except:
         try:
-            text = pytesseract.image_to_string(binary, lang='eng', config='--psm 6')
+            # Fallback chỉ tiếng Anh nếu tiếng Việt không khả dụng
+            reader = easyocr.Reader(['en'], gpu=False, verbose=False)
+            results = reader.readtext(top_region)
         except:
             return {}
+
+    # Ghép kết quả OCR thành text
+    text = '\n'.join([result[1] for result in results])
 
     # Parse thông tin từ text
     info = {
@@ -5716,8 +5724,118 @@ def _extract_student_info_ocr(image_bytes: bytes) -> dict:
     return info
 
 
+def _order_points(pts):
+    """Sắp xếp 4 điểm theo thứ tự: top-left, top-right, bottom-right, bottom-left"""
+    import numpy as np
+    rect = np.zeros((4, 2), dtype="float32")
+    s = pts.sum(axis=1)
+    rect[0] = pts[np.argmin(s)]  # top-left có tổng nhỏ nhất
+    rect[2] = pts[np.argmax(s)]  # bottom-right có tổng lớn nhất
+    diff = np.diff(pts, axis=1)
+    rect[1] = pts[np.argmin(diff)]  # top-right
+    rect[3] = pts[np.argmax(diff)]  # bottom-left
+    return rect
+
+
+def _four_point_transform(image, pts):
+    """Thực hiện perspective transform với 4 điểm"""
+    import cv2
+    import numpy as np
+
+    rect = _order_points(pts)
+    (tl, tr, br, bl) = rect
+
+    # Tính chiều rộng mới
+    widthA = np.sqrt(((br[0] - bl[0]) ** 2) + ((br[1] - bl[1]) ** 2))
+    widthB = np.sqrt(((tr[0] - tl[0]) ** 2) + ((tr[1] - tl[1]) ** 2))
+    maxWidth = max(int(widthA), int(widthB))
+
+    # Tính chiều cao mới
+    heightA = np.sqrt(((tr[0] - br[0]) ** 2) + ((tr[1] - br[1]) ** 2))
+    heightB = np.sqrt(((tl[0] - bl[0]) ** 2) + ((tl[1] - bl[1]) ** 2))
+    maxHeight = max(int(heightA), int(heightB))
+
+    dst = np.array([
+        [0, 0],
+        [maxWidth - 1, 0],
+        [maxWidth - 1, maxHeight - 1],
+        [0, maxHeight - 1]], dtype="float32")
+
+    M = cv2.getPerspectiveTransform(rect, dst)
+    warped = cv2.warpPerspective(image, M, (maxWidth, maxHeight))
+
+    return warped
+
+
+def _deskew_image(image):
+    """Tự động căn chỉnh ảnh bị nghiêng"""
+    import cv2
+    import numpy as np
+
+    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY) if len(image.shape) == 3 else image
+
+    # Phát hiện cạnh
+    edges = cv2.Canny(gray, 50, 150, apertureSize=3)
+
+    # Tìm đường thẳng bằng Hough Transform
+    lines = cv2.HoughLinesP(edges, 1, np.pi/180, threshold=100, minLineLength=100, maxLineGap=10)
+
+    if lines is None:
+        return image, 0
+
+    # Tính góc nghiêng trung bình
+    angles = []
+    for line in lines:
+        x1, y1, x2, y2 = line[0]
+        if x2 - x1 != 0:
+            angle = np.arctan2(y2 - y1, x2 - x1) * 180 / np.pi
+            # Chỉ lấy các đường gần ngang (±15 độ)
+            if abs(angle) < 15:
+                angles.append(angle)
+
+    if not angles:
+        return image, 0
+
+    # Lấy góc trung vị
+    median_angle = np.median(angles)
+
+    # Xoay ảnh
+    (h, w) = image.shape[:2]
+    center = (w // 2, h // 2)
+    M = cv2.getRotationMatrix2D(center, median_angle, 1.0)
+    rotated = cv2.warpAffine(image, M, (w, h), flags=cv2.INTER_CUBIC, borderMode=cv2.BORDER_REPLICATE)
+
+    return rotated, median_angle
+
+
+def _find_document_contour(image):
+    """Tìm contour của tài liệu (phiếu trả lời)"""
+    import cv2
+    import numpy as np
+
+    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY) if len(image.shape) == 3 else image
+    blurred = cv2.GaussianBlur(gray, (5, 5), 0)
+    edges = cv2.Canny(blurred, 75, 200)
+
+    # Làm dày cạnh
+    kernel = np.ones((3, 3), np.uint8)
+    edges = cv2.dilate(edges, kernel, iterations=1)
+
+    contours, _ = cv2.findContours(edges, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
+    contours = sorted(contours, key=cv2.contourArea, reverse=True)[:5]
+
+    for contour in contours:
+        peri = cv2.arcLength(contour, True)
+        approx = cv2.approxPolyDP(contour, 0.02 * peri, True)
+
+        if len(approx) == 4:
+            return approx.reshape(4, 2)
+
+    return None
+
+
 def _preprocess_omr_image(image_bytes: bytes):
-    """Tiền xử lý ảnh cho OMR"""
+    """Tiền xử lý ảnh cho OMR với deskew và perspective correction"""
     import cv2
     import numpy as np
 
@@ -5726,59 +5844,416 @@ def _preprocess_omr_image(image_bytes: bytes):
     img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
 
     if img is None:
-        return None, None
+        return None, None, None
 
-    # Chuyển sang grayscale
+    original = img.copy()
+
+    # Bước 1: Tìm và căn chỉnh tài liệu nếu bị méo
+    # CHÚ Ý: Chỉ áp dụng perspective transform khi contour bao phủ gần như toàn bộ ảnh
+    # để tránh cắt mất nội dung (ví dụ: hàng cuối của phiếu 50 câu)
+    doc_contour = _find_document_contour(img)
+    if doc_contour is not None:
+        contour_area = cv2.contourArea(doc_contour)
+        img_area = img.shape[0] * img.shape[1]
+        # Chỉ transform nếu contour bao phủ > 80% diện tích ảnh
+        if contour_area > 0.8 * img_area:
+            img = _four_point_transform(img, doc_contour)
+
+    # Bước 2: Deskew (căn chỉnh góc nghiêng)
+    img, skew_angle = _deskew_image(img)
+
+    # Bước 3: Chuyển sang grayscale
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
 
-    # Làm mờ để giảm nhiễu
+    # Bước 4: Tăng contrast bằng CLAHE
+    clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
+    gray = clahe.apply(gray)
+
+    # Bước 5: Làm mờ để giảm nhiễu
     blurred = cv2.GaussianBlur(gray, (5, 5), 0)
 
-    # Binary threshold với Otsu
-    _, binary = cv2.threshold(blurred, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
+    # Bước 6: Adaptive threshold (tốt hơn cho điều kiện ánh sáng khác nhau)
+    binary = cv2.adaptiveThreshold(
+        blurred, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
+        cv2.THRESH_BINARY_INV, 11, 2
+    )
 
-    return img, binary
+    # Bước 7: Morphological operations để làm sạch
+    kernel = np.ones((2, 2), np.uint8)
+    binary = cv2.morphologyEx(binary, cv2.MORPH_CLOSE, kernel)
+
+    return img, gray, binary
 
 
-def _find_answer_grid_region(binary_image, original_image):
-    """Tìm vùng chứa lưới đáp án trong ảnh"""
+def _find_answer_grid_region(gray_image, binary_image):
+    """Tìm vùng chứa lưới đáp án trong ảnh dựa trên cấu trúc grid"""
+    import cv2
+    import numpy as np
+
+    height, width = gray_image.shape[:2]
+
+    # Tìm các đường ngang và dọc
+    horizontal_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (40, 1))
+    vertical_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (1, 40))
+
+    horizontal_lines = cv2.morphologyEx(binary_image, cv2.MORPH_OPEN, horizontal_kernel)
+    vertical_lines = cv2.morphologyEx(binary_image, cv2.MORPH_OPEN, vertical_kernel)
+
+    # Kết hợp các đường
+    grid = cv2.add(horizontal_lines, vertical_lines)
+
+    # Tìm contours của grid
+    contours, _ = cv2.findContours(grid, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+    if contours:
+        # Tìm bounding box lớn nhất
+        all_points = np.vstack(contours)
+        x, y, w, h = cv2.boundingRect(all_points)
+
+        # Mở rộng một chút
+        margin = 10
+        x = max(0, x - margin)
+        y = max(0, y - margin)
+        w = min(width - x, w + 2 * margin)
+        h = min(height - y, h + 2 * margin)
+
+        return (x, y, w, h)
+
+    # Fallback: Giả sử vùng đáp án nằm ở phần dưới 2/3 của ảnh
+    return (0, int(height * 0.25), width, int(height * 0.75))
+
+
+def _detect_all_rectangles(binary_image, min_size=15, max_size=80):
+    """Phát hiện tất cả hình chữ nhật (ô đáp án) trong ảnh"""
     import cv2
     import numpy as np
 
     # Tìm contours
-    contours, _ = cv2.findContours(binary_image, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    contours, hierarchy = cv2.findContours(binary_image, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
 
-    if not contours:
-        return None
-
-    # Tìm contour lớn nhất (có thể là vùng đáp án)
-    # Sắp xếp theo diện tích
-    contours = sorted(contours, key=cv2.contourArea, reverse=True)
-
-    height, width = binary_image.shape[:2]
-
-    # Tìm vùng có tỉ lệ phù hợp với lưới đáp án
-    for contour in contours[:10]:
+    rectangles = []
+    for i, contour in enumerate(contours):
+        # Lấy bounding box
         x, y, w, h = cv2.boundingRect(contour)
 
-        # Bỏ qua các vùng quá nhỏ hoặc quá lớn
-        area_ratio = (w * h) / (width * height)
-        if area_ratio < 0.1 or area_ratio > 0.9:
+        # Lọc theo kích thước
+        if not (min_size <= w <= max_size and min_size <= h <= max_size):
             continue
 
-        # Trả về vùng bounding box
-        return (x, y, w, h)
+        # Kiểm tra tỉ lệ gần vuông
+        aspect_ratio = w / float(h) if h > 0 else 0
+        if not (0.6 <= aspect_ratio <= 1.4):
+            continue
 
-    # Nếu không tìm thấy, trả về toàn bộ ảnh
-    return (0, 0, width, height)
+        # Kiểm tra diện tích contour so với bounding box (phải gần vuông/chữ nhật)
+        contour_area = cv2.contourArea(contour)
+        bbox_area = w * h
+        if bbox_area > 0:
+            extent = contour_area / bbox_area
+            if extent < 0.5:  # Bỏ qua các hình không đầy đặn
+                continue
+
+        rectangles.append({
+            'x': x, 'y': y, 'w': w, 'h': h,
+            'cx': x + w // 2, 'cy': y + h // 2,
+            'contour': contour
+        })
+
+    return rectangles
 
 
-def _detect_bubbles(binary_image, template_type: str = "IKSC"):
-    """Phát hiện các bubble trong ảnh"""
+def _cluster_by_rows(rectangles, tolerance=15):
+    """Nhóm các hình chữ nhật theo hàng dựa trên tọa độ y"""
+    import numpy as np
+
+    if not rectangles:
+        return []
+
+    # Sắp xếp theo y
+    sorted_rects = sorted(rectangles, key=lambda r: r['cy'])
+
+    rows = []
+    current_row = [sorted_rects[0]]
+
+    for rect in sorted_rects[1:]:
+        # Nếu tọa độ y gần với hàng hiện tại
+        if abs(rect['cy'] - current_row[0]['cy']) <= tolerance:
+            current_row.append(rect)
+        else:
+            # Sắp xếp hàng theo x và thêm vào danh sách
+            rows.append(sorted(current_row, key=lambda r: r['cx']))
+            current_row = [rect]
+
+    # Thêm hàng cuối cùng
+    rows.append(sorted(current_row, key=lambda r: r['cx']))
+
+    return rows
+
+
+def _detect_bubbles_grid_based(gray_image, binary_image, template_type: str):
+    """Phát hiện bubble dựa trên cấu trúc grid của phiếu"""
     import cv2
     import numpy as np
 
-    template = ANSWER_TEMPLATES.get(template_type, ANSWER_TEMPLATES["IKSC"])
+    template = ANSWER_TEMPLATES.get(template_type, ANSWER_TEMPLATES["IKSC_BENJAMIN"])
+    num_questions = template["questions"]
+    num_options = template["options"]  # A-E = 5
+    questions_per_row = template["questions_per_row"]  # 4
+
+    height, width = gray_image.shape[:2]
+
+    # Phát hiện tất cả hình chữ nhật
+    rectangles = _detect_all_rectangles(binary_image)
+
+    if len(rectangles) < num_questions * num_options * 0.3:
+        # Thử với ngưỡng khác
+        _, binary_otsu = cv2.threshold(gray_image, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
+        rectangles = _detect_all_rectangles(binary_otsu)
+
+    if not rectangles:
+        return [], []
+
+    # Phân tích phân bố kích thước để tìm kích thước phổ biến nhất (ô đáp án)
+    widths = [r['w'] for r in rectangles]
+    heights = [r['h'] for r in rectangles]
+
+    # Tìm mode (giá trị phổ biến nhất) cho width và height
+    from collections import Counter
+    width_counts = Counter([int(w/5)*5 for w in widths])  # Bin by 5 (rộng hơn)
+    height_counts = Counter([int(h/5)*5 for h in heights])
+
+    # Lấy top kích thước phổ biến nhất
+    common_widths = [w for w, _ in width_counts.most_common(3)]
+    common_heights = [h for h, _ in height_counts.most_common(3)]
+
+    # Lọc các ô có kích thước nằm trong nhóm phổ biến
+    target_width = common_widths[0] if common_widths else np.median(widths)
+    target_height = common_heights[0] if common_heights else np.median(heights)
+
+    # Lọc với tolerance ±40% (rộng hơn để bắt các ô hơi khác kích thước)
+    filtered_rects = [
+        r for r in rectangles
+        if 0.6 * target_width <= r['w'] <= 1.4 * target_width
+        and 0.6 * target_height <= r['h'] <= 1.4 * target_height
+    ]
+
+    if not filtered_rects:
+        # Fallback: dùng median
+        avg_width = np.median(widths)
+        avg_height = np.median(heights)
+        filtered_rects = [
+            r for r in rectangles
+            if 0.5 * avg_width <= r['w'] <= 1.5 * avg_width
+            and 0.5 * avg_height <= r['h'] <= 1.5 * avg_height
+        ]
+
+    # Nhóm theo hàng
+    avg_height = np.median([r['h'] for r in filtered_rects]) if filtered_rects else 30
+    rows = _cluster_by_rows(filtered_rects, tolerance=int(avg_height * 0.6))
+
+    # Phân loại các hàng
+    expected_per_row = questions_per_row * num_options
+    valid_rows = []
+    partial_rows = []
+
+    for row in rows:
+        if len(row) >= expected_per_row * 0.8:
+            # Hàng đầy đủ (4 câu/hàng)
+            valid_rows.append(row)
+        elif len(row) >= num_options:
+            # Hàng không đầy đủ (1-3 câu) - có thể là hàng cuối
+            partial_rows.append(row)
+
+    # Nếu không đủ hàng valid, thử relax điều kiện
+    if len(valid_rows) < num_questions / questions_per_row * 0.5:
+        valid_rows = [row for row in rows if len(row) >= num_options]
+        partial_rows = []
+
+    # Kết hợp valid_rows và partial_rows, sắp xếp theo y
+    all_rows = valid_rows + partial_rows
+    all_rows.sort(key=lambda row: row[0]['cy'] if row else 0)
+
+    return all_rows, filtered_rects
+
+
+def _analyze_bubble_fill_improved(gray_image, rect, threshold=0.4):
+    """Phân tích bubble fill với phương pháp cải tiến
+
+    Trả về tuple (is_filled, score, mean_val) để hỗ trợ so sánh tương đối
+    """
+    import cv2
+    import numpy as np
+
+    x, y, w, h = rect['x'], rect['y'], rect['w'], rect['h']
+
+    # Lấy vùng bubble với margin nhỏ bên trong
+    margin = max(2, int(min(w, h) * 0.15))
+    roi = gray_image[y+margin:y+h-margin, x+margin:x+w-margin]
+
+    if roi.size == 0:
+        return False, 0.0, 255.0
+
+    # Tính các chỉ số
+    mean_val = np.mean(roi)
+    min_val = np.min(roi)
+
+    # Phương pháp chính: Đếm pixel tối
+    # Bubble được tô bằng bút chì 2B sẽ có nhiều pixel rất tối
+    dark_pixels = np.sum(roi < 100) / roi.size  # Pixel tối (< 100)
+    very_dark_pixels = np.sum(roi < 60) / roi.size  # Pixel rất tối (< 60)
+
+    # Phương pháp phụ: Binary threshold với Otsu (cho ảnh scan tốt)
+    _, binary_roi = cv2.threshold(roi, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
+    fill_ratio = np.sum(binary_roi > 0) / binary_roi.size
+
+    # Tính score dựa trên pixel tối
+    # Ưu tiên pixel rất tối (có trọng số cao hơn)
+    darkness_score = dark_pixels * 0.6 + very_dark_pixels * 1.5
+
+    # Kiểm tra có được tô không
+    # Tiêu chí: có nhiều pixel tối HOẶC mean thấp
+    if very_dark_pixels > 0.05 or dark_pixels > 0.15:
+        # Có vùng được tô rõ ràng
+        is_filled = True
+        score = darkness_score
+    elif mean_val < 120 and dark_pixels > 0.05:
+        # Mean thấp và có một ít pixel tối
+        is_filled = True
+        score = darkness_score + (120 - mean_val) / 200
+    elif fill_ratio > threshold and mean_val < 150:
+        # Fallback: Otsu + mean thấp
+        is_filled = True
+        score = fill_ratio * 0.5  # Giảm trọng số của Otsu
+    else:
+        is_filled = False
+        score = darkness_score
+
+    return is_filled, score, mean_val
+
+
+def _group_bubbles_to_questions_improved(rows, template_type: str):
+    """Nhóm bubble thành câu hỏi dựa trên vị trí trong grid"""
+    import numpy as np
+
+    template = ANSWER_TEMPLATES.get(template_type, ANSWER_TEMPLATES["IKSC_BENJAMIN"])
+    num_questions = template["questions"]
+    num_options = template["options"]
+    questions_per_row = template["questions_per_row"]
+
+    questions = []
+    question_idx = 0
+
+    # Lọc các hàng có số bubble hợp lý
+    expected_per_row = questions_per_row * num_options
+    valid_rows = []
+    partial_rows = []  # Hàng có ít bubble hơn (có thể là hàng cuối)
+
+    for row in rows:
+        # Loại bỏ các bubble trùng lặp (gap < 5 pixels)
+        filtered_row = [row[0]] if row else []
+        for i in range(1, len(row)):
+            gap = row[i]['cx'] - filtered_row[-1]['cx']
+            if gap > 10:  # Chỉ thêm nếu cách bubble trước > 10 pixels
+                filtered_row.append(row[i])
+
+        # Phân loại hàng theo số bubble
+        if expected_per_row * 0.8 <= len(filtered_row) <= expected_per_row * 1.3:
+            # Hàng đầy đủ (4 câu/hàng)
+            valid_rows.append(filtered_row)
+        elif num_options <= len(filtered_row) < expected_per_row * 0.8:
+            # Hàng không đầy đủ (có thể là hàng cuối với 1-3 câu)
+            partial_rows.append(filtered_row)
+
+    for row in valid_rows:
+        if question_idx >= num_questions:
+            break
+
+        if len(row) < num_options:
+            continue
+
+        # Tính khoảng cách giữa các bubble liên tiếp
+        gaps = []
+        for i in range(1, len(row)):
+            gap = row[i]['cx'] - row[i-1]['cx']
+            gaps.append((i, gap))
+
+        if not gaps:
+            continue
+
+        # Phân tích gaps để tìm điểm phân tách câu hỏi
+        gap_values = [g[1] for g in gaps]
+        median_gap = np.median(gap_values)
+        max_gap = max(gap_values)
+
+        # Nếu max_gap > 1.5 * median_gap, đó là điểm phân tách câu hỏi
+        if max_gap > median_gap * 1.4:
+            # Có điểm phân tách rõ ràng
+            large_gap_threshold = median_gap * 1.3
+
+            current_question_bubbles = [row[0]]
+            for i in range(1, len(row)):
+                gap = row[i]['cx'] - row[i-1]['cx']
+
+                if gap > large_gap_threshold and len(current_question_bubbles) >= num_options:
+                    if question_idx < num_questions:
+                        questions.append({
+                            "index": question_idx + 1,
+                            "bubbles": current_question_bubbles[:num_options]
+                        })
+                        question_idx += 1
+                    current_question_bubbles = [row[i]]
+                else:
+                    current_question_bubbles.append(row[i])
+
+            # Thêm câu hỏi cuối cùng trong hàng
+            if len(current_question_bubbles) >= num_options and question_idx < num_questions:
+                questions.append({
+                    "index": question_idx + 1,
+                    "bubbles": current_question_bubbles[:num_options]
+                })
+                question_idx += 1
+        else:
+            # Không có điểm phân tách rõ ràng, chia đều theo số options
+            for i in range(0, len(row), num_options):
+                if question_idx >= num_questions:
+                    break
+                question_bubbles = row[i:i+num_options]
+                if len(question_bubbles) == num_options:
+                    questions.append({
+                        "index": question_idx + 1,
+                        "bubbles": question_bubbles
+                    })
+                    question_idx += 1
+
+    # Xử lý các hàng partial (hàng cuối có ít câu hơn)
+    for row in partial_rows:
+        if question_idx >= num_questions:
+            break
+
+        if len(row) < num_options:
+            continue
+
+        # Chia hàng thành các câu hỏi
+        for i in range(0, len(row), num_options):
+            if question_idx >= num_questions:
+                break
+            question_bubbles = row[i:i+num_options]
+            if len(question_bubbles) == num_options:
+                questions.append({
+                    "index": question_idx + 1,
+                    "bubbles": question_bubbles
+                })
+                question_idx += 1
+
+    return questions
+
+
+def _detect_bubbles(binary_image, template_type: str = "IKSC_BENJAMIN"):
+    """Phát hiện các bubble trong ảnh (legacy function for compatibility)"""
+    import cv2
+    import numpy as np
+
+    template = ANSWER_TEMPLATES.get(template_type, ANSWER_TEMPLATES["IKSC_BENJAMIN"])
     num_questions = template["questions"]
     num_options = template["options"]
     questions_per_row = template["questions_per_row"]
@@ -5793,14 +6268,14 @@ def _detect_bubbles(binary_image, template_type: str = "IKSC"):
         aspect_ratio = w / float(h) if h > 0 else 0
 
         # Bubble phải gần vuông và có kích thước hợp lý
-        if 0.7 <= aspect_ratio <= 1.3 and 15 <= w <= 60 and 15 <= h <= 60:
+        if 0.6 <= aspect_ratio <= 1.4 and 12 <= w <= 80 and 12 <= h <= 80:
             bubbles.append((x, y, w, h, contour))
 
     return bubbles
 
 
 def _analyze_bubble_fill(binary_image, bubble_contour, threshold: float = 0.35):
-    """Phân tích xem bubble có được tô hay không"""
+    """Phân tích xem bubble có được tô hay không (legacy)"""
     import cv2
     import numpy as np
 
@@ -5822,11 +6297,11 @@ def _analyze_bubble_fill(binary_image, bubble_contour, threshold: float = 0.35):
     return fill_ratio > threshold, fill_ratio
 
 
-def _group_bubbles_to_questions(bubbles, template_type: str = "IKSC"):
-    """Nhóm các bubble thành câu hỏi"""
+def _group_bubbles_to_questions(bubbles, template_type: str = "IKSC_BENJAMIN"):
+    """Nhóm các bubble thành câu hỏi (legacy)"""
     import numpy as np
 
-    template = ANSWER_TEMPLATES.get(template_type, ANSWER_TEMPLATES["IKSC"])
+    template = ANSWER_TEMPLATES.get(template_type, ANSWER_TEMPLATES["IKSC_BENJAMIN"])
     num_questions = template["questions"]
     num_options = template["options"]
     questions_per_row = template["questions_per_row"]
@@ -5872,8 +6347,8 @@ def _group_bubbles_to_questions(bubbles, template_type: str = "IKSC"):
     return questions
 
 
-def _grade_single_sheet(image_bytes: bytes, answer_key: List[str], template_type: str = "IKSC", extract_info: bool = True):
-    """Chấm một phiếu trả lời"""
+def _grade_single_sheet(image_bytes: bytes, answer_key: List[str], template_type: str = "IKSC_BENJAMIN", extract_info: bool = True):
+    """Chấm một phiếu trả lời với thuật toán OMR cải tiến"""
     import cv2
     import numpy as np
 
@@ -5885,24 +6360,42 @@ def _grade_single_sheet(image_bytes: bytes, answer_key: List[str], template_type
     # Trích xuất thông tin học sinh bằng OCR
     student_info = {}
     if extract_info:
-        student_info = _extract_student_info_ocr(image_bytes)
+        try:
+            student_info = _extract_student_info_ocr(image_bytes)
+        except Exception:
+            pass
 
-    # Tiền xử lý ảnh
-    original, binary = _preprocess_omr_image(image_bytes)
-    if binary is None:
+    # Tiền xử lý ảnh với deskew và perspective correction
+    result = _preprocess_omr_image(image_bytes)
+    if result[0] is None:
         return {"error": "Không thể đọc ảnh"}
 
-    # Phát hiện bubbles
-    bubbles = _detect_bubbles(binary, template_type)
+    original, gray, binary = result
 
-    if len(bubbles) < num_questions * 5 * 0.5:  # Ít nhất 50% số bubble mong đợi
-        return {"error": f"Không phát hiện đủ bubble. Tìm thấy: {len(bubbles)}, cần: {num_questions * 5}"}
+    # Thử phương pháp mới trước: phát hiện dựa trên grid
+    rows, all_rects = _detect_bubbles_grid_based(gray, binary, template_type)
 
-    # Nhóm bubble thành câu hỏi
-    questions = _group_bubbles_to_questions(bubbles, template_type)
+    questions = []
+    use_new_method = False
 
-    if len(questions) < num_questions * 0.5:
-        return {"error": f"Không nhóm được đủ câu hỏi. Tìm thấy: {len(questions)}, cần: {num_questions}"}
+    if rows and len(rows) >= 3:
+        # Sử dụng phương pháp mới nếu phát hiện đủ hàng
+        questions = _group_bubbles_to_questions_improved(rows, template_type)
+        use_new_method = True
+
+    # Fallback: Sử dụng phương pháp cũ nếu phương pháp mới không hiệu quả
+    if len(questions) < num_questions * 0.3:
+        bubbles = _detect_bubbles(binary, template_type)
+
+        if len(bubbles) >= num_questions * 5 * 0.3:
+            questions = _group_bubbles_to_questions(bubbles, template_type)
+            use_new_method = False
+
+    if len(questions) < num_questions * 0.3:
+        return {
+            "error": f"Không phát hiện đủ câu hỏi. Tìm thấy: {len(questions)}, cần: {num_questions}. "
+                     f"Vui lòng đảm bảo ảnh rõ nét và phiếu được căn chỉnh đúng."
+        }
 
     # Phân tích từng câu hỏi
     student_answers = []
@@ -5911,14 +6404,48 @@ def _grade_single_sheet(image_bytes: bytes, answer_key: List[str], template_type
     wrong_count = 0
     blank_count = 0
 
-    for q_idx, question in enumerate(questions[:num_questions]):
-        # Tìm bubble được tô đậm nhất
+    for q_idx in range(num_questions):
+        if q_idx >= len(questions):
+            # Không tìm thấy câu hỏi này
+            student_answers.append(None)
+            blank_count += 1
+            correct_answer = answer_key[q_idx] if q_idx < len(answer_key) else None
+            details.append({
+                "q": q_idx + 1,
+                "student": None,
+                "correct": correct_answer,
+                "status": "not_found",
+                "fill_ratios": []
+            })
+            continue
+
+        question = questions[q_idx]
+        fill_ratios = []
+        mean_vals = []  # Lưu mean value của từng option
+        is_filled_list = []  # Lưu trạng thái is_filled của từng option
         max_fill = 0
         selected_option = None
-        fill_ratios = []
 
         for opt_idx, bubble in enumerate(question["bubbles"]):
-            is_filled, fill_ratio = _analyze_bubble_fill(binary, bubble[4])
+            if opt_idx >= len(option_labels):
+                break
+
+            if use_new_method:
+                # Phương pháp mới: bubble là dict
+                result = _analyze_bubble_fill_improved(gray, bubble)
+                if len(result) == 3:
+                    is_filled, fill_ratio, mean_val = result
+                else:
+                    is_filled, fill_ratio = result
+                    mean_val = 128.0
+                mean_vals.append(mean_val)
+                is_filled_list.append(is_filled)
+            else:
+                # Phương pháp cũ: bubble là tuple với contour
+                is_filled, fill_ratio = _analyze_bubble_fill(binary, bubble[4])
+                mean_vals.append(128.0)
+                is_filled_list.append(is_filled)
+
             fill_ratios.append(fill_ratio)
 
             if fill_ratio > max_fill:
@@ -5926,10 +6453,88 @@ def _grade_single_sheet(image_bytes: bytes, answer_key: List[str], template_type
                 if is_filled:
                     selected_option = option_labels[opt_idx]
 
-        # Kiểm tra nếu có nhiều đáp án được chọn
-        filled_count = sum(1 for r in fill_ratios if r > 0.35)
-        if filled_count > 1:
-            selected_option = "MULTI"  # Đánh dấu chọn nhiều đáp án
+        # Ưu tiên option có is_filled=True và mean thấp nhất (được tô đậm nhất)
+        filled_options = [(i, mean_vals[i]) for i in range(len(is_filled_list)) if is_filled_list[i]]
+        if filled_options and selected_option is None:
+            # Có option được đánh dấu filled nhưng chưa được chọn
+            # Chọn option có mean thấp nhất (tối nhất = được tô)
+            darkest_filled = min(filled_options, key=lambda x: x[1])
+            selected_option = option_labels[darkest_filled[0]]
+        elif len(filled_options) == 1:
+            # Chỉ có 1 option filled -> chọn option đó
+            selected_option = option_labels[filled_options[0][0]]
+
+        # Phát hiện vùng tối bất thường (bóng/rìa ảnh)
+        # Nếu nhiều options có mean rất thấp (<50), đây có thể là vùng tối
+        dark_region_count = sum(1 for m in mean_vals if m < 50)
+        is_dark_region = dark_region_count >= 3
+
+        if is_dark_region:
+            # Vùng tối: chọn option có mean CAO nhất (sáng nhất = không bị bóng che)
+            # vì các vùng tối là do bóng, không phải do được tô
+            max_mean = max(mean_vals)
+            min_mean = min(mean_vals)
+
+            # Chỉ chọn nếu có 1 option sáng hơn hẳn (chênh lệch > 50)
+            if max_mean - min_mean > 50:
+                bright_option_idx = mean_vals.index(max_mean)
+                # Kiểm tra option sáng này có được tô không
+                if fill_ratios[bright_option_idx] > 0.1:
+                    selected_option = option_labels[bright_option_idx]
+                else:
+                    # Option sáng nhưng không được tô -> có thể là blank hoặc tô option khác
+                    # Trong vùng tối, tìm option có score cao nhất trong các option không quá tối
+                    valid_options = [(i, fill_ratios[i]) for i in range(len(mean_vals))
+                                    if mean_vals[i] > 100 or fill_ratios[i] > 0.3]
+                    if valid_options:
+                        best_idx = max(valid_options, key=lambda x: x[1])[0]
+                        selected_option = option_labels[best_idx]
+        else:
+            # Vùng bình thường: sử dụng logic cũ với cải tiến
+
+            # Ngưỡng động: nếu max_fill > 0.25 và vượt trội hơn các option khác
+            if selected_option is None and max_fill > 0.25:
+                # Kiểm tra xem có một option nào vượt trội không
+                sorted_ratios = sorted(fill_ratios, reverse=True)
+                if len(sorted_ratios) >= 2 and sorted_ratios[0] > sorted_ratios[1] * 1.3:
+                    # Option đầu lớn hơn 30% so với option thứ 2
+                    selected_option = option_labels[fill_ratios.index(max_fill)]
+
+            # Kiểm tra nếu có nhiều đáp án được chọn
+            # Sử dụng ngưỡng động dựa trên max_fill
+            if max_fill > 0.5:
+                # Nếu có option được tô đậm, các option khác cần đạt ít nhất 60% của max
+                filled_threshold = max_fill * 0.6
+            else:
+                filled_threshold = 0.35
+
+            filled_count = sum(1 for r in fill_ratios if r > filled_threshold)
+            if filled_count > 1:
+                # Kiểm tra xem có 1 option rõ ràng vượt trội không
+                sorted_ratios = sorted(fill_ratios, reverse=True)
+
+                # Tính chênh lệch mean giữa option cao nhất và thấp nhất
+                max_score_idx = fill_ratios.index(sorted_ratios[0])
+                max_score_mean = mean_vals[max_score_idx]
+
+                # Nếu option có score cao nhất cũng có mean thấp nhất -> đây là bubble được tô
+                if max_score_mean == min(mean_vals) or sorted_ratios[0] > sorted_ratios[1] * 1.3:
+                    # Có 1 option vượt trội rõ ràng
+                    selected_option = option_labels[max_score_idx]
+                else:
+                    # Kiểm tra thêm: nếu max > 0.5 và second < 0.4, vẫn chọn max
+                    if sorted_ratios[0] > 0.5 and sorted_ratios[1] < 0.4:
+                        selected_option = option_labels[fill_ratios.index(sorted_ratios[0])]
+                    else:
+                        # Phân tích thêm bằng mean value
+                        # Option được tô sẽ có mean thấp hơn các option không tô
+                        mean_diff = max(mean_vals) - min(mean_vals)
+                        if mean_diff > 30:
+                            # Có sự khác biệt rõ ràng về độ sáng
+                            darkest_idx = mean_vals.index(min(mean_vals))
+                            selected_option = option_labels[darkest_idx]
+                        else:
+                            selected_option = "MULTI"  # Đánh dấu chọn nhiều đáp án
 
         student_answers.append(selected_option)
 
@@ -5942,7 +6547,7 @@ def _grade_single_sheet(image_bytes: bytes, answer_key: List[str], template_type
         elif selected_option == "MULTI":
             status = "invalid"
             wrong_count += 1
-        elif selected_option == correct_answer:
+        elif correct_answer and selected_option.upper() == correct_answer.upper():
             status = "correct"
             correct_count += 1
         else:
@@ -5973,7 +6578,9 @@ def _grade_single_sheet(image_bytes: bytes, answer_key: List[str], template_type
         "blank": blank_count,
         "total": num_questions,
         "details": details,
-        "student_info": student_info
+        "student_info": student_info,
+        "detection_method": "grid_based" if use_new_method else "contour_based",
+        "questions_detected": len(questions)
     }
 
 
@@ -6052,15 +6659,90 @@ async def grade_answer_sheets(
             # Đọc từ file PDF
             try:
                 import fitz  # PyMuPDF
+                from collections import defaultdict
 
                 pdf_doc = fitz.open(stream=content, filetype="pdf")
                 pdf_text = ""
                 for page in pdf_doc:
-                    pdf_text += page.get_text()
+                    pdf_text += page.get_text() + "\n"
                 pdf_doc.close()
 
-                # Tìm đáp án trong PDF/Word (pattern: số câu + đáp án)
-                found_answers = _extract_answers_from_text(pdf_text, num_questions)
+                found_answers = {}
+
+                # Kiểm tra nếu là file IKLC (Linguistic Kangaroo) với format đặc biệt
+                # Format: nhiều cột (Start, Story, Joey, Wallaby, Grey K., Red K.)
+                is_iklc_format = "LINGUISTIC KANGAROO" in pdf_text.upper() or all(
+                    level in pdf_text for level in ["Joey", "Wallaby"]
+                )
+
+                if is_iklc_format and "IKLC" in template_type.upper():
+                    # Parse IKLC PDF với format nhiều cột
+                    # Levels: Start=24, Story=30, Joey/Wallaby/Grey K./Red K.=50
+                    # Tên trong file PDF:
+                    # - Start = Pre-Ecolier (Lớp 1-2)
+                    # - Story = Ecolier (Lớp 3-4)
+                    # - Joey = Benjamin (Lớp 5-6)
+                    # - Wallaby = Cadet (Lớp 7-8)
+                    # - Grey K. = Junior (Lớp 9-10)
+                    # - Red K. = Student (Lớp 11-12)
+                    iklc_levels = [
+                        ("start", 24),      # Pre-Ecolier (Lớp 1-2)
+                        ("story", 30),      # Ecolier (Lớp 3-4)
+                        ("joey", 50),       # Benjamin (Lớp 5-6)
+                        ("wallaby", 50),    # Cadet (Lớp 7-8)
+                        ("grey", 50),       # Junior (Lớp 9-10)
+                        ("red", 50),        # Student (Lớp 11-12)
+                    ]
+
+                    # Map template_type to level index
+                    level_map = {
+                        "IKLC_PRE_ECOLIER": 0,
+                        "IKLC_ECOLIER": 1,
+                        "IKLC_BENJAMIN": 2,
+                        "IKLC_CADET": 3,
+                        "IKLC_JUNIOR": 4,
+                        "IKLC_STUDENT": 5,
+                    }
+
+                    target_level_idx = level_map.get(template_type.upper(), -1)
+
+                    if target_level_idx >= 0:
+                        # Parse tất cả đáp án theo thứ tự xuất hiện
+                        pattern = r'\b(\d{1,2})\s*\n\s*([A-E](?:,\s*[A-E])?)\b'
+                        matches = re.findall(pattern, pdf_text, re.MULTILINE)
+
+                        # Group matches theo số câu
+                        # Số đáp án mỗi câu phụ thuộc vào số level có câu đó:
+                        # - Câu 1-24: 6 levels (Start, Story, Joey, Wallaby, Grey, Red)
+                        # - Câu 25-30: 5 levels (Story, Joey, Wallaby, Grey, Red)
+                        # - Câu 31-50: 4 levels (Joey, Wallaby, Grey, Red)
+                        matches_by_q = defaultdict(list)
+                        for q_num, answer in matches:
+                            q = int(q_num)
+                            ans = answer.strip()[0]  # Lấy ký tự đầu tiên
+                            matches_by_q[q].append(ans)
+
+                        # Lấy đáp án cho level cần tìm
+                        target_level_name, target_num_q = iklc_levels[target_level_idx]
+
+                        for q in range(1, target_num_q + 1):
+                            q_answers = matches_by_q.get(q, [])
+
+                            # Tính vị trí của target_level trong danh sách đáp án cho câu này
+                            # Đếm số level có câu hỏi này (đứng trước target_level)
+                            position = 0
+                            for i, (level_name, level_num_q) in enumerate(iklc_levels):
+                                if i == target_level_idx:
+                                    break
+                                if q <= level_num_q:
+                                    position += 1
+
+                            if position < len(q_answers):
+                                found_answers[q] = q_answers[position]
+
+                # Fallback: parse đơn giản
+                if not found_answers:
+                    found_answers = _extract_answers_from_text(pdf_text, num_questions)
 
                 # Chuyển dict thành list theo thứ tự
                 for i in range(1, num_questions + 1):
@@ -6078,28 +6760,94 @@ async def grade_answer_sheets(
             # Đọc từ file Word
             try:
                 doc = Document(io.BytesIO(content))
-                doc_text = ""
+                found_answers = {}
 
-                # Đọc text từ paragraphs
-                for para in doc.paragraphs:
-                    doc_text += para.text + "\n"
-
-                # Đọc text từ tables
+                # Trước tiên, thử đọc từ bảng với format nhiều level
+                # Format: Cột 1 = số câu, các cột sau = đáp án của từng level
                 for table in doc.tables:
-                    for row in table.rows:
-                        for cell in row.cells:
-                            doc_text += cell.text + " "
-                        doc_text += "\n"
+                    if len(table.rows) > 1 and len(table.columns) >= 2:
+                        header = [cell.text.strip().lower() for cell in table.rows[0].cells]
 
-                # Tìm đáp án trong Word
-                found_answers = _extract_answers_from_text(doc_text, num_questions)
+                        # Tìm cột chứa level phù hợp với template_type
+                        level_col = -1
+                        template_name = template.get("name", "").lower()
+
+                        # Map template_type to level name (exact match preferred)
+                        level_keywords = {
+                            "pre_ecolier": ["preecolier", "pre-ecolier", "pre ecolier", "pre_ecolier"],
+                            "ecolier": ["ecolier"],  # Will use exact match logic
+                            "benjamin": ["benjamin"],
+                            "cadet": ["cadet"],
+                            "junior": ["junior"],
+                            "student": ["student"],
+                        }
+
+                        # Tìm keyword phù hợp từ template_type
+                        search_keywords = []
+                        is_ecolier_only = False  # Special case for "ecolier" vs "preecolier"
+                        for key, keywords in level_keywords.items():
+                            if key in template_type.lower():
+                                search_keywords = keywords
+                                if key == "ecolier" and "pre" not in template_type.lower():
+                                    is_ecolier_only = True
+                                break
+
+                        # Tìm cột chứa level
+                        for col_idx, col_header in enumerate(header):
+                            # Special handling for "ecolier" to avoid matching "preecolier"
+                            if is_ecolier_only:
+                                if col_header == "ecolier" or (col_header.endswith("ecolier") and not col_header.startswith("pre")):
+                                    level_col = col_idx
+                                    break
+                            else:
+                                for keyword in search_keywords:
+                                    if keyword in col_header:
+                                        level_col = col_idx
+                                        break
+                            if level_col >= 0:
+                                break
+
+                        # Nếu tìm thấy cột level, đọc đáp án
+                        if level_col >= 0:
+                            for row_idx, row in enumerate(table.rows[1:], start=1):
+                                try:
+                                    q_num = int(row.cells[0].text.strip())
+                                    answer = row.cells[level_col].text.strip().upper()
+                                    if answer and answer in "ABCDE":
+                                        found_answers[q_num] = answer
+                                except (ValueError, IndexError):
+                                    continue
+
+                        # Nếu không tìm thấy level cụ thể, thử đọc cột 2 (đáp án duy nhất)
+                        if not found_answers and len(table.columns) == 2:
+                            for row in table.rows[1:]:
+                                try:
+                                    q_num = int(row.cells[0].text.strip())
+                                    answer = row.cells[1].text.strip().upper()
+                                    if answer and answer in "ABCDE":
+                                        found_answers[q_num] = answer
+                                except (ValueError, IndexError):
+                                    continue
+
+                # Nếu không tìm thấy từ bảng, thử đọc từ text
+                if not found_answers:
+                    doc_text = ""
+                    for para in doc.paragraphs:
+                        doc_text += para.text + "\n"
+                    for table in doc.tables:
+                        for row in table.rows:
+                            for cell in row.cells:
+                                doc_text += cell.text + " "
+                            doc_text += "\n"
+
+                    found_answers = _extract_answers_from_text(doc_text, num_questions)
 
                 # Chuyển dict thành list theo thứ tự
                 for i in range(1, num_questions + 1):
                     answers.append(found_answers.get(i, ""))
 
                 if not any(answers):
-                    raise HTTPException(status_code=400, detail="Không tìm thấy đáp án trong file Word")
+                    raise HTTPException(status_code=400, detail="Không tìm thấy đáp án trong file Word. Đảm bảo file có format đúng (bảng với cột số câu và cột đáp án).")
 
             except HTTPException:
                 raise
