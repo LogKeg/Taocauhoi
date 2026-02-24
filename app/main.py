@@ -6467,6 +6467,14 @@ def _group_bubbles_to_questions_improved(rows, template_type: str):
             # Hàng không đầy đủ (có thể là hàng cuối với 1-3 câu)
             partial_rows.append(filtered_row)
 
+    # Loại bỏ các hàng partial ở đầu (trước hàng valid đầu tiên)
+    # Đây thường là header hoặc phần thông tin học sinh
+    if valid_rows and partial_rows:
+        first_valid_y = valid_rows[0][0]['cy'] if valid_rows[0] else float('inf')
+        # Chỉ giữ lại partial_rows sau hàng valid cuối cùng (hàng cuối của grid)
+        last_valid_y = valid_rows[-1][0]['cy'] if valid_rows[-1] else 0
+        partial_rows = [row for row in partial_rows if row and row[0]['cy'] > last_valid_y]
+
     # Tách mỗi hàng thành các nhóm câu hỏi (mỗi nhóm = 5 bubbles cho 1 câu)
     all_question_groups = []  # List of lists: mỗi hàng chứa các câu hỏi
 
@@ -6499,14 +6507,16 @@ def _group_bubbles_to_questions_improved(rows, template_type: str):
             for i in range(1, len(row)):
                 gap = row[i]['cx'] - row[i-1]['cx']
 
-                if gap > large_gap_threshold and len(current_question_bubbles) >= num_options:
+                # Cho phép split khi có large gap và có ít nhất 4 bubbles (thiếu 1 do không phát hiện được)
+                if gap > large_gap_threshold and len(current_question_bubbles) >= num_options - 1:
                     row_questions.append(current_question_bubbles[:num_options])
                     current_question_bubbles = [row[i]]
                 else:
                     current_question_bubbles.append(row[i])
 
             # Thêm câu hỏi cuối cùng trong hàng
-            if len(current_question_bubbles) >= num_options:
+            # Cho phép thiếu 1 bubble (4/5) vì có thể bubble không được phát hiện
+            if len(current_question_bubbles) >= num_options - 1:
                 row_questions.append(current_question_bubbles[:num_options])
         else:
             # Không có điểm phân tách rõ ràng, chia đều theo số options
@@ -6729,14 +6739,18 @@ def _grade_single_sheet(image_bytes: bytes, answer_key: List[str], template_type
     wrong_count = 0
     blank_count = 0
 
+    # Tạo dict để tra cứu câu hỏi theo index (thay vì dùng vị trí trong mảng)
+    questions_by_index = {q["index"]: q for q in questions}
+
     for q_idx in range(num_questions):
-        if q_idx >= len(questions):
+        q_num = q_idx + 1  # Số thứ tự câu hỏi (1-based)
+        if q_num not in questions_by_index:
             # Không tìm thấy câu hỏi này
             student_answers.append(None)
             blank_count += 1
             correct_answer = answer_key[q_idx] if q_idx < len(answer_key) else None
             details.append({
-                "q": q_idx + 1,
+                "q": q_num,
                 "student": None,
                 "correct": correct_answer,
                 "status": "not_found",
@@ -6744,7 +6758,7 @@ def _grade_single_sheet(image_bytes: bytes, answer_key: List[str], template_type
             })
             continue
 
-        question = questions[q_idx]
+        question = questions_by_index[q_num]
         fill_ratios = []
         mean_vals = []  # Lưu mean value của từng option
         is_filled_list = []  # Lưu trạng thái is_filled của từng option
