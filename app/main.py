@@ -5645,6 +5645,7 @@ ANSWER_TEMPLATES = {
         "questions": 50,
         "options": 5,
         "questions_per_row": 4,
+        "layout": "column",  # Đọc theo cột: cột 1 có câu 1,5,9..., cột 2 có câu 2,6,10...
         "scoring": {
             "type": "best_of",
             "count_best": 40,  # Chỉ tính 40 câu tốt nhất
@@ -5659,6 +5660,7 @@ ANSWER_TEMPLATES = {
         "questions": 50,
         "options": 5,
         "questions_per_row": 4,
+        "layout": "column",
         "scoring": {
             "type": "best_of",
             "count_best": 40,
@@ -5673,6 +5675,7 @@ ANSWER_TEMPLATES = {
         "questions": 50,
         "options": 5,
         "questions_per_row": 4,
+        "layout": "column",
         "scoring": {
             "type": "best_of",
             "count_best": 40,
@@ -5687,6 +5690,7 @@ ANSWER_TEMPLATES = {
         "questions": 50,
         "options": 5,
         "questions_per_row": 4,
+        "layout": "column",
         "scoring": {
             "type": "best_of",
             "count_best": 40,
@@ -6438,9 +6442,9 @@ def _group_bubbles_to_questions_improved(rows, template_type: str):
     num_questions = template["questions"]
     num_options = template["options"]
     questions_per_row = template["questions_per_row"]
+    layout = template.get("layout", "row")  # "row" hoặc "column"
 
     questions = []
-    question_idx = 0
 
     # Lọc các hàng có số bubble hợp lý
     expected_per_row = questions_per_row * num_options
@@ -6463,12 +6467,14 @@ def _group_bubbles_to_questions_improved(rows, template_type: str):
             # Hàng không đầy đủ (có thể là hàng cuối với 1-3 câu)
             partial_rows.append(filtered_row)
 
-    for row in valid_rows:
-        if question_idx >= num_questions:
-            break
+    # Tách mỗi hàng thành các nhóm câu hỏi (mỗi nhóm = 5 bubbles cho 1 câu)
+    all_question_groups = []  # List of lists: mỗi hàng chứa các câu hỏi
 
+    for row in valid_rows:
         if len(row) < num_options:
             continue
+
+        row_questions = []
 
         # Tính khoảng cách giữa các bubble liên tiếp
         gaps = []
@@ -6494,55 +6500,75 @@ def _group_bubbles_to_questions_improved(rows, template_type: str):
                 gap = row[i]['cx'] - row[i-1]['cx']
 
                 if gap > large_gap_threshold and len(current_question_bubbles) >= num_options:
-                    if question_idx < num_questions:
-                        questions.append({
-                            "index": question_idx + 1,
-                            "bubbles": current_question_bubbles[:num_options]
-                        })
-                        question_idx += 1
+                    row_questions.append(current_question_bubbles[:num_options])
                     current_question_bubbles = [row[i]]
                 else:
                     current_question_bubbles.append(row[i])
 
             # Thêm câu hỏi cuối cùng trong hàng
-            if len(current_question_bubbles) >= num_options and question_idx < num_questions:
-                questions.append({
-                    "index": question_idx + 1,
-                    "bubbles": current_question_bubbles[:num_options]
-                })
-                question_idx += 1
+            if len(current_question_bubbles) >= num_options:
+                row_questions.append(current_question_bubbles[:num_options])
         else:
             # Không có điểm phân tách rõ ràng, chia đều theo số options
             for i in range(0, len(row), num_options):
-                if question_idx >= num_questions:
-                    break
                 question_bubbles = row[i:i+num_options]
                 if len(question_bubbles) == num_options:
-                    questions.append({
-                        "index": question_idx + 1,
-                        "bubbles": question_bubbles
-                    })
-                    question_idx += 1
+                    row_questions.append(question_bubbles)
+
+        if row_questions:
+            all_question_groups.append(row_questions)
 
     # Xử lý các hàng partial (hàng cuối có ít câu hơn)
     for row in partial_rows:
-        if question_idx >= num_questions:
-            break
-
         if len(row) < num_options:
             continue
 
+        row_questions = []
         # Chia hàng thành các câu hỏi
         for i in range(0, len(row), num_options):
-            if question_idx >= num_questions:
-                break
             question_bubbles = row[i:i+num_options]
             if len(question_bubbles) == num_options:
+                row_questions.append(question_bubbles)
+
+        if row_questions:
+            all_question_groups.append(row_questions)
+
+    # Đánh số câu hỏi dựa trên layout
+    if layout == "column":
+        # Layout theo cột: cột 1 có câu 1,5,9..., cột 2 có câu 2,6,10...
+        # Mỗi hàng có 4 câu hỏi (4 cột)
+        # Câu hỏi thứ i ở cột (i-1) % 4, hàng (i-1) // 4
+        num_cols = questions_per_row
+        num_rows = len(all_question_groups)
+
+        for row_idx, row_questions in enumerate(all_question_groups):
+            for col_idx, bubbles in enumerate(row_questions):
+                if col_idx >= num_cols:
+                    break
+                # Tính số thứ tự câu hỏi: hàng * 4 + cột + 1
+                # Ví dụ: hàng 0, cột 0 = câu 1; hàng 0, cột 1 = câu 2
+                # hàng 1, cột 0 = câu 5; hàng 1, cột 1 = câu 6
+                q_num = row_idx * num_cols + col_idx + 1
+                if q_num <= num_questions:
+                    questions.append({
+                        "index": q_num,
+                        "bubbles": bubbles
+                    })
+    else:
+        # Layout theo hàng (mặc định): đọc từ trái sang phải, trên xuống dưới
+        question_idx = 0
+        for row_questions in all_question_groups:
+            for bubbles in row_questions:
+                if question_idx >= num_questions:
+                    break
                 questions.append({
                     "index": question_idx + 1,
-                    "bubbles": question_bubbles
+                    "bubbles": bubbles
                 })
                 question_idx += 1
+
+    # Sắp xếp theo index
+    questions.sort(key=lambda x: x["index"])
 
     return questions
 
@@ -6996,7 +7022,6 @@ def _parse_answer_key_for_template(answer_file_content: bytes, file_ext: str, te
         pdf_text = ""
         for page in pdf_doc:
             pdf_text += page.get_text() + "\n"
-        pdf_doc.close()
 
         found_answers = {}
 
@@ -7006,14 +7031,15 @@ def _parse_answer_key_for_template(answer_file_content: bytes, file_ext: str, te
         )
 
         if is_iklc_format and "IKLC" in template_type.upper():
-            # Parse IKLC PDF với format nhiều cột
+            # Parse IKLC PDF với format nhiều cột theo vị trí x
+            # Cột: Start (25 câu), Story (30 câu), Joey (50 câu), Wallaby (50 câu), Grey K. (50 câu), Red K. (50 câu)
             iklc_levels = [
-                ("start", 24),      # Pre-Ecolier (Lớp 1-2)
-                ("story", 30),      # Ecolier (Lớp 3-4)
-                ("joey", 50),       # Benjamin (Lớp 5-6)
-                ("wallaby", 50),    # Cadet (Lớp 7-8)
-                ("grey", 50),       # Junior (Lớp 9-10)
-                ("red", 50),        # Student (Lớp 11-12)
+                ("Start", 25),      # Pre-Ecolier (Lớp 1-2)
+                ("Story", 30),      # Ecolier (Lớp 3-4)
+                ("Joey", 50),       # Benjamin (Lớp 5-6)
+                ("Wallaby", 50),    # Cadet (Lớp 7-8)
+                ("Grey", 50),       # Junior (Lớp 9-10)
+                ("Red", 50),        # Student (Lớp 11-12)
             ]
 
             level_map = {
@@ -7028,28 +7054,100 @@ def _parse_answer_key_for_template(answer_file_content: bytes, file_ext: str, te
             target_level_idx = level_map.get(template_type.upper(), -1)
 
             if target_level_idx >= 0:
-                pattern = r'\b(\d{1,2})\s*\n\s*([A-E](?:,\s*[A-E])?)\b'
-                matches = re.findall(pattern, pdf_text, re.MULTILINE)
-
-                matches_by_q = defaultdict(list)
-                for q_num, answer in matches:
-                    q = int(q_num)
-                    ans = answer.strip()[0]
-                    matches_by_q[q].append(ans)
-
                 target_level_name, target_num_q = iklc_levels[target_level_idx]
 
-                for q in range(1, target_num_q + 1):
-                    q_answers = matches_by_q.get(q, [])
-                    position = 0
-                    for i, (level_name, level_num_q) in enumerate(iklc_levels):
-                        if i == target_level_idx:
-                            break
-                        if q <= level_num_q:
-                            position += 1
+                # Đọc tất cả text blocks với vị trí từ tất cả các trang
+                all_blocks = []
+                for page in pdf_doc:
+                    blocks = page.get_text("dict")["blocks"]
+                    for block in blocks:
+                        if "lines" in block:
+                            for line in block["lines"]:
+                                for span in line["spans"]:
+                                    text = span["text"].strip()
+                                    x0 = span["bbox"][0]
+                                    y0 = span["bbox"][1]
+                                    if text:
+                                        all_blocks.append({"text": text, "x": x0, "y": y0})
 
-                    if position < len(q_answers):
-                        found_answers[q] = q_answers[position]
+                # Tách số câu và đáp án
+                numbers = []  # Số câu hỏi (1-50)
+                answers_list = []  # Đáp án A-E
+
+                for b in all_blocks:
+                    text = b["text"]
+                    if text.isdigit() and 1 <= int(text) <= 50:
+                        numbers.append({"num": int(text), "x": b["x"], "y": b["y"]})
+                    elif len(text) == 1 and text in "ABCDE":
+                        answers_list.append({"ans": text, "x": b["x"], "y": b["y"]})
+                    elif len(text) >= 1 and text[0] in "ABCDE" and "," in text:
+                        # Trường hợp "B, C" -> lấy ký tự đầu
+                        answers_list.append({"ans": text[0], "x": b["x"], "y": b["y"]})
+
+                # Tìm vị trí x của số 1 cho mỗi cột (mỗi level bắt đầu từ câu 1)
+                ones = [n for n in numbers if n["num"] == 1]
+                ones.sort(key=lambda o: o["x"])
+
+                # Có 6 cột (6 số 1), gán level theo thứ tự x
+                # ones[0] = Start, ones[1] = Story, ones[2] = Joey, ...
+                if len(ones) >= 6:
+                    # Xác định x boundaries giữa các cột
+                    x_boundaries = []
+                    for i in range(len(ones) - 1):
+                        mid_x = (ones[i]["x"] + ones[i + 1]["x"]) / 2
+                        x_boundaries.append(mid_x)
+                    x_boundaries.append(9999)  # Boundary cuối cùng
+
+                    # Hàm xác định cột của một số dựa trên vị trí x
+                    def get_column_idx(x):
+                        for i, boundary in enumerate(x_boundaries):
+                            if x < boundary:
+                                return i
+                        return len(x_boundaries) - 1
+
+                    # Nhóm số câu theo cột
+                    column_numbers = defaultdict(list)
+                    for n in numbers:
+                        col_idx = get_column_idx(n["x"])
+                        column_numbers[col_idx].append(n)
+
+                    # Lấy số câu của cột target
+                    target_numbers = column_numbers.get(target_level_idx, [])
+
+                    # Với mỗi số câu, tìm đáp án gần nhất bên phải
+                    for num_block in target_numbers:
+                        q_num = num_block["num"]
+                        q_x = num_block["x"]
+                        q_y = num_block["y"]
+
+                        if q_num > target_num_q:
+                            continue
+
+                        # Tìm đáp án gần nhất: cùng y (tolerance 3px trước, sau đó 8px) và x lớn hơn số câu
+                        best_answer = None
+                        best_dist = 9999
+                        best_y_diff = 9999
+
+                        for ans_block in answers_list:
+                            ans_x = ans_block["x"]
+                            ans_y = ans_block["y"]
+
+                            # Đáp án ở bên phải số câu và cùng hàng
+                            y_diff = abs(ans_y - q_y)
+                            if ans_x > q_x and y_diff < 8:
+                                dist = ans_x - q_x
+                                if dist < 50:  # Không quá xa
+                                    # Ưu tiên đáp án cùng y hơn (y_diff nhỏ hơn)
+                                    # Nếu y_diff gần bằng nhau (< 3px), chọn x gần nhất
+                                    if y_diff < best_y_diff - 3 or (abs(y_diff - best_y_diff) <= 3 and dist < best_dist):
+                                        best_dist = dist
+                                        best_y_diff = y_diff
+                                        best_answer = ans_block["ans"]
+
+                        if best_answer and q_num not in found_answers:
+                            found_answers[q_num] = best_answer
+
+        pdf_doc.close()
 
         # Fallback: parse đơn giản
         if not found_answers:
