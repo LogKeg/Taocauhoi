@@ -5794,6 +5794,26 @@ def _grade_single_sheet(image_bytes: bytes, answer_key: List[str], template_type
     }
 
 
+def _extract_answers_from_text(text: str, num_questions: int) -> dict:
+    """Trích xuất đáp án từ text (PDF/Word)"""
+    # Hỗ trợ các format: "1. A", "1) A", "1: A", "1 A", "Câu 1: A"
+    answer_patterns = [
+        r'(?:Câu\s*)?(\d+)\s*[.:)]\s*([A-Ea-e])',  # Câu 1: A, 1. A, 1) A
+        r'(\d+)\s+([A-Ea-e])\b',  # 1 A
+    ]
+
+    found_answers = {}
+    for pattern in answer_patterns:
+        matches = re.findall(pattern, text)
+        for match in matches:
+            q_num = int(match[0])
+            answer = match[1].upper()
+            if 1 <= q_num <= num_questions:
+                found_answers[q_num] = answer
+
+    return found_answers
+
+
 @app.get("/api/answer-templates")
 async def get_answer_templates():
     """Lấy danh sách mẫu phiếu trả lời"""
@@ -5856,21 +5876,8 @@ async def grade_answer_sheets(
                     pdf_text += page.get_text()
                 pdf_doc.close()
 
-                # Tìm đáp án trong PDF (pattern: số câu + đáp án)
-                # Hỗ trợ các format: "1. A", "1) A", "1: A", "1 A", "Câu 1: A"
-                answer_patterns = [
-                    r'(?:Câu\s*)?(\d+)\s*[.:)]\s*([A-Ea-e])',  # Câu 1: A, 1. A, 1) A
-                    r'(\d+)\s+([A-Ea-e])\b',  # 1 A
-                ]
-
-                found_answers = {}
-                for pattern in answer_patterns:
-                    matches = re.findall(pattern, pdf_text)
-                    for match in matches:
-                        q_num = int(match[0])
-                        answer = match[1].upper()
-                        if 1 <= q_num <= num_questions:
-                            found_answers[q_num] = answer
+                # Tìm đáp án trong PDF/Word (pattern: số câu + đáp án)
+                found_answers = _extract_answers_from_text(pdf_text, num_questions)
 
                 # Chuyển dict thành list theo thứ tự
                 for i in range(1, num_questions + 1):
@@ -5883,6 +5890,39 @@ async def grade_answer_sheets(
                 raise
             except Exception as e:
                 raise HTTPException(status_code=400, detail=f"Lỗi đọc file PDF: {str(e)}")
+
+        elif file_ext in ["docx", "doc"]:
+            # Đọc từ file Word
+            try:
+                doc = Document(io.BytesIO(content))
+                doc_text = ""
+
+                # Đọc text từ paragraphs
+                for para in doc.paragraphs:
+                    doc_text += para.text + "\n"
+
+                # Đọc text từ tables
+                for table in doc.tables:
+                    for row in table.rows:
+                        for cell in row.cells:
+                            doc_text += cell.text + " "
+                        doc_text += "\n"
+
+                # Tìm đáp án trong Word
+                found_answers = _extract_answers_from_text(doc_text, num_questions)
+
+                # Chuyển dict thành list theo thứ tự
+                for i in range(1, num_questions + 1):
+                    answers.append(found_answers.get(i, ""))
+
+                if not any(answers):
+                    raise HTTPException(status_code=400, detail="Không tìm thấy đáp án trong file Word")
+
+            except HTTPException:
+                raise
+            except Exception as e:
+                raise HTTPException(status_code=400, detail=f"Lỗi đọc file Word: {str(e)}")
+
         else:
             raise HTTPException(status_code=400, detail=f"Định dạng file không được hỗ trợ: {file_ext}")
     elif answer_key:
