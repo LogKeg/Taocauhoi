@@ -7410,17 +7410,30 @@ async def grade_answer_sheets(
                         result_temp = _preprocess_omr_image(content)
                         if result_temp[0] is not None:
                             _, gray, binary = result_temp
-                            # Thử với IKSC trước (30 câu)
-                            rows, _ = _detect_bubbles_grid_based(gray, binary, "IKSC_BENJAMIN")
-                            questions = _group_bubbles_to_questions_improved(rows, "IKSC_BENJAMIN")
-                            num_questions_detected = len(questions)
 
-                            # Xác định template dựa trên số câu
-                            if num_questions_detected >= 45:
-                                # 50 câu -> IKLC
-                                actual_template = f"IKLC_{detected_info.get('detected_level', 'BENJAMIN')}"
+                            # Thử với IKSC (layout row) trước
+                            rows, _ = _detect_bubbles_grid_based(gray, binary, "IKSC_BENJAMIN")
+                            questions_iksc = _group_bubbles_to_questions_improved(rows, "IKSC_BENJAMIN")
+                            num_iksc = len(questions_iksc)
+
+                            # Thử với IKLC (layout column) nếu IKSC không đủ
+                            rows_iklc, _ = _detect_bubbles_grid_based(gray, binary, "IKLC_STUDENT")
+                            questions_iklc = _group_bubbles_to_questions_improved(rows_iklc, "IKLC_STUDENT")
+                            num_iklc = len(questions_iklc)
+
+                            # Chọn template có nhiều câu hỏi hơn
+                            num_questions_detected = max(num_iksc, num_iklc)
+                            is_iklc_layout = num_iklc > num_iksc
+
+                            # Xác định template dựa trên số câu và layout
+                            if num_questions_detected >= 45 or is_iklc_layout:
+                                # 50 câu hoặc layout IKLC -> IKLC
+                                level = detected_info.get('detected_level', 'BENJAMIN')
+                                if level not in ['BENJAMIN', 'CADET', 'JUNIOR', 'STUDENT']:
+                                    level = 'STUDENT'  # Default cho 50 câu
+                                actual_template = f"IKLC_{level}"
                                 if actual_template not in ANSWER_TEMPLATES:
-                                    actual_template = "IKLC_BENJAMIN"
+                                    actual_template = "IKLC_STUDENT"
                             elif num_questions_detected >= 25:
                                 # 30 câu -> IKSC (Benjamin/Cadet/Junior/Student)
                                 actual_template = f"IKSC_{detected_info.get('detected_level', 'BENJAMIN')}"
