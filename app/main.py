@@ -5523,91 +5523,225 @@ Return ONLY valid JSON array, no markdown, no explanation:"""
 # Cấu hình mẫu phiếu trả lời - International Kangaroo Contest
 ANSWER_TEMPLATES = {
     # IKSC - Khoa học (Science Contest)
+    # Lớp 1-2, 3-4: 24 câu (8 câu x 3đ + 8 câu x 4đ + 8 câu x 5đ = 96 điểm tối đa)
+    # Lớp 5-12: 30 câu (10 câu x 3đ + 10 câu x 4đ + 10 câu x 5đ = 120 điểm tối đa)
+    # Mỗi câu sai trừ 1 điểm
     "IKSC_PRE_ECOLIER": {
         "name": "Khoa học - Pre-Ecolier (Lớp 1-2)",
         "questions": 24,
         "options": 5,
         "questions_per_row": 4,
-        "scoring": {"correct": 4, "wrong": -1, "blank": 0, "base": 24}
+        "scoring": {
+            "type": "tiered",  # Điểm theo phần
+            "tiers": [
+                {"start": 1, "end": 8, "correct": 3, "wrong": -1},    # Câu 1-8: 3 điểm/câu
+                {"start": 9, "end": 16, "correct": 4, "wrong": -1},   # Câu 9-16: 4 điểm/câu
+                {"start": 17, "end": 24, "correct": 5, "wrong": -1},  # Câu 17-24: 5 điểm/câu
+            ],
+            "blank": 0,
+            "base": 24  # Điểm khởi đầu
+        }
     },
     "IKSC_ECOLIER": {
         "name": "Khoa học - Ecolier (Lớp 3-4)",
         "questions": 24,
         "options": 5,
         "questions_per_row": 4,
-        "scoring": {"correct": 4, "wrong": -1, "blank": 0, "base": 24}
+        "scoring": {
+            "type": "tiered",
+            "tiers": [
+                {"start": 1, "end": 8, "correct": 3, "wrong": -1},
+                {"start": 9, "end": 16, "correct": 4, "wrong": -1},
+                {"start": 17, "end": 24, "correct": 5, "wrong": -1},
+            ],
+            "blank": 0,
+            "base": 24
+        }
     },
     "IKSC_BENJAMIN": {
         "name": "Khoa học - Benjamin (Lớp 5-6)",
         "questions": 30,
         "options": 5,
         "questions_per_row": 4,
-        "scoring": {"correct": 4, "wrong": -1, "blank": 0, "base": 30}
+        "scoring": {
+            "type": "tiered",
+            "tiers": [
+                {"start": 1, "end": 10, "correct": 3, "wrong": -1},   # Câu 1-10: 3 điểm/câu
+                {"start": 11, "end": 20, "correct": 4, "wrong": -1},  # Câu 11-20: 4 điểm/câu
+                {"start": 21, "end": 30, "correct": 5, "wrong": -1},  # Câu 21-30: 5 điểm/câu
+            ],
+            "blank": 0,
+            "base": 30
+        }
     },
     "IKSC_CADET": {
         "name": "Khoa học - Cadet (Lớp 7-8)",
         "questions": 30,
         "options": 5,
         "questions_per_row": 4,
-        "scoring": {"correct": 4, "wrong": -1, "blank": 0, "base": 30}
+        "scoring": {
+            "type": "tiered",
+            "tiers": [
+                {"start": 1, "end": 10, "correct": 3, "wrong": -1},
+                {"start": 11, "end": 20, "correct": 4, "wrong": -1},
+                {"start": 21, "end": 30, "correct": 5, "wrong": -1},
+            ],
+            "blank": 0,
+            "base": 30
+        }
     },
     "IKSC_JUNIOR": {
         "name": "Khoa học - Junior (Lớp 9-10)",
         "questions": 30,
         "options": 5,
         "questions_per_row": 4,
-        "scoring": {"correct": 4, "wrong": -1, "blank": 0, "base": 30}
+        "scoring": {
+            "type": "tiered",
+            "tiers": [
+                {"start": 1, "end": 10, "correct": 3, "wrong": -1},
+                {"start": 11, "end": 20, "correct": 4, "wrong": -1},
+                {"start": 21, "end": 30, "correct": 5, "wrong": -1},
+            ],
+            "blank": 0,
+            "base": 30
+        }
     },
     "IKSC_STUDENT": {
         "name": "Khoa học - Student (Lớp 11-12)",
         "questions": 30,
         "options": 5,
         "questions_per_row": 4,
-        "scoring": {"correct": 4, "wrong": -1, "blank": 0, "base": 30}
+        "scoring": {
+            "type": "tiered",
+            "tiers": [
+                {"start": 1, "end": 10, "correct": 3, "wrong": -1},
+                {"start": 11, "end": 20, "correct": 4, "wrong": -1},
+                {"start": 21, "end": 30, "correct": 5, "wrong": -1},
+            ],
+            "blank": 0,
+            "base": 30
+        }
     },
     # IKLC - Tiếng Anh (Linguistic Contest)
+    # Pre-Ecolier: 25 câu, 2đ/câu đúng, không trừ điểm sai, max 50 điểm
+    # Ecolier: 30 câu, 2đ/câu đúng, không trừ điểm sai, max 60 điểm
+    # Benjamin-Student: 50 câu, chỉ tính 40 câu tốt nhất, -0.5đ/câu sai, +10đ bonus
     "IKLC_PRE_ECOLIER": {
         "name": "Tiếng Anh - Pre-Ecolier (Lớp 1-2)",
-        "questions": 24,
+        "questions": 25,
         "options": 5,
         "questions_per_row": 4,
-        "scoring": {"correct": 1, "wrong": 0, "blank": 0, "base": 0}
+        "scoring": {"correct": 2, "wrong": 0, "blank": 0, "base": 0}  # Max 50
     },
     "IKLC_ECOLIER": {
         "name": "Tiếng Anh - Ecolier (Lớp 3-4)",
         "questions": 30,
         "options": 5,
         "questions_per_row": 4,
-        "scoring": {"correct": 1, "wrong": 0, "blank": 0, "base": 0}
+        "scoring": {"correct": 2, "wrong": 0, "blank": 0, "base": 0}  # Max 60
     },
     "IKLC_BENJAMIN": {
         "name": "Tiếng Anh - Benjamin (Lớp 5-6)",
         "questions": 50,
         "options": 5,
         "questions_per_row": 4,
-        "scoring": {"correct": 1, "wrong": -0.25, "blank": 0, "base": 5}
+        "scoring": {
+            "type": "best_of",
+            "count_best": 40,  # Chỉ tính 40 câu tốt nhất
+            "correct": 1.0,
+            "wrong": -0.5,
+            "blank": 0,
+            "base": 10  # Bonus 10 điểm, max = 10 + 40*1.0 = 50
+        }
     },
     "IKLC_CADET": {
         "name": "Tiếng Anh - Cadet (Lớp 7-8)",
         "questions": 50,
         "options": 5,
         "questions_per_row": 4,
-        "scoring": {"correct": 1, "wrong": -0.25, "blank": 0, "base": 5}
+        "scoring": {
+            "type": "best_of",
+            "count_best": 40,
+            "correct": 1.25,
+            "wrong": -0.5,
+            "blank": 0,
+            "base": 10  # Max = 10 + 40*1.25 = 60
+        }
     },
     "IKLC_JUNIOR": {
         "name": "Tiếng Anh - Junior (Lớp 9-10)",
         "questions": 50,
         "options": 5,
         "questions_per_row": 4,
-        "scoring": {"correct": 1, "wrong": -0.25, "blank": 0, "base": 5}
+        "scoring": {
+            "type": "best_of",
+            "count_best": 40,
+            "correct": 1.5,
+            "wrong": -0.5,
+            "blank": 0,
+            "base": 10  # Max = 10 + 40*1.5 = 70
+        }
     },
     "IKLC_STUDENT": {
         "name": "Tiếng Anh - Student (Lớp 11-12)",
         "questions": 50,
         "options": 5,
         "questions_per_row": 4,
-        "scoring": {"correct": 1, "wrong": -0.25, "blank": 0, "base": 20}
+        "scoring": {
+            "type": "best_of",
+            "count_best": 40,
+            "correct": 1.75,
+            "wrong": -0.5,
+            "blank": 0,
+            "base": 10  # Max = 10 + 40*1.75 = 80
+        }
     },
+    # ASMO - Math
+    "ASMO_MATH_GRADE_1": {"name": "ASMO Toán - Lớp 1", "questions": 25, "options": 5, "questions_per_row": 5, "scoring": {"correct": 1, "wrong": 0, "blank": 0, "base": 0}},
+    "ASMO_MATH_GRADE_2": {"name": "ASMO Toán - Lớp 2", "questions": 25, "options": 5, "questions_per_row": 5, "scoring": {"correct": 1, "wrong": 0, "blank": 0, "base": 0}},
+    "ASMO_MATH_GRADE_3": {"name": "ASMO Toán - Lớp 3", "questions": 25, "options": 5, "questions_per_row": 5, "scoring": {"correct": 1, "wrong": 0, "blank": 0, "base": 0}},
+    "ASMO_MATH_GRADE_4": {"name": "ASMO Toán - Lớp 4", "questions": 25, "options": 5, "questions_per_row": 5, "scoring": {"correct": 1, "wrong": 0, "blank": 0, "base": 0}},
+    "ASMO_MATH_GRADE_5": {"name": "ASMO Toán - Lớp 5", "questions": 25, "options": 5, "questions_per_row": 5, "scoring": {"correct": 1, "wrong": 0, "blank": 0, "base": 0}},
+    "ASMO_MATH_GRADE_6": {"name": "ASMO Toán - Lớp 6", "questions": 25, "options": 5, "questions_per_row": 5, "scoring": {"correct": 1, "wrong": 0, "blank": 0, "base": 0}},
+    "ASMO_MATH_GRADE_7": {"name": "ASMO Toán - Lớp 7", "questions": 25, "options": 5, "questions_per_row": 5, "scoring": {"correct": 1, "wrong": 0, "blank": 0, "base": 0}},
+    "ASMO_MATH_GRADE_8": {"name": "ASMO Toán - Lớp 8", "questions": 25, "options": 5, "questions_per_row": 5, "scoring": {"correct": 1, "wrong": 0, "blank": 0, "base": 0}},
+    "ASMO_MATH_GRADE_9": {"name": "ASMO Toán - Lớp 9", "questions": 25, "options": 5, "questions_per_row": 5, "scoring": {"correct": 1, "wrong": 0, "blank": 0, "base": 0}},
+    "ASMO_MATH_GRADE_10": {"name": "ASMO Toán - Lớp 10", "questions": 25, "options": 5, "questions_per_row": 5, "scoring": {"correct": 1, "wrong": 0, "blank": 0, "base": 0}},
+    "ASMO_MATH_GRADE_11": {"name": "ASMO Toán - Lớp 11", "questions": 25, "options": 5, "questions_per_row": 5, "scoring": {"correct": 1, "wrong": 0, "blank": 0, "base": 0}},
+    "ASMO_MATH_GRADE_12": {"name": "ASMO Toán - Lớp 12", "questions": 25, "options": 5, "questions_per_row": 5, "scoring": {"correct": 1, "wrong": 0, "blank": 0, "base": 0}},
+    # ASMO - Science
+    "ASMO_SCIENCE_GRADE_1": {"name": "ASMO Khoa học - Lớp 1", "questions": 25, "options": 5, "questions_per_row": 5, "scoring": {"correct": 1, "wrong": 0, "blank": 0, "base": 0}},
+    "ASMO_SCIENCE_GRADE_2": {"name": "ASMO Khoa học - Lớp 2", "questions": 25, "options": 5, "questions_per_row": 5, "scoring": {"correct": 1, "wrong": 0, "blank": 0, "base": 0}},
+    "ASMO_SCIENCE_GRADE_3": {"name": "ASMO Khoa học - Lớp 3", "questions": 25, "options": 5, "questions_per_row": 5, "scoring": {"correct": 1, "wrong": 0, "blank": 0, "base": 0}},
+    "ASMO_SCIENCE_GRADE_4": {"name": "ASMO Khoa học - Lớp 4", "questions": 25, "options": 5, "questions_per_row": 5, "scoring": {"correct": 1, "wrong": 0, "blank": 0, "base": 0}},
+    "ASMO_SCIENCE_GRADE_5": {"name": "ASMO Khoa học - Lớp 5", "questions": 25, "options": 5, "questions_per_row": 5, "scoring": {"correct": 1, "wrong": 0, "blank": 0, "base": 0}},
+    "ASMO_SCIENCE_GRADE_6": {"name": "ASMO Khoa học - Lớp 6", "questions": 25, "options": 5, "questions_per_row": 5, "scoring": {"correct": 1, "wrong": 0, "blank": 0, "base": 0}},
+    "ASMO_SCIENCE_GRADE_7": {"name": "ASMO Khoa học - Lớp 7", "questions": 25, "options": 5, "questions_per_row": 5, "scoring": {"correct": 1, "wrong": 0, "blank": 0, "base": 0}},
+    "ASMO_SCIENCE_GRADE_8": {"name": "ASMO Khoa học - Lớp 8", "questions": 25, "options": 5, "questions_per_row": 5, "scoring": {"correct": 1, "wrong": 0, "blank": 0, "base": 0}},
+    "ASMO_SCIENCE_GRADE_9": {"name": "ASMO Khoa học - Lớp 9", "questions": 25, "options": 5, "questions_per_row": 5, "scoring": {"correct": 1, "wrong": 0, "blank": 0, "base": 0}},
+    "ASMO_SCIENCE_GRADE_10": {"name": "ASMO Khoa học - Lớp 10", "questions": 25, "options": 5, "questions_per_row": 5, "scoring": {"correct": 1, "wrong": 0, "blank": 0, "base": 0}},
+    "ASMO_SCIENCE_GRADE_11": {"name": "ASMO Khoa học - Lớp 11", "questions": 25, "options": 5, "questions_per_row": 5, "scoring": {"correct": 1, "wrong": 0, "blank": 0, "base": 0}},
+    "ASMO_SCIENCE_GRADE_12": {"name": "ASMO Khoa học - Lớp 12", "questions": 25, "options": 5, "questions_per_row": 5, "scoring": {"correct": 1, "wrong": 0, "blank": 0, "base": 0}},
+    # ASMO - English
+    "ASMO_ENGLISH_GRADE_1": {"name": "ASMO Tiếng Anh - Lớp 1", "questions": 25, "options": 5, "questions_per_row": 5, "scoring": {"correct": 1, "wrong": 0, "blank": 0, "base": 0}},
+    "ASMO_ENGLISH_GRADE_2": {"name": "ASMO Tiếng Anh - Lớp 2", "questions": 25, "options": 5, "questions_per_row": 5, "scoring": {"correct": 1, "wrong": 0, "blank": 0, "base": 0}},
+    "ASMO_ENGLISH_GRADE_3": {"name": "ASMO Tiếng Anh - Lớp 3", "questions": 25, "options": 5, "questions_per_row": 5, "scoring": {"correct": 1, "wrong": 0, "blank": 0, "base": 0}},
+    "ASMO_ENGLISH_GRADE_4": {"name": "ASMO Tiếng Anh - Lớp 4", "questions": 25, "options": 5, "questions_per_row": 5, "scoring": {"correct": 1, "wrong": 0, "blank": 0, "base": 0}},
+    "ASMO_ENGLISH_GRADE_5": {"name": "ASMO Tiếng Anh - Lớp 5", "questions": 25, "options": 5, "questions_per_row": 5, "scoring": {"correct": 1, "wrong": 0, "blank": 0, "base": 0}},
+    "ASMO_ENGLISH_GRADE_6": {"name": "ASMO Tiếng Anh - Lớp 6", "questions": 25, "options": 5, "questions_per_row": 5, "scoring": {"correct": 1, "wrong": 0, "blank": 0, "base": 0}},
+    "ASMO_ENGLISH_GRADE_7": {"name": "ASMO Tiếng Anh - Lớp 7", "questions": 25, "options": 5, "questions_per_row": 5, "scoring": {"correct": 1, "wrong": 0, "blank": 0, "base": 0}},
+    "ASMO_ENGLISH_GRADE_8": {"name": "ASMO Tiếng Anh - Lớp 8", "questions": 25, "options": 5, "questions_per_row": 5, "scoring": {"correct": 1, "wrong": 0, "blank": 0, "base": 0}},
+    "ASMO_ENGLISH_GRADE_9": {"name": "ASMO Tiếng Anh - Lớp 9", "questions": 25, "options": 5, "questions_per_row": 5, "scoring": {"correct": 1, "wrong": 0, "blank": 0, "base": 0}},
+    "ASMO_ENGLISH_GRADE_10": {"name": "ASMO Tiếng Anh - Lớp 10", "questions": 25, "options": 5, "questions_per_row": 5, "scoring": {"correct": 1, "wrong": 0, "blank": 0, "base": 0}},
+    "ASMO_ENGLISH_GRADE_11": {"name": "ASMO Tiếng Anh - Lớp 11", "questions": 25, "options": 5, "questions_per_row": 5, "scoring": {"correct": 1, "wrong": 0, "blank": 0, "base": 0}},
+    "ASMO_ENGLISH_GRADE_12": {"name": "ASMO Tiếng Anh - Lớp 12", "questions": 25, "options": 5, "questions_per_row": 5, "scoring": {"correct": 1, "wrong": 0, "blank": 0, "base": 0}},
+    # SEAMO - Math
+    "SEAMO_MATH_PAPER_A": {"name": "SEAMO Toán - Paper A (Lớp 1-2)", "questions": 25, "options": 5, "questions_per_row": 5, "scoring": {"correct": 1, "wrong": 0, "blank": 0, "base": 0}},
+    "SEAMO_MATH_PAPER_B": {"name": "SEAMO Toán - Paper B (Lớp 3-4)", "questions": 25, "options": 5, "questions_per_row": 5, "scoring": {"correct": 1, "wrong": 0, "blank": 0, "base": 0}},
+    "SEAMO_MATH_PAPER_C": {"name": "SEAMO Toán - Paper C (Lớp 5-6)", "questions": 25, "options": 5, "questions_per_row": 5, "scoring": {"correct": 1, "wrong": 0, "blank": 0, "base": 0}},
+    "SEAMO_MATH_PAPER_D": {"name": "SEAMO Toán - Paper D (Lớp 7-8)", "questions": 25, "options": 5, "questions_per_row": 5, "scoring": {"correct": 1, "wrong": 0, "blank": 0, "base": 0}},
+    "SEAMO_MATH_PAPER_E": {"name": "SEAMO Toán - Paper E (Lớp 9-10)", "questions": 25, "options": 5, "questions_per_row": 5, "scoring": {"correct": 1, "wrong": 0, "blank": 0, "base": 0}},
+    "SEAMO_MATH_PAPER_F": {"name": "SEAMO Toán - Paper F (Lớp 11-12)", "questions": 25, "options": 5, "questions_per_row": 5, "scoring": {"correct": 1, "wrong": 0, "blank": 0, "base": 0}},
     # Custom - cho phép người dùng tự định nghĩa
     "CUSTOM": {
         "name": "Tùy chỉnh",
@@ -6728,12 +6862,61 @@ def _grade_single_sheet(image_bytes: bytes, answer_key: List[str], template_type
         })
 
     # Tính điểm
-    score = (
-        scoring["base"] +
-        correct_count * scoring["correct"] +
-        wrong_count * scoring["wrong"] +
-        blank_count * scoring["blank"]
-    )
+    if scoring.get("type") == "tiered":
+        # Tính điểm theo phần (tiered scoring) - dùng cho IKSC
+        score = scoring.get("base", 0)
+        tiers = scoring.get("tiers", [])
+
+        for detail in details:
+            q_num = detail["q"]
+            status = detail["status"]
+
+            # Tìm tier phù hợp cho câu hỏi này
+            tier_points = {"correct": 1, "wrong": 0}  # Default
+            for tier in tiers:
+                if tier["start"] <= q_num <= tier["end"]:
+                    tier_points = tier
+                    break
+
+            if status == "correct":
+                score += tier_points.get("correct", 1)
+            elif status in ["wrong", "invalid"]:
+                score += tier_points.get("wrong", 0)
+            # blank: không cộng/trừ điểm
+
+    elif scoring.get("type") == "best_of":
+        # Tính điểm chỉ lấy N câu tốt nhất - dùng cho IKLC Benjamin-Student
+        # Công thức: base + (correct * points) + (wrong * penalty)
+        # Chỉ tính count_best câu có điểm cao nhất
+        count_best = scoring.get("count_best", 40)
+        correct_pts = scoring.get("correct", 1)
+        wrong_pts = scoring.get("wrong", -0.5)
+
+        # Tính điểm từng câu
+        question_scores = []
+        for detail in details:
+            status = detail["status"]
+            if status == "correct":
+                question_scores.append(correct_pts)
+            elif status in ["wrong", "invalid"]:
+                question_scores.append(wrong_pts)
+            else:  # blank
+                question_scores.append(0)
+
+        # Sắp xếp giảm dần và lấy N câu tốt nhất
+        question_scores.sort(reverse=True)
+        best_scores = question_scores[:count_best]
+
+        score = scoring.get("base", 0) + sum(best_scores)
+
+    else:
+        # Tính điểm đơn giản (flat scoring) - dùng cho IKLC Pre-Ecolier, Ecolier và các kỳ thi khác
+        score = (
+            scoring.get("base", 0) +
+            correct_count * scoring.get("correct", 1) +
+            wrong_count * scoring.get("wrong", 0) +
+            blank_count * scoring.get("blank", 0)
+        )
 
     return {
         "answers": student_answers,
@@ -7013,6 +7196,11 @@ async def grade_answer_sheets(
 
         answers_cache[tpl_type] = answers
         return answers
+
+    # Xử lý chế độ AUTO - tự động bật auto_detect_template
+    if template_type == "AUTO":
+        auto_detect_template = True
+        template_type = "IKSC_BENJAMIN"  # Fallback mặc định
 
     # Validate template mặc định
     default_template = ANSWER_TEMPLATES.get(template_type)

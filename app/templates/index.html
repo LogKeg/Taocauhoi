@@ -230,29 +230,28 @@
 
             <div class="auto-grid" style="margin-bottom: 1rem;">
               <div>
-                <label for="gradingTemplate">Loại đề thi</label>
-                <select id="gradingTemplate">
-                  <optgroup label="Khoa học (IKSC)">
-                    <option value="IKSC_PRE_ECOLIER">Pre-Ecolier (Lớp 1-2) - 24 câu</option>
-                    <option value="IKSC_ECOLIER">Ecolier (Lớp 3-4) - 24 câu</option>
-                    <option value="IKSC_BENJAMIN">Benjamin (Lớp 5-6) - 30 câu</option>
-                    <option value="IKSC_CADET">Cadet (Lớp 7-8) - 30 câu</option>
-                    <option value="IKSC_JUNIOR">Junior (Lớp 9-10) - 30 câu</option>
-                  </optgroup>
-                  <optgroup label="Tiếng Anh (IKLC)">
-                    <option value="IKLC_PRE_ECOLIER">Pre-Ecolier (Lớp 1-2) - 24 câu</option>
-                    <option value="IKLC_ECOLIER">Ecolier (Lớp 3-4) - 30 câu</option>
-                    <option value="IKLC_BENJAMIN">Benjamin (Lớp 5-6) - 50 câu</option>
-                    <option value="IKLC_CADET">Cadet (Lớp 7-8) - 50 câu</option>
-                    <option value="IKLC_JUNIOR">Junior (Lớp 9-10) - 50 câu</option>
-                    <option value="IKLC_STUDENT">Student (Lớp 11-12) - 50 câu</option>
-                  </optgroup>
-                  <optgroup label="Khác">
-                    <option value="CUSTOM">Tùy chỉnh (theo số đáp án nhập)</option>
-                  </optgroup>
+                <label for="gradingContest">Kỳ thi</label>
+                <select id="gradingContest">
+                  <option value="KANGAROO">Kangaroo</option>
+                  <option value="ASMO">ASMO</option>
+                  <option value="SEAMO">SEAMO</option>
+                </select>
+              </div>
+              <div>
+                <label for="gradingSubject">Môn thi</label>
+                <select id="gradingSubject">
+                  <!-- Options will be populated by JavaScript based on contest -->
+                </select>
+              </div>
+              <div>
+                <label for="gradingLevel">Cấp độ</label>
+                <select id="gradingLevel">
+                  <!-- Options will be populated by JavaScript based on contest and subject -->
                 </select>
               </div>
             </div>
+            <!-- Hidden field to store the combined template value -->
+            <input type="hidden" id="gradingTemplate" value="KANGAROO_SCIENCE_BENJAMIN">
 
             <div class="grading-section">
               <h3>Bước 1: Nhập đáp án đúng</h3>
@@ -1256,6 +1255,9 @@
       });
 
       /* ---- Grading (Chấm bài) ---- */
+      const gradingContest = document.getElementById('gradingContest');
+      const gradingSubject = document.getElementById('gradingSubject');
+      const gradingLevel = document.getElementById('gradingLevel');
       const gradingTemplate = document.getElementById('gradingTemplate');
       const answerGrid = document.getElementById('answerGrid');
       const sheetImages = document.getElementById('sheetImages');
@@ -1267,28 +1269,212 @@
       const gradingTable = document.getElementById('gradingTable');
       let gradingResults = [];
 
-      // Template info
-      const templateInfo = {
-        // IKSC - Khoa học
-        IKSC_PRE_ECOLIER: { questions: 24, name: 'Khoa học - Pre-Ecolier (Lớp 1-2)' },
-        IKSC_ECOLIER: { questions: 24, name: 'Khoa học - Ecolier (Lớp 3-4)' },
-        IKSC_BENJAMIN: { questions: 30, name: 'Khoa học - Benjamin (Lớp 5-6)' },
-        IKSC_CADET: { questions: 30, name: 'Khoa học - Cadet (Lớp 7-8)' },
-        IKSC_JUNIOR: { questions: 30, name: 'Khoa học - Junior (Lớp 9-10)' },
-        // IKLC - Tiếng Anh
-        IKLC_PRE_ECOLIER: { questions: 24, name: 'Tiếng Anh - Pre-Ecolier (Lớp 1-2)' },
-        IKLC_ECOLIER: { questions: 30, name: 'Tiếng Anh - Ecolier (Lớp 3-4)' },
-        IKLC_BENJAMIN: { questions: 50, name: 'Tiếng Anh - Benjamin (Lớp 5-6)' },
-        IKLC_CADET: { questions: 50, name: 'Tiếng Anh - Cadet (Lớp 7-8)' },
-        IKLC_JUNIOR: { questions: 50, name: 'Tiếng Anh - Junior (Lớp 9-10)' },
-        IKLC_STUDENT: { questions: 50, name: 'Tiếng Anh - Student (Lớp 11-12)' },
-        // Custom
-        CUSTOM: { questions: 30, name: 'Tùy chỉnh' }
+      // Contest configuration
+      const contestConfig = {
+        KANGAROO: {
+          name: 'Kangaroo',
+          subjects: {
+            SCIENCE: {
+              name: 'Khoa học',
+              code: 'IKSC',
+              levels: {
+                PRE_ECOLIER: { name: 'Pre-Ecolier (Lớp 1-2)', questions: 24 },
+                ECOLIER: { name: 'Ecolier (Lớp 3-4)', questions: 24 },
+                BENJAMIN: { name: 'Benjamin (Lớp 5-6)', questions: 30 },
+                CADET: { name: 'Cadet (Lớp 7-8)', questions: 30 },
+                JUNIOR: { name: 'Junior (Lớp 9-10)', questions: 30 },
+                STUDENT: { name: 'Student (Lớp 11-12)', questions: 30 }
+              }
+            },
+            ENGLISH: {
+              name: 'Tiếng Anh',
+              code: 'IKLC',
+              levels: {
+                PRE_ECOLIER: { name: 'Pre-Ecolier (Lớp 1-2)', questions: 24 },
+                ECOLIER: { name: 'Ecolier (Lớp 3-4)', questions: 30 },
+                BENJAMIN: { name: 'Benjamin (Lớp 5-6)', questions: 50 },
+                CADET: { name: 'Cadet (Lớp 7-8)', questions: 50 },
+                JUNIOR: { name: 'Junior (Lớp 9-10)', questions: 50 },
+                STUDENT: { name: 'Student (Lớp 11-12)', questions: 50 }
+              }
+            }
+          }
+        },
+        ASMO: {
+          name: 'ASMO',
+          subjects: {
+            MATH: {
+              name: 'Toán',
+              code: 'ASMO_MATH',
+              levels: {
+                GRADE_1: { name: 'Lớp 1', questions: 25 },
+                GRADE_2: { name: 'Lớp 2', questions: 25 },
+                GRADE_3: { name: 'Lớp 3', questions: 25 },
+                GRADE_4: { name: 'Lớp 4', questions: 25 },
+                GRADE_5: { name: 'Lớp 5', questions: 25 },
+                GRADE_6: { name: 'Lớp 6', questions: 25 },
+                GRADE_7: { name: 'Lớp 7', questions: 25 },
+                GRADE_8: { name: 'Lớp 8', questions: 25 },
+                GRADE_9: { name: 'Lớp 9', questions: 25 },
+                GRADE_10: { name: 'Lớp 10', questions: 25 },
+                GRADE_11: { name: 'Lớp 11', questions: 25 },
+                GRADE_12: { name: 'Lớp 12', questions: 25 }
+              }
+            },
+            SCIENCE: {
+              name: 'Khoa học',
+              code: 'ASMO_SCIENCE',
+              levels: {
+                GRADE_1: { name: 'Lớp 1', questions: 25 },
+                GRADE_2: { name: 'Lớp 2', questions: 25 },
+                GRADE_3: { name: 'Lớp 3', questions: 25 },
+                GRADE_4: { name: 'Lớp 4', questions: 25 },
+                GRADE_5: { name: 'Lớp 5', questions: 25 },
+                GRADE_6: { name: 'Lớp 6', questions: 25 },
+                GRADE_7: { name: 'Lớp 7', questions: 25 },
+                GRADE_8: { name: 'Lớp 8', questions: 25 },
+                GRADE_9: { name: 'Lớp 9', questions: 25 },
+                GRADE_10: { name: 'Lớp 10', questions: 25 },
+                GRADE_11: { name: 'Lớp 11', questions: 25 },
+                GRADE_12: { name: 'Lớp 12', questions: 25 }
+              }
+            },
+            ENGLISH: {
+              name: 'Tiếng Anh',
+              code: 'ASMO_ENGLISH',
+              levels: {
+                GRADE_1: { name: 'Lớp 1', questions: 25 },
+                GRADE_2: { name: 'Lớp 2', questions: 25 },
+                GRADE_3: { name: 'Lớp 3', questions: 25 },
+                GRADE_4: { name: 'Lớp 4', questions: 25 },
+                GRADE_5: { name: 'Lớp 5', questions: 25 },
+                GRADE_6: { name: 'Lớp 6', questions: 25 },
+                GRADE_7: { name: 'Lớp 7', questions: 25 },
+                GRADE_8: { name: 'Lớp 8', questions: 25 },
+                GRADE_9: { name: 'Lớp 9', questions: 25 },
+                GRADE_10: { name: 'Lớp 10', questions: 25 },
+                GRADE_11: { name: 'Lớp 11', questions: 25 },
+                GRADE_12: { name: 'Lớp 12', questions: 25 }
+              }
+            }
+          }
+        },
+        SEAMO: {
+          name: 'SEAMO',
+          subjects: {
+            MATH: {
+              name: 'Toán',
+              code: 'SEAMO_MATH',
+              levels: {
+                PAPER_A: { name: 'Paper A (Lớp 1-2)', questions: 25 },
+                PAPER_B: { name: 'Paper B (Lớp 3-4)', questions: 25 },
+                PAPER_C: { name: 'Paper C (Lớp 5-6)', questions: 25 },
+                PAPER_D: { name: 'Paper D (Lớp 7-8)', questions: 25 },
+                PAPER_E: { name: 'Paper E (Lớp 9-10)', questions: 25 },
+                PAPER_F: { name: 'Paper F (Lớp 11-12)', questions: 25 }
+              }
+            }
+          }
+        }
       };
+
+      // Template info (for backward compatibility)
+      const templateInfo = {};
+
+      // Build templateInfo from contestConfig
+      function buildTemplateInfo() {
+        for (const [contestKey, contest] of Object.entries(contestConfig)) {
+          for (const [subjectKey, subject] of Object.entries(contest.subjects)) {
+            for (const [levelKey, level] of Object.entries(subject.levels)) {
+              const templateKey = `${subject.code}_${levelKey}`;
+              templateInfo[templateKey] = {
+                questions: level.questions,
+                name: `${subject.name} - ${level.name}`,
+                contest: contestKey,
+                subject: subjectKey,
+                level: levelKey
+              };
+            }
+          }
+        }
+        // Add custom option
+        templateInfo['CUSTOM'] = { questions: 30, name: 'Tùy chỉnh' };
+      }
+      buildTemplateInfo();
+
+      // Update subject options based on contest
+      function updateSubjectOptions() {
+        const contest = gradingContest.value;
+        const subjects = contestConfig[contest]?.subjects || {};
+
+        gradingSubject.innerHTML = '';
+        for (const [key, subject] of Object.entries(subjects)) {
+          const option = document.createElement('option');
+          option.value = key;
+          option.textContent = subject.name;
+          gradingSubject.appendChild(option);
+        }
+
+        updateLevelOptions();
+      }
+
+      // Update level options based on contest and subject
+      function updateLevelOptions() {
+        const contest = gradingContest.value;
+        const subject = gradingSubject.value;
+        const levels = contestConfig[contest]?.subjects[subject]?.levels || {};
+
+        gradingLevel.innerHTML = '';
+
+        // Add auto-detect option first
+        const autoOption = document.createElement('option');
+        autoOption.value = 'AUTO';
+        autoOption.textContent = 'Tự động nhận diện';
+        gradingLevel.appendChild(autoOption);
+
+        for (const [key, level] of Object.entries(levels)) {
+          const option = document.createElement('option');
+          option.value = key;
+          option.textContent = `${level.name} - ${level.questions} câu`;
+          gradingLevel.appendChild(option);
+        }
+
+        updateTemplateValue();
+      }
+
+      // Update hidden template value
+      function updateTemplateValue() {
+        const contest = gradingContest.value;
+        const subject = gradingSubject.value;
+        const level = gradingLevel.value;
+        const subjectConfig = contestConfig[contest]?.subjects[subject];
+
+        if (level === 'AUTO') {
+          // Auto-detect mode: use contest code with AUTO suffix
+          gradingTemplate.value = 'AUTO';
+        } else if (subjectConfig) {
+          gradingTemplate.value = `${subjectConfig.code}_${level}`;
+        }
+
+        generateAnswerGrid();
+      }
+
+      // Event listeners for dropdowns
+      gradingContest.addEventListener('change', updateSubjectOptions);
+      gradingSubject.addEventListener('change', updateLevelOptions);
+      gradingLevel.addEventListener('change', updateTemplateValue);
+
+      // Initialize dropdowns
+      updateSubjectOptions();
 
       // Generate answer grid
       function generateAnswerGrid() {
         const template = gradingTemplate.value;
+        // For AUTO mode, show message instead of grid
+        if (template === 'AUTO') {
+          answerGrid.innerHTML = '<p style="color: var(--muted); font-style: italic;">Chế độ tự động: Hệ thống sẽ nhận diện môn và cấp độ từ phiếu trả lời. Vui lòng upload file đáp án (Excel/PDF) hoặc chọn cấp độ cụ thể để nhập thủ công.</p>';
+          return;
+        }
         const numQ = templateInfo[template]?.questions || 30;
         answerGrid.innerHTML = '';
 
@@ -1309,9 +1495,6 @@
           answerGrid.appendChild(row);
         }
       }
-
-      gradingTemplate.addEventListener('change', generateAnswerGrid);
-      generateAnswerGrid();
 
       // Answer input tabs
       document.querySelectorAll('.answer-tab').forEach(tab => {
@@ -1355,7 +1538,8 @@
         }
 
         const template = gradingTemplate.value;
-        const numQ = templateInfo[template]?.questions || 30;
+        const isAutoMode = template === 'AUTO';
+        const numQ = isAutoMode ? 0 : (templateInfo[template]?.questions || 30);
 
         // Get answers
         const activeTab = document.querySelector('.answer-tab.active');
@@ -1364,6 +1548,12 @@
 
         if (activeTab?.dataset.mode === 'excel' && answerFile) {
           // Will send file to server
+        } else if (isAutoMode) {
+          // In auto mode, answer file is required
+          if (!answerFile) {
+            gradingStatus.textContent = 'Chế độ tự động yêu cầu upload file đáp án (Excel/PDF)!';
+            return;
+          }
         } else {
           answers = getAnswersFromGrid();
           const filledCount = answers.filter(a => a).length;
