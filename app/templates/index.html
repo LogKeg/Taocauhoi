@@ -242,7 +242,7 @@
               <h3>Bước 1: Nhập đáp án đúng</h3>
               <div class="answer-input-tabs">
                 <button type="button" class="answer-tab active" data-mode="manual">Nhập thủ công</button>
-                <button type="button" class="answer-tab" data-mode="excel">Upload Excel</button>
+                <button type="button" class="answer-tab" data-mode="excel">Upload file (Excel/PDF)</button>
               </div>
 
               <div id="manualAnswerInput">
@@ -251,8 +251,8 @@
               </div>
 
               <div id="excelAnswerInput" hidden>
-                <p style="margin: 0.5rem 0; color: var(--muted);">Upload file Excel với cột: Câu hỏi | Đáp án</p>
-                <input type="file" id="answerExcelFile" accept=".xlsx,.xls" />
+                <p style="margin: 0.5rem 0; color: var(--muted);">Upload file Excel (cột: Câu hỏi | Đáp án) hoặc PDF chứa đáp án</p>
+                <input type="file" id="answerExcelFile" accept=".xlsx,.xls,.pdf" />
                 <span id="answerFileStatus" style="margin-left: 0.5rem;"></span>
               </div>
             </div>

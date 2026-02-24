@@ -5829,18 +5829,62 @@ async def grade_answer_sheets(
     answers = []
 
     if answer_file and answer_file.filename:
-        # Đọc từ file Excel
-        try:
-            import openpyxl
-            content = await answer_file.read()
-            wb = openpyxl.load_workbook(io.BytesIO(content))
-            ws = wb.active
+        content = await answer_file.read()
+        file_ext = answer_file.filename.lower().split(".")[-1]
 
-            for row in ws.iter_rows(min_row=2, max_col=2):
-                if row[1].value:
-                    answers.append(str(row[1].value).strip().upper())
-        except Exception as e:
-            raise HTTPException(status_code=400, detail=f"Lỗi đọc file đáp án: {str(e)}")
+        if file_ext in ["xlsx", "xls"]:
+            # Đọc từ file Excel
+            try:
+                import openpyxl
+                wb = openpyxl.load_workbook(io.BytesIO(content))
+                ws = wb.active
+
+                for row in ws.iter_rows(min_row=2, max_col=2):
+                    if row[1].value:
+                        answers.append(str(row[1].value).strip().upper())
+            except Exception as e:
+                raise HTTPException(status_code=400, detail=f"Lỗi đọc file Excel: {str(e)}")
+
+        elif file_ext == "pdf":
+            # Đọc từ file PDF
+            try:
+                import fitz  # PyMuPDF
+
+                pdf_doc = fitz.open(stream=content, filetype="pdf")
+                pdf_text = ""
+                for page in pdf_doc:
+                    pdf_text += page.get_text()
+                pdf_doc.close()
+
+                # Tìm đáp án trong PDF (pattern: số câu + đáp án)
+                # Hỗ trợ các format: "1. A", "1) A", "1: A", "1 A", "Câu 1: A"
+                answer_patterns = [
+                    r'(?:Câu\s*)?(\d+)\s*[.:)]\s*([A-Ea-e])',  # Câu 1: A, 1. A, 1) A
+                    r'(\d+)\s+([A-Ea-e])\b',  # 1 A
+                ]
+
+                found_answers = {}
+                for pattern in answer_patterns:
+                    matches = re.findall(pattern, pdf_text)
+                    for match in matches:
+                        q_num = int(match[0])
+                        answer = match[1].upper()
+                        if 1 <= q_num <= num_questions:
+                            found_answers[q_num] = answer
+
+                # Chuyển dict thành list theo thứ tự
+                for i in range(1, num_questions + 1):
+                    answers.append(found_answers.get(i, ""))
+
+                if not any(answers):
+                    raise HTTPException(status_code=400, detail="Không tìm thấy đáp án trong file PDF")
+
+            except HTTPException:
+                raise
+            except Exception as e:
+                raise HTTPException(status_code=400, detail=f"Lỗi đọc file PDF: {str(e)}")
+        else:
+            raise HTTPException(status_code=400, detail=f"Định dạng file không được hỗ trợ: {file_ext}")
     elif answer_key:
         # Parse JSON
         try:
