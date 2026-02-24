@@ -5619,13 +5619,17 @@ ANSWER_TEMPLATES = {
 }
 
 
-def _detect_template_from_image(image_bytes: bytes) -> dict:
-    """Nhận diện loại đề và cấp độ từ phiếu bằng OCR (EasyOCR)
+def _detect_template_from_image(image_bytes: bytes, num_questions_detected: int = 0) -> dict:
+    """Nhận diện loại đề và cấp độ từ phiếu bằng OCR
 
     Trả về dict với keys:
     - detected_template: template_type đầy đủ (ví dụ: "IKSC_BENJAMIN")
     - detected_contest: IKSC hoặc IKLC
     - detected_level: PRE_ECOLIER, ECOLIER, BENJAMIN, CADET, JUNIOR, STUDENT
+
+    Sử dụng kết hợp:
+    1. OCR để đọc text từ header
+    2. Số câu hỏi được phát hiện để xác định level
     """
     import cv2
     import numpy as np
@@ -5636,11 +5640,6 @@ def _detect_template_from_image(image_bytes: bytes) -> dict:
         "detected_level": ""
     }
 
-    try:
-        import easyocr
-    except ImportError:
-        return result
-
     # Đọc ảnh
     nparr = np.frombuffer(image_bytes, np.uint8)
     img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
@@ -5648,19 +5647,56 @@ def _detect_template_from_image(image_bytes: bytes) -> dict:
     if img is None:
         return result
 
-    # Lấy phần trên của ảnh (chứa thông tin loại đề) - khoảng 15% trên
     height, width = img.shape[:2]
-    top_region = img[0:int(height * 0.15), :]
+    text = ""
 
-    # Khởi tạo EasyOCR reader
+    # Thử các OCR engines theo thứ tự ưu tiên
+    ocr_success = False
+
+    # 1. Thử EasyOCR
     try:
+        # Fix SSL certificate issue
+        import ssl
+        ssl._create_default_https_context = ssl._create_unverified_context
+
+        import easyocr
+        # Lấy phần trên của ảnh (chứa thông tin loại đề) - khoảng 15% trên
+        top_region = img[0:int(height * 0.15), :]
         reader = easyocr.Reader(['en'], gpu=False, verbose=False)
         ocr_results = reader.readtext(top_region)
+        text = ' '.join([r[1] for r in ocr_results])
+        ocr_success = True
     except:
+        pass
+
+    # 2. Thử Pytesseract
+    if not ocr_success:
+        try:
+            import pytesseract
+            top_region = img[0:int(height * 0.15), :]
+            # Chuyển sang grayscale và tăng contrast
+            gray = cv2.cvtColor(top_region, cv2.COLOR_BGR2GRAY)
+            text = pytesseract.image_to_string(gray, lang='eng')
+            ocr_success = True
+        except:
+            pass
+
+    # 3. Nếu OCR không thành công, sử dụng số câu hỏi để đoán
+    if not ocr_success and num_questions_detected > 0:
+        # Dựa vào số câu hỏi để đoán template
+        if num_questions_detected <= 24:
+            # 24 câu -> Pre-Ecolier hoặc Ecolier (IKSC) hoặc Pre-Ecolier (IKLC)
+            result["detected_level"] = "PRE_ECOLIER"  # Mặc định
+        elif num_questions_detected <= 30:
+            # 30 câu -> Benjamin/Cadet/Junior/Student (IKSC) hoặc Ecolier (IKLC)
+            result["detected_level"] = "BENJAMIN"  # Mặc định cho IKSC
+        elif num_questions_detected <= 50:
+            # 50 câu -> Benjamin/Cadet/Junior/Student (IKLC)
+            result["detected_contest"] = "IKLC"
+            result["detected_level"] = "BENJAMIN"  # Mặc định
+
         return result
 
-    # Ghép kết quả OCR thành text
-    text = ' '.join([r[1] for r in ocr_results])
     text_lower = text.lower()
 
     # === NHẬN DIỆN LOẠI CUỘC THI (IKSC hoặc IKLC) ===
@@ -5672,8 +5708,12 @@ def _detect_template_from_image(image_bytes: bytes) -> dict:
     # === NHẬN DIỆN CẤP ĐỘ (LEVEL) ===
     level_detected = ""
 
-    # Tìm theo CLASS pattern (ví dụ: "CLASS 5 & 6", "CLASS 5&6")
-    class_match = re.search(r'class\s*(\d+)\s*[&,]\s*(\d+)', text_lower)
+    # Tìm theo CLASS pattern (ví dụ: "CLASS 5 & 6", "CLASS 5&6", "5 & 6")
+    class_match = re.search(r'class\s*(\d+)\s*[&]\s*(\d+)', text_lower)
+    if not class_match:
+        # Thử pattern không có "class"
+        class_match = re.search(r'(\d+)\s*[&]\s*(\d+)', text_lower)
+
     if class_match:
         class1 = int(class_match.group(1))
         class2 = int(class_match.group(2))
@@ -5692,7 +5732,7 @@ def _detect_template_from_image(image_bytes: bytes) -> dict:
 
     # Nếu không tìm thấy theo class, thử tìm theo tên level
     if not level_detected:
-        if 'pre-ecolier' in text_lower or 'preecolier' in text_lower:
+        if 'pre-ecolier' in text_lower or 'preecolier' in text_lower or 'pre_ecolier' in text_lower:
             level_detected = "PRE_ECOLIER"
         elif 'benjamin' in text_lower:
             level_detected = "BENJAMIN"
@@ -5704,12 +5744,45 @@ def _detect_template_from_image(image_bytes: bytes) -> dict:
             level_detected = "STUDENT"
         elif 'ecolier' in text_lower:
             level_detected = "ECOLIER"
+        # IKLC specific names
+        elif 'start' in text_lower:
+            level_detected = "PRE_ECOLIER"
+        elif 'story' in text_lower:
+            level_detected = "ECOLIER"
+        elif 'joey' in text_lower:
+            level_detected = "BENJAMIN"
+        elif 'wallaby' in text_lower:
+            level_detected = "CADET"
+        elif 'grey' in text_lower:
+            level_detected = "JUNIOR"
+        elif 'red k' in text_lower:
+            level_detected = "STUDENT"
+
+    # Nếu vẫn không tìm được level nhưng có số câu hỏi
+    if not level_detected and num_questions_detected > 0:
+        if num_questions_detected <= 24:
+            level_detected = "PRE_ECOLIER"
+        elif num_questions_detected <= 30:
+            level_detected = "BENJAMIN"
+        elif num_questions_detected <= 50:
+            level_detected = "BENJAMIN"
 
     result["detected_level"] = level_detected
 
     # Tạo template_type đầy đủ
     if result["detected_contest"] and level_detected:
         result["detected_template"] = f"{result['detected_contest']}_{level_detected}"
+    elif level_detected:
+        # Nếu chỉ có level, thử đoán contest từ số câu
+        if num_questions_detected == 50:
+            result["detected_contest"] = "IKLC"
+        elif num_questions_detected == 30:
+            result["detected_contest"] = "IKSC"
+        elif num_questions_detected == 24:
+            result["detected_contest"] = "IKSC"
+
+        if result["detected_contest"]:
+            result["detected_template"] = f"{result['detected_contest']}_{level_detected}"
 
     return result
 
@@ -7038,10 +7111,49 @@ async def grade_answer_sheets(
             # Tự động nhận diện template từ phiếu
             actual_template = template_type
             if auto_detect_template:
-                student_info = _extract_student_info_ocr(content)
-                detected = student_info.get("detected_template", "")
+                # Bước 1: Thử nhận diện từ OCR trước
+                detected_info = _detect_template_from_image(content)
+                detected = detected_info.get("detected_template", "")
+
                 if detected and detected in ANSWER_TEMPLATES:
                     actual_template = detected
+                else:
+                    # Bước 2: Nếu OCR không thành công, phát hiện số câu hỏi trước
+                    # Chạy preprocessing để đếm số bubbles/câu hỏi
+                    try:
+                        result_temp = _preprocess_omr_image(content)
+                        if result_temp[0] is not None:
+                            _, gray, binary = result_temp
+                            # Thử với IKSC trước (30 câu)
+                            rows, _ = _detect_bubbles_grid_based(gray, binary, "IKSC_BENJAMIN")
+                            questions = _group_bubbles_to_questions_improved(rows, "IKSC_BENJAMIN")
+                            num_questions_detected = len(questions)
+
+                            # Xác định template dựa trên số câu
+                            if num_questions_detected >= 45:
+                                # 50 câu -> IKLC
+                                actual_template = f"IKLC_{detected_info.get('detected_level', 'BENJAMIN')}"
+                                if actual_template not in ANSWER_TEMPLATES:
+                                    actual_template = "IKLC_BENJAMIN"
+                            elif num_questions_detected >= 25:
+                                # 30 câu -> IKSC (Benjamin/Cadet/Junior/Student)
+                                actual_template = f"IKSC_{detected_info.get('detected_level', 'BENJAMIN')}"
+                                if actual_template not in ANSWER_TEMPLATES:
+                                    actual_template = "IKSC_BENJAMIN"
+                            elif num_questions_detected >= 20:
+                                # 24 câu -> IKSC Pre-Ecolier/Ecolier
+                                actual_template = "IKSC_PRE_ECOLIER"
+
+                            # Nếu có detected_contest từ OCR, ưu tiên sử dụng
+                            if detected_info.get("detected_contest"):
+                                contest = detected_info["detected_contest"]
+                                level = detected_info.get("detected_level", "")
+                                if level:
+                                    test_template = f"{contest}_{level}"
+                                    if test_template in ANSWER_TEMPLATES:
+                                        actual_template = test_template
+                    except:
+                        pass
 
             # Lấy đáp án cho template
             answers = get_answers_for_template(actual_template)
