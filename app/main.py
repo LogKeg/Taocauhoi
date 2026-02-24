@@ -5520,21 +5520,94 @@ Return ONLY valid JSON array, no markdown, no explanation:"""
 # OMR (Optical Mark Recognition) - Chấm bài trắc nghiệm
 # ============================================================================
 
-# Cấu hình mẫu phiếu trả lời
+# Cấu hình mẫu phiếu trả lời - International Kangaroo Contest
 ANSWER_TEMPLATES = {
-    "IKSC": {  # Khoa học - International Kangaroo Science Contest
-        "name": "Khoa học (IKSC)",
+    # IKSC - Khoa học (Science Contest)
+    "IKSC_PRE_ECOLIER": {
+        "name": "Khoa học - Pre-Ecolier (Lớp 1-2)",
+        "questions": 24,
+        "options": 5,
+        "questions_per_row": 4,
+        "scoring": {"correct": 4, "wrong": -1, "blank": 0, "base": 24}
+    },
+    "IKSC_ECOLIER": {
+        "name": "Khoa học - Ecolier (Lớp 3-4)",
+        "questions": 24,
+        "options": 5,
+        "questions_per_row": 4,
+        "scoring": {"correct": 4, "wrong": -1, "blank": 0, "base": 24}
+    },
+    "IKSC_BENJAMIN": {
+        "name": "Khoa học - Benjamin (Lớp 5-6)",
         "questions": 30,
-        "options": 5,  # A-E
+        "options": 5,
         "questions_per_row": 4,
         "scoring": {"correct": 4, "wrong": -1, "blank": 0, "base": 30}
     },
-    "IKLC": {  # Tiếng Anh - International Kangaroo Linguistic Contest
-        "name": "Tiếng Anh (IKLC)",
+    "IKSC_CADET": {
+        "name": "Khoa học - Cadet (Lớp 7-8)",
+        "questions": 30,
+        "options": 5,
+        "questions_per_row": 4,
+        "scoring": {"correct": 4, "wrong": -1, "blank": 0, "base": 30}
+    },
+    "IKSC_JUNIOR": {
+        "name": "Khoa học - Junior (Lớp 9-10)",
+        "questions": 30,
+        "options": 5,
+        "questions_per_row": 4,
+        "scoring": {"correct": 4, "wrong": -1, "blank": 0, "base": 30}
+    },
+    # IKLC - Tiếng Anh (Linguistic Contest)
+    "IKLC_PRE_ECOLIER": {
+        "name": "Tiếng Anh - Pre-Ecolier (Lớp 1-2)",
+        "questions": 24,
+        "options": 5,
+        "questions_per_row": 4,
+        "scoring": {"correct": 1, "wrong": 0, "blank": 0, "base": 0}
+    },
+    "IKLC_ECOLIER": {
+        "name": "Tiếng Anh - Ecolier (Lớp 3-4)",
+        "questions": 30,
+        "options": 5,
+        "questions_per_row": 4,
+        "scoring": {"correct": 1, "wrong": 0, "blank": 0, "base": 0}
+    },
+    "IKLC_BENJAMIN": {
+        "name": "Tiếng Anh - Benjamin (Lớp 5-6)",
         "questions": 50,
-        "options": 5,  # A-E
+        "options": 5,
         "questions_per_row": 4,
         "scoring": {"correct": 1, "wrong": -0.25, "blank": 0, "base": 5}
+    },
+    "IKLC_CADET": {
+        "name": "Tiếng Anh - Cadet (Lớp 7-8)",
+        "questions": 50,
+        "options": 5,
+        "questions_per_row": 4,
+        "scoring": {"correct": 1, "wrong": -0.25, "blank": 0, "base": 5}
+    },
+    "IKLC_JUNIOR": {
+        "name": "Tiếng Anh - Junior (Lớp 9-10)",
+        "questions": 50,
+        "options": 5,
+        "questions_per_row": 4,
+        "scoring": {"correct": 1, "wrong": -0.25, "blank": 0, "base": 5}
+    },
+    "IKLC_STUDENT": {
+        "name": "Tiếng Anh - Student (Lớp 11-12)",
+        "questions": 50,
+        "options": 5,
+        "questions_per_row": 4,
+        "scoring": {"correct": 1, "wrong": -0.25, "blank": 0, "base": 20}
+    },
+    # Custom - cho phép người dùng tự định nghĩa
+    "CUSTOM": {
+        "name": "Tùy chỉnh",
+        "questions": 30,  # Sẽ được override bởi số đáp án nhập vào
+        "options": 5,
+        "questions_per_row": 4,
+        "scoring": {"correct": 1, "wrong": 0, "blank": 0, "base": 0}
     }
 }
 

@@ -232,8 +232,24 @@
               <div>
                 <label for="gradingTemplate">Loại đề thi</label>
                 <select id="gradingTemplate">
-                  <option value="IKSC">Khoa học (IKSC) - 30 câu</option>
-                  <option value="IKLC">Tiếng Anh (IKLC) - 50 câu</option>
+                  <optgroup label="Khoa học (IKSC)">
+                    <option value="IKSC_PRE_ECOLIER">Pre-Ecolier (Lớp 1-2) - 24 câu</option>
+                    <option value="IKSC_ECOLIER">Ecolier (Lớp 3-4) - 24 câu</option>
+                    <option value="IKSC_BENJAMIN">Benjamin (Lớp 5-6) - 30 câu</option>
+                    <option value="IKSC_CADET">Cadet (Lớp 7-8) - 30 câu</option>
+                    <option value="IKSC_JUNIOR">Junior (Lớp 9-10) - 30 câu</option>
+                  </optgroup>
+                  <optgroup label="Tiếng Anh (IKLC)">
+                    <option value="IKLC_PRE_ECOLIER">Pre-Ecolier (Lớp 1-2) - 24 câu</option>
+                    <option value="IKLC_ECOLIER">Ecolier (Lớp 3-4) - 30 câu</option>
+                    <option value="IKLC_BENJAMIN">Benjamin (Lớp 5-6) - 50 câu</option>
+                    <option value="IKLC_CADET">Cadet (Lớp 7-8) - 50 câu</option>
+                    <option value="IKLC_JUNIOR">Junior (Lớp 9-10) - 50 câu</option>
+                    <option value="IKLC_STUDENT">Student (Lớp 11-12) - 50 câu</option>
+                  </optgroup>
+                  <optgroup label="Khác">
+                    <option value="CUSTOM">Tùy chỉnh (theo số đáp án nhập)</option>
+                  </optgroup>
                 </select>
               </div>
             </div>
@@ -1250,8 +1266,21 @@
 
       // Template info
       const templateInfo = {
-        IKSC: { questions: 30, name: 'Khoa học (IKSC)' },
-        IKLC: { questions: 50, name: 'Tiếng Anh (IKLC)' }
+        // IKSC - Khoa học
+        IKSC_PRE_ECOLIER: { questions: 24, name: 'Khoa học - Pre-Ecolier (Lớp 1-2)' },
+        IKSC_ECOLIER: { questions: 24, name: 'Khoa học - Ecolier (Lớp 3-4)' },
+        IKSC_BENJAMIN: { questions: 30, name: 'Khoa học - Benjamin (Lớp 5-6)' },
+        IKSC_CADET: { questions: 30, name: 'Khoa học - Cadet (Lớp 7-8)' },
+        IKSC_JUNIOR: { questions: 30, name: 'Khoa học - Junior (Lớp 9-10)' },
+        // IKLC - Tiếng Anh
+        IKLC_PRE_ECOLIER: { questions: 24, name: 'Tiếng Anh - Pre-Ecolier (Lớp 1-2)' },
+        IKLC_ECOLIER: { questions: 30, name: 'Tiếng Anh - Ecolier (Lớp 3-4)' },
+        IKLC_BENJAMIN: { questions: 50, name: 'Tiếng Anh - Benjamin (Lớp 5-6)' },
+        IKLC_CADET: { questions: 50, name: 'Tiếng Anh - Cadet (Lớp 7-8)' },
+        IKLC_JUNIOR: { questions: 50, name: 'Tiếng Anh - Junior (Lớp 9-10)' },
+        IKLC_STUDENT: { questions: 50, name: 'Tiếng Anh - Student (Lớp 11-12)' },
+        // Custom
+        CUSTOM: { questions: 30, name: 'Tùy chỉnh' }
       };
 
       // Generate answer grid
