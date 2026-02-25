@@ -5701,6 +5701,7 @@ ANSWER_TEMPLATES = {
         }
     },
     # ASMO - Math
+    # ASMO - Math (25 câu, theo lớp)
     "ASMO_MATH_GRADE_1": {"name": "ASMO Toán - Lớp 1", "questions": 25, "options": 5, "questions_per_row": 5, "scoring": {"correct": 1, "wrong": 0, "blank": 0, "base": 0}},
     "ASMO_MATH_GRADE_2": {"name": "ASMO Toán - Lớp 2", "questions": 25, "options": 5, "questions_per_row": 5, "scoring": {"correct": 1, "wrong": 0, "blank": 0, "base": 0}},
     "ASMO_MATH_GRADE_3": {"name": "ASMO Toán - Lớp 3", "questions": 25, "options": 5, "questions_per_row": 5, "scoring": {"correct": 1, "wrong": 0, "blank": 0, "base": 0}},
@@ -5713,32 +5714,20 @@ ANSWER_TEMPLATES = {
     "ASMO_MATH_GRADE_10": {"name": "ASMO Toán - Lớp 10", "questions": 25, "options": 5, "questions_per_row": 5, "scoring": {"correct": 1, "wrong": 0, "blank": 0, "base": 0}},
     "ASMO_MATH_GRADE_11": {"name": "ASMO Toán - Lớp 11", "questions": 25, "options": 5, "questions_per_row": 5, "scoring": {"correct": 1, "wrong": 0, "blank": 0, "base": 0}},
     "ASMO_MATH_GRADE_12": {"name": "ASMO Toán - Lớp 12", "questions": 25, "options": 5, "questions_per_row": 5, "scoring": {"correct": 1, "wrong": 0, "blank": 0, "base": 0}},
-    # ASMO - Science
-    "ASMO_SCIENCE_GRADE_1": {"name": "ASMO Khoa học - Lớp 1", "questions": 25, "options": 5, "questions_per_row": 5, "scoring": {"correct": 1, "wrong": 0, "blank": 0, "base": 0}},
-    "ASMO_SCIENCE_GRADE_2": {"name": "ASMO Khoa học - Lớp 2", "questions": 25, "options": 5, "questions_per_row": 5, "scoring": {"correct": 1, "wrong": 0, "blank": 0, "base": 0}},
-    "ASMO_SCIENCE_GRADE_3": {"name": "ASMO Khoa học - Lớp 3", "questions": 25, "options": 5, "questions_per_row": 5, "scoring": {"correct": 1, "wrong": 0, "blank": 0, "base": 0}},
-    "ASMO_SCIENCE_GRADE_4": {"name": "ASMO Khoa học - Lớp 4", "questions": 25, "options": 5, "questions_per_row": 5, "scoring": {"correct": 1, "wrong": 0, "blank": 0, "base": 0}},
-    "ASMO_SCIENCE_GRADE_5": {"name": "ASMO Khoa học - Lớp 5", "questions": 25, "options": 5, "questions_per_row": 5, "scoring": {"correct": 1, "wrong": 0, "blank": 0, "base": 0}},
-    "ASMO_SCIENCE_GRADE_6": {"name": "ASMO Khoa học - Lớp 6", "questions": 25, "options": 5, "questions_per_row": 5, "scoring": {"correct": 1, "wrong": 0, "blank": 0, "base": 0}},
-    "ASMO_SCIENCE_GRADE_7": {"name": "ASMO Khoa học - Lớp 7", "questions": 25, "options": 5, "questions_per_row": 5, "scoring": {"correct": 1, "wrong": 0, "blank": 0, "base": 0}},
-    "ASMO_SCIENCE_GRADE_8": {"name": "ASMO Khoa học - Lớp 8", "questions": 25, "options": 5, "questions_per_row": 5, "scoring": {"correct": 1, "wrong": 0, "blank": 0, "base": 0}},
-    "ASMO_SCIENCE_GRADE_9": {"name": "ASMO Khoa học - Lớp 9", "questions": 25, "options": 5, "questions_per_row": 5, "scoring": {"correct": 1, "wrong": 0, "blank": 0, "base": 0}},
-    "ASMO_SCIENCE_GRADE_10": {"name": "ASMO Khoa học - Lớp 10", "questions": 25, "options": 5, "questions_per_row": 5, "scoring": {"correct": 1, "wrong": 0, "blank": 0, "base": 0}},
-    "ASMO_SCIENCE_GRADE_11": {"name": "ASMO Khoa học - Lớp 11", "questions": 25, "options": 5, "questions_per_row": 5, "scoring": {"correct": 1, "wrong": 0, "blank": 0, "base": 0}},
-    "ASMO_SCIENCE_GRADE_12": {"name": "ASMO Khoa học - Lớp 12", "questions": 25, "options": 5, "questions_per_row": 5, "scoring": {"correct": 1, "wrong": 0, "blank": 0, "base": 0}},
-    # ASMO - English
-    "ASMO_ENGLISH_GRADE_1": {"name": "ASMO Tiếng Anh - Lớp 1", "questions": 25, "options": 5, "questions_per_row": 5, "scoring": {"correct": 1, "wrong": 0, "blank": 0, "base": 0}},
-    "ASMO_ENGLISH_GRADE_2": {"name": "ASMO Tiếng Anh - Lớp 2", "questions": 25, "options": 5, "questions_per_row": 5, "scoring": {"correct": 1, "wrong": 0, "blank": 0, "base": 0}},
-    "ASMO_ENGLISH_GRADE_3": {"name": "ASMO Tiếng Anh - Lớp 3", "questions": 25, "options": 5, "questions_per_row": 5, "scoring": {"correct": 1, "wrong": 0, "blank": 0, "base": 0}},
-    "ASMO_ENGLISH_GRADE_4": {"name": "ASMO Tiếng Anh - Lớp 4", "questions": 25, "options": 5, "questions_per_row": 5, "scoring": {"correct": 1, "wrong": 0, "blank": 0, "base": 0}},
-    "ASMO_ENGLISH_GRADE_5": {"name": "ASMO Tiếng Anh - Lớp 5", "questions": 25, "options": 5, "questions_per_row": 5, "scoring": {"correct": 1, "wrong": 0, "blank": 0, "base": 0}},
-    "ASMO_ENGLISH_GRADE_6": {"name": "ASMO Tiếng Anh - Lớp 6", "questions": 25, "options": 5, "questions_per_row": 5, "scoring": {"correct": 1, "wrong": 0, "blank": 0, "base": 0}},
-    "ASMO_ENGLISH_GRADE_7": {"name": "ASMO Tiếng Anh - Lớp 7", "questions": 25, "options": 5, "questions_per_row": 5, "scoring": {"correct": 1, "wrong": 0, "blank": 0, "base": 0}},
-    "ASMO_ENGLISH_GRADE_8": {"name": "ASMO Tiếng Anh - Lớp 8", "questions": 25, "options": 5, "questions_per_row": 5, "scoring": {"correct": 1, "wrong": 0, "blank": 0, "base": 0}},
-    "ASMO_ENGLISH_GRADE_9": {"name": "ASMO Tiếng Anh - Lớp 9", "questions": 25, "options": 5, "questions_per_row": 5, "scoring": {"correct": 1, "wrong": 0, "blank": 0, "base": 0}},
-    "ASMO_ENGLISH_GRADE_10": {"name": "ASMO Tiếng Anh - Lớp 10", "questions": 25, "options": 5, "questions_per_row": 5, "scoring": {"correct": 1, "wrong": 0, "blank": 0, "base": 0}},
-    "ASMO_ENGLISH_GRADE_11": {"name": "ASMO Tiếng Anh - Lớp 11", "questions": 25, "options": 5, "questions_per_row": 5, "scoring": {"correct": 1, "wrong": 0, "blank": 0, "base": 0}},
-    "ASMO_ENGLISH_GRADE_12": {"name": "ASMO Tiếng Anh - Lớp 12", "questions": 25, "options": 5, "questions_per_row": 5, "scoring": {"correct": 1, "wrong": 0, "blank": 0, "base": 0}},
+    # ASMO - Science (25 câu, theo Level: Level 1 = Lớp 1-2, Level 2 = Lớp 3-4, ...)
+    "ASMO_SCIENCE_LEVEL_1": {"name": "ASMO Khoa học - Level 1 (Lớp 1-2)", "questions": 25, "options": 5, "questions_per_row": 5, "scoring": {"correct": 1, "wrong": 0, "blank": 0, "base": 0}},
+    "ASMO_SCIENCE_LEVEL_2": {"name": "ASMO Khoa học - Level 2 (Lớp 3-4)", "questions": 25, "options": 5, "questions_per_row": 5, "scoring": {"correct": 1, "wrong": 0, "blank": 0, "base": 0}},
+    "ASMO_SCIENCE_LEVEL_3": {"name": "ASMO Khoa học - Level 3 (Lớp 5-6)", "questions": 25, "options": 5, "questions_per_row": 5, "scoring": {"correct": 1, "wrong": 0, "blank": 0, "base": 0}},
+    "ASMO_SCIENCE_LEVEL_4": {"name": "ASMO Khoa học - Level 4 (Lớp 7-8)", "questions": 25, "options": 5, "questions_per_row": 5, "scoring": {"correct": 1, "wrong": 0, "blank": 0, "base": 0}},
+    "ASMO_SCIENCE_LEVEL_5": {"name": "ASMO Khoa học - Level 5 (Lớp 9-10)", "questions": 25, "options": 5, "questions_per_row": 5, "scoring": {"correct": 1, "wrong": 0, "blank": 0, "base": 0}},
+    "ASMO_SCIENCE_LEVEL_6": {"name": "ASMO Khoa học - Level 6 (Lớp 11-12)", "questions": 25, "options": 5, "questions_per_row": 5, "scoring": {"correct": 1, "wrong": 0, "blank": 0, "base": 0}},
+    # ASMO - English (theo Level: Level 1-3 = 50 câu, Level 4-6 = 60 câu)
+    "ASMO_ENGLISH_LEVEL_1": {"name": "ASMO Tiếng Anh - Level 1 (Lớp 1-2)", "questions": 50, "options": 4, "questions_per_row": 5, "scoring": {"correct": 1, "wrong": 0, "blank": 0, "base": 0}},
+    "ASMO_ENGLISH_LEVEL_2": {"name": "ASMO Tiếng Anh - Level 2 (Lớp 3-4)", "questions": 50, "options": 4, "questions_per_row": 5, "scoring": {"correct": 1, "wrong": 0, "blank": 0, "base": 0}},
+    "ASMO_ENGLISH_LEVEL_3": {"name": "ASMO Tiếng Anh - Level 3 (Lớp 5-6)", "questions": 50, "options": 4, "questions_per_row": 5, "scoring": {"correct": 1, "wrong": 0, "blank": 0, "base": 0}},
+    "ASMO_ENGLISH_LEVEL_4": {"name": "ASMO Tiếng Anh - Level 4 (Lớp 7-8)", "questions": 60, "options": 4, "questions_per_row": 5, "scoring": {"correct": 1, "wrong": 0, "blank": 0, "base": 0}},
+    "ASMO_ENGLISH_LEVEL_5": {"name": "ASMO Tiếng Anh - Level 5 (Lớp 9-10)", "questions": 60, "options": 4, "questions_per_row": 5, "scoring": {"correct": 1, "wrong": 0, "blank": 0, "base": 0}},
+    "ASMO_ENGLISH_LEVEL_6": {"name": "ASMO Tiếng Anh - Level 6 (Lớp 11-12)", "questions": 60, "options": 4, "questions_per_row": 5, "scoring": {"correct": 1, "wrong": 0, "blank": 0, "base": 0}},
     # SEAMO - Math (25 câu: 20 trắc nghiệm + 5 điền đáp án)
     "SEAMO_MATH_PAPER_A": {"name": "SEAMO Toán - Paper A (Lớp 1-2)", "questions": 25, "options": 5, "questions_per_row": 5, "scoring": {"correct": 1, "wrong": 0, "blank": 0, "base": 0}, "mixed_format": {"mcq": 20, "fill_in": 5}},
     "SEAMO_MATH_PAPER_B": {"name": "SEAMO Toán - Paper B (Lớp 3-4)", "questions": 25, "options": 5, "questions_per_row": 5, "scoring": {"correct": 1, "wrong": 0, "blank": 0, "base": 0}, "mixed_format": {"mcq": 20, "fill_in": 5}},
@@ -6972,6 +6961,289 @@ def _grade_single_sheet(image_bytes: bytes, answer_key: List[str], template_type
     }
 
 
+def _detect_seamo_bubbles_fixed_grid(gray_image):
+    """Phát hiện bubbles trong phiếu SEAMO với dynamic grid detection
+
+    Sử dụng kết hợp:
+    1. Phát hiện đường kẻ ngang để tìm vị trí các hàng
+    2. Phát hiện đường kẻ dọc để tìm vị trí các cột
+    3. Fallback về tọa độ cố định nếu không detect được
+    """
+    import cv2
+    import numpy as np
+
+    h, w = gray_image.shape[:2]
+
+    # Detect loại ảnh: PDF vector vs scan image
+    # - Scan 300 DPI A4: ~2480 x 3508 (width > 2000)
+    # - PDF vector render: ~1191 x 1685 (width ~1200)
+    is_high_res_scan = w > 2000
+
+    if not is_high_res_scan:
+        # PDF vector render - Thử dynamic detection trước
+        grid_info = _detect_seamo_grid_dynamic(gray_image)
+
+        if grid_info is not None:
+            grid_start_x = grid_info['start_x']
+            grid_start_y = grid_info['start_y']
+            option_spacing = grid_info['col_spacing']
+            row_spacing = grid_info['row_spacing']
+            bubble_w = grid_info['bubble_w']
+            bubble_h = grid_info['bubble_h']
+        else:
+            # Fallback cho PDF vector (từ 72 DPI gốc)
+            expected_w, expected_h = 1191, 1685
+            scale_x = w / expected_w
+            scale_y = h / expected_h
+            grid_start_x = int(68 * scale_x)
+            grid_start_y = int(541 * scale_y)
+            option_spacing = int(49 * scale_x)
+            row_spacing = int(42 * scale_y)
+            bubble_w = int(30 * scale_x)
+            bubble_h = int(18 * scale_y)
+    else:
+        # Ảnh scan - sử dụng vị trí cột tuyệt đối đã calibrate cẩn thận
+        # (SEAMO có spacing không đều giữa các cột A-E)
+        # Expected size: 2480 x 3508 (A4 @ 300 DPI)
+        expected_scan_w, expected_scan_h = 2480, 3508
+        scan_scale_x = w / expected_scan_w
+        scan_scale_y = h / expected_scan_h
+
+        # Vị trí tuyệt đối cho mỗi cột (đã calibrate từ scan thực tế)
+        col_lefts_base = [238, 318, 435, 551, 663]  # A, B, C, D, E
+        col_lefts = [int(c * scan_scale_x) for c in col_lefts_base]
+
+        grid_start_y = int(1164 * scan_scale_y)
+        row_spacing = int(82 * scan_scale_y)
+        bubble_w = int(50 * scan_scale_x)
+        bubble_h = int(35 * scan_scale_y)
+
+        # Build questions với vị trí cột tuyệt đối
+        questions = []
+        for q_idx in range(20):
+            row_y = grid_start_y + q_idx * row_spacing
+            bubbles = []
+            for opt_idx in range(5):
+                bubble_x = col_lefts[opt_idx]
+                bubble_cx = bubble_x + bubble_w // 2
+                bubble_cy = row_y + bubble_h // 2
+                bubbles.append({
+                    'x': bubble_x,
+                    'y': row_y,
+                    'w': bubble_w,
+                    'h': bubble_h,
+                    'cx': bubble_cx,
+                    'cy': bubble_cy
+                })
+            questions.append({
+                'index': q_idx + 1,
+                'bubbles': bubbles
+            })
+        return questions
+
+    questions = []
+
+    for q_idx in range(20):
+        row_y = grid_start_y + q_idx * row_spacing
+
+        bubbles = []
+        for opt_idx in range(5):
+            bubble_x = grid_start_x + opt_idx * option_spacing
+            bubble_cx = bubble_x + bubble_w // 2
+            bubble_cy = row_y + bubble_h // 2
+
+            bubbles.append({
+                'x': bubble_x,
+                'y': row_y,
+                'w': bubble_w,
+                'h': bubble_h,
+                'cx': bubble_cx,
+                'cy': bubble_cy
+            })
+
+        questions.append({
+            'index': q_idx + 1,
+            'bubbles': bubbles
+        })
+
+    return questions
+
+
+def _detect_seamo_grid_dynamic(gray_image):
+    """Phát hiện động vị trí grid SEAMO bằng Canny edge detection + Hough Lines
+
+    Cải thiện: Sử dụng Canny + HoughLinesP để detect đường kẻ chính xác hơn,
+    hoạt động tốt với cả PDF vector và ảnh scan.
+
+    Returns:
+        dict với các key: start_x, start_y, col_spacing, row_spacing, bubble_w, bubble_h
+        hoặc None nếu không detect được
+    """
+    import cv2
+    import numpy as np
+
+    h, w = gray_image.shape[:2]
+
+    # ===== BƯỚC 1: Edge detection với Canny =====
+    edges = cv2.Canny(gray_image, 50, 150)
+
+    # Crop vùng câu hỏi (25%-90% chiều cao, 2%-40% chiều rộng)
+    crop_y1, crop_y2 = int(h * 0.25), int(h * 0.9)
+    crop_x1, crop_x2 = int(w * 0.02), int(w * 0.4)
+    edges_crop = edges[crop_y1:crop_y2, crop_x1:crop_x2]
+
+    # ===== BƯỚC 2: Detect đường ngang với Hough Lines =====
+    h_lines = cv2.HoughLinesP(edges_crop, 1, np.pi/180,
+                              threshold=80, minLineLength=80, maxLineGap=10)
+
+    if h_lines is None or len(h_lines) < 10:
+        return None
+
+    # Lọc và nhóm đường ngang
+    horizontal_y = []
+    for line in h_lines:
+        x1, y1, x2, y2 = line[0]
+        # Đường ngang: góc < 5 độ
+        if abs(y2 - y1) < 5 and abs(x2 - x1) > 50:
+            y_center = (y1 + y2) // 2 + crop_y1
+            horizontal_y.append(y_center)
+
+    if len(horizontal_y) < 10:
+        return None
+
+    # Nhóm các đường gần nhau
+    horizontal_y = sorted(horizontal_y)
+    row_lines = []
+    current_group = [horizontal_y[0]]
+
+    for y in horizontal_y[1:]:
+        if y - current_group[-1] <= 5:
+            current_group.append(y)
+        else:
+            row_lines.append(int(np.mean(current_group)))
+            current_group = [y]
+
+    if current_group:
+        row_lines.append(int(np.mean(current_group)))
+
+    if len(row_lines) < 10:
+        return None
+
+    # ===== BƯỚC 3: Tính row_spacing =====
+    row_gaps = []
+    for i in range(1, len(row_lines)):
+        gap = row_lines[i] - row_lines[i-1]
+        if 25 < gap < 55:  # Điều chỉnh range phù hợp hơn
+            row_gaps.append(gap)
+
+    if len(row_gaps) < 5:
+        return None
+
+    row_spacing = int(np.median(row_gaps))
+
+    # ===== BƯỚC 4: Detect đường dọc =====
+    v_lines = cv2.HoughLinesP(edges_crop, 1, np.pi/180,
+                              threshold=50, minLineLength=50, maxLineGap=10)
+
+    if v_lines is None:
+        return None
+
+    # Lọc đường dọc
+    vertical_x = []
+    for line in v_lines:
+        x1, y1, x2, y2 = line[0]
+        # Đường dọc: góc > 85 độ
+        if abs(x2 - x1) < 5 and abs(y2 - y1) > 30:
+            x_center = (x1 + x2) // 2 + crop_x1
+            vertical_x.append(x_center)
+
+    if len(vertical_x) < 5:
+        return None
+
+    # Nhóm các đường gần nhau
+    vertical_x = sorted(vertical_x)
+    col_lines = []
+    current_group = [vertical_x[0]]
+
+    for x in vertical_x[1:]:
+        if x - current_group[-1] <= 8:
+            current_group.append(x)
+        else:
+            col_lines.append(int(np.mean(current_group)))
+            current_group = [x]
+
+    if current_group:
+        col_lines.append(int(np.mean(current_group)))
+
+    if len(col_lines) < 5:
+        return None
+
+    # ===== BƯỚC 5: Tính col_spacing =====
+    col_gaps = []
+    for i in range(1, len(col_lines)):
+        gap = col_lines[i] - col_lines[i-1]
+        if 30 < gap < 60:
+            col_gaps.append(gap)
+
+    if len(col_gaps) < 3:
+        return None
+
+    col_spacing = int(np.median(col_gaps))
+
+    # ===== BƯỚC 6: Xác định vị trí bắt đầu =====
+    # Tìm header - thường là 2 đường liên tiếp gần nhau ở đầu (header đen + viền)
+    # Sau đó các row có khoảng cách đều (row_spacing)
+
+    # Tìm vị trí bắt đầu của grid thực sự (sau header)
+    # Header thường có khoảng cách < row_spacing * 0.8
+    content_start_idx = 0
+    for i in range(1, len(row_lines)):
+        gap = row_lines[i] - row_lines[i-1]
+        if gap < row_spacing * 0.7:
+            # Đây vẫn là header area
+            content_start_idx = i
+        elif gap >= row_spacing * 0.85:
+            # Đây là row đầu tiên của content
+            content_start_idx = i
+            break
+
+    # Row đầu tiên của content (câu 1)
+    first_content_row = row_lines[content_start_idx] if content_start_idx < len(row_lines) else row_lines[-1]
+
+    # Tìm cột bubble A (sau cột số thứ tự)
+    first_bubble_x = None
+    for i in range(1, len(col_lines)):
+        gap = col_lines[i] - col_lines[i-1]
+        if gap >= col_spacing * 0.8:
+            first_bubble_x = col_lines[i-1] + 5  # Offset nhỏ sau viền
+            break
+
+    if first_bubble_x is None and len(col_lines) > 1:
+        first_bubble_x = col_lines[1] + 5
+
+    if first_bubble_x is None:
+        return None
+
+    # start_y: vùng tô của câu 1 (sau đường kẻ, bỏ qua label A,B,C,D,E)
+    # Offset ~45% row_spacing để vào vùng tô
+    start_y = first_content_row + int(row_spacing * 0.5)
+
+    # Bubble size
+    bubble_w = int(col_spacing * 0.6)
+    bubble_h = int(row_spacing * 0.35)
+
+    return {
+        'start_x': first_bubble_x,
+        'start_y': start_y,
+        'col_spacing': col_spacing,
+        'row_spacing': row_spacing,
+        'bubble_w': bubble_w,
+        'bubble_h': bubble_h,
+        'row_lines': row_lines[:25],
+        'col_lines': col_lines
+    }
+
+
 def _grade_mixed_format_sheet(
     image_bytes: bytes,
     answer_key: List[str],
@@ -7013,15 +7285,22 @@ def _grade_mixed_format_sheet(
     original, gray, binary = result
 
     # ========== PHẦN 1: Chấm 20 câu trắc nghiệm bằng OMR ==========
-    # Tạo template tạm thời chỉ cho phần trắc nghiệm
-    mcq_template_type = template_type
-    rows, all_rects = _detect_bubbles_grid_based(gray, binary, mcq_template_type)
+    # Kiểm tra nếu là SEAMO, sử dụng fixed grid detection
+    is_seamo = "SEAMO" in template_type.upper()
 
     mcq_questions = []
-    if rows and len(rows) >= 2:
-        mcq_questions = _group_bubbles_to_questions_improved(rows, mcq_template_type)
-        # Chỉ lấy các câu từ 1 đến mcq_count
-        mcq_questions = [q for q in mcq_questions if q["index"] <= mcq_count]
+    if is_seamo:
+        # SEAMO có layout cố định, dùng fixed grid
+        mcq_questions = _detect_seamo_bubbles_fixed_grid(gray)
+    else:
+        # Các template khác dùng dynamic detection
+        mcq_template_type = template_type
+        rows, all_rects = _detect_bubbles_grid_based(gray, binary, mcq_template_type)
+
+        if rows and len(rows) >= 2:
+            mcq_questions = _group_bubbles_to_questions_improved(rows, mcq_template_type)
+            # Chỉ lấy các câu từ 1 đến mcq_count
+            mcq_questions = [q for q in mcq_questions if q["index"] <= mcq_count]
 
     # Chấm phần trắc nghiệm
     option_labels = ["A", "B", "C", "D", "E"]
