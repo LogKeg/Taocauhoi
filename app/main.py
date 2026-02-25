@@ -3942,6 +3942,9 @@ def _parse_envie_questions(doc: Document) -> List[dict]:
             'questions 1-',
             'questions (1-',
             'for questions',
+            'for each sentence',
+            'for each group',
+            'choose the right answer to define',
         ]
         return any(p in lower for p in patterns)
 
@@ -3960,11 +3963,18 @@ def _parse_envie_questions(doc: Document) -> List[dict]:
 
         if elem['type'] == 'paragraph':
             text = elem['text']
-            # Check if this looks like a question (ends with : or ?)
+            # Check if this looks like a question
+            # Patterns: ends with ? or :, has fill-blank (___), ends with quote
+            has_fill_blank_marker = '___' in text or '______' in text
             is_question_text = (
-                (text.endswith(':') or text.endswith('?')) and
-                len(text) > 20 and
-                not is_instruction_line(text)
+                len(text) > 15 and
+                not is_instruction_line(text) and
+                (
+                    text.endswith(':') or
+                    text.endswith('?') or
+                    text.endswith('"') or  # Dialogue/quote questions
+                    has_fill_blank_marker  # Fill-in-blank questions
+                )
             )
 
             if is_question_text:
