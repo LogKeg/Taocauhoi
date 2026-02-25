@@ -1456,15 +1456,15 @@
           name: 'SEAMO',
           subjects: {
             MATH: {
-              name: 'Toán',
+              name: 'Toán (20 TN + 5 Điền)',
               code: 'SEAMO_MATH',
               levels: {
-                PAPER_A: { name: 'Paper A (Lớp 1-2)', questions: 25 },
-                PAPER_B: { name: 'Paper B (Lớp 3-4)', questions: 25 },
-                PAPER_C: { name: 'Paper C (Lớp 5-6)', questions: 25 },
-                PAPER_D: { name: 'Paper D (Lớp 7-8)', questions: 25 },
-                PAPER_E: { name: 'Paper E (Lớp 9-10)', questions: 25 },
-                PAPER_F: { name: 'Paper F (Lớp 11-12)', questions: 25 }
+                PAPER_A: { name: 'Paper A (Lớp 1-2)', questions: 25, mcq: 20, fill_in: 5 },
+                PAPER_B: { name: 'Paper B (Lớp 3-4)', questions: 25, mcq: 20, fill_in: 5 },
+                PAPER_C: { name: 'Paper C (Lớp 5-6)', questions: 25, mcq: 20, fill_in: 5 },
+                PAPER_D: { name: 'Paper D (Lớp 7-8)', questions: 25, mcq: 20, fill_in: 5 },
+                PAPER_E: { name: 'Paper E (Lớp 9-10)', questions: 25, mcq: 20, fill_in: 5 },
+                PAPER_F: { name: 'Paper F (Lớp 11-12)', questions: 25, mcq: 20, fill_in: 5 }
               }
             }
           }
@@ -1485,13 +1485,15 @@
                 name: `${subject.name} - ${level.name}`,
                 contest: contestKey,
                 subject: subjectKey,
-                level: levelKey
+                level: levelKey,
+                mcq: level.mcq || level.questions,  // Số câu trắc nghiệm
+                fill_in: level.fill_in || 0  // Số câu điền đáp án
               };
             }
           }
         }
         // Add custom option
-        templateInfo['CUSTOM'] = { questions: 30, name: 'Tùy chỉnh' };
+        templateInfo['CUSTOM'] = { questions: 30, name: 'Tùy chỉnh', mcq: 30, fill_in: 0 };
       }
       buildTemplateInfo();
 
@@ -1568,23 +1570,48 @@
           answerGrid.innerHTML = '<p style="color: var(--muted); font-style: italic;">Chế độ tự động: Hệ thống sẽ nhận diện môn và cấp độ từ phiếu trả lời. Vui lòng upload file đáp án (Excel/PDF) hoặc chọn cấp độ cụ thể để nhập thủ công.</p>';
           return;
         }
-        const numQ = templateInfo[template]?.questions || 30;
+
+        const info = templateInfo[template] || { questions: 30 };
+        const numQ = info.questions || 30;
+        const mcqCount = info.mcq || numQ;  // Số câu trắc nghiệm
+        const fillInCount = info.fill_in || 0;  // Số câu điền đáp án
+
         answerGrid.innerHTML = '';
+
+        // Hiển thị hướng dẫn nếu có mixed format
+        if (fillInCount > 0) {
+          const note = document.createElement('p');
+          note.style.cssText = 'color: var(--muted); font-style: italic; margin-bottom: 1rem;';
+          note.textContent = `Gồm ${mcqCount} câu trắc nghiệm (A-E) và ${fillInCount} câu điền đáp án (số/chữ).`;
+          answerGrid.appendChild(note);
+        }
 
         for (let i = 1; i <= numQ; i++) {
           const row = document.createElement('div');
           row.className = 'answer-row';
-          row.innerHTML = `
-            <span class="q-num">${i}</span>
-            <div class="options">
-              ${['A', 'B', 'C', 'D', 'E'].map(opt => `
-                <label class="option-label">
-                  <input type="radio" name="q${i}" value="${opt}" />
-                  <span>${opt}</span>
-                </label>
-              `).join('')}
-            </div>
-          `;
+
+          if (i <= mcqCount) {
+            // Câu trắc nghiệm - chọn A-E
+            row.innerHTML = `
+              <span class="q-num">${i}</span>
+              <div class="options">
+                ${['A', 'B', 'C', 'D', 'E'].map(opt => `
+                  <label class="option-label">
+                    <input type="radio" name="q${i}" value="${opt}" />
+                    <span>${opt}</span>
+                  </label>
+                `).join('')}
+              </div>
+            `;
+          } else {
+            // Câu điền đáp án - nhập text
+            row.innerHTML = `
+              <span class="q-num">${i}</span>
+              <div class="fill-in-input">
+                <input type="text" name="q${i}" placeholder="Nhập đáp án" style="width: 150px; padding: 4px 8px;" />
+              </div>
+            `;
+          }
           answerGrid.appendChild(row);
         }
       }
@@ -1614,11 +1641,21 @@
       // Get answers from grid
       function getAnswersFromGrid() {
         const template = gradingTemplate.value;
-        const numQ = templateInfo[template]?.questions || 30;
+        const info = templateInfo[template] || { questions: 30 };
+        const numQ = info.questions || 30;
+        const mcqCount = info.mcq || numQ;
+
         const answers = [];
         for (let i = 1; i <= numQ; i++) {
-          const selected = document.querySelector(`input[name="q${i}"]:checked`);
-          answers.push(selected ? selected.value : '');
+          if (i <= mcqCount) {
+            // Câu trắc nghiệm - lấy radio được chọn
+            const selected = document.querySelector(`input[name="q${i}"]:checked`);
+            answers.push(selected ? selected.value : '');
+          } else {
+            // Câu điền đáp án - lấy giá trị text
+            const textInput = document.querySelector(`input[name="q${i}"][type="text"]`);
+            answers.push(textInput ? textInput.value.trim() : '');
+          }
         }
         return answers;
       }
