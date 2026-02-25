@@ -3785,8 +3785,62 @@ def _parse_envie_questions(doc: Document) -> List[dict]:
     1. Fill-blank questions followed by tab-separated options: "text\tB) text\tC) text"
     2. Questions ending with ? followed by paragraph options (no A/B/C markers)
     3. Matching questions with A) B) C) D) E) options
+    4. Questions in paragraphs with options in separate tables (1x4 or 2x2 grid)
     """
+    from docx.oxml.ns import qn as docx_qn
+
     questions = []
+
+    # Extract document elements in order (paragraphs and tables interleaved)
+    # This is important for formats where questions are in paragraphs and options in tables
+    def get_document_elements():
+        """Get paragraphs and tables in document order."""
+        elements = []
+        body = doc._element.body
+
+        for child in body:
+            tag = child.tag.split('}')[-1]
+
+            if tag == 'p':  # Paragraph
+                t_elements = child.findall('.//' + docx_qn('w:t'))
+                text = ''.join([t.text or '' for t in t_elements]).strip()
+                if text:
+                    elements.append({'type': 'paragraph', 'text': text})
+
+            elif tag == 'tbl':  # Table
+                # Extract options from table cells
+                rows = child.findall('.//' + docx_qn('w:tr'))
+                options = []
+                highlighted_idx = 0  # Track which option is highlighted
+                opt_counter = 0
+
+                for tr in rows:
+                    for tc in tr.findall('.//' + docx_qn('w:tc')):
+                        t_elements = tc.findall('.//' + docx_qn('w:t'))
+                        cell_text = ''.join([t.text or '' for t in t_elements]).strip()
+                        if cell_text:
+                            opt_counter += 1
+                            options.append(cell_text)
+
+                            # Check for highlight/shading
+                            shd_elements = tc.findall('.//' + docx_qn('w:shd'))
+                            for shd in shd_elements:
+                                fill = shd.get(docx_qn('w:fill'))
+                                if fill and fill not in ('', 'auto', 'FFFFFF', 'ffffff', 'none'):
+                                    highlighted_idx = opt_counter
+
+                if options:
+                    elements.append({
+                        'type': 'table',
+                        'options': options,
+                        'highlighted': highlighted_idx
+                    })
+
+        return elements
+
+    doc_elements = get_document_elements()
+
+    # Also keep traditional paragraph extraction for backward compatibility
     paragraphs = [p.text.strip() for p in doc.paragraphs]
 
     def extract_options_envie(line: str) -> List[str]:
@@ -3894,10 +3948,98 @@ def _parse_envie_questions(doc: Document) -> List[dict]:
     # Track question numbers we've seen to detect standalone number patterns
     seen_q_numbers = set()
 
+    # ============ PRE-PROCESS: Parse paragraph + table pairs ============
+    # For formats where question is in paragraph and options are in following table
+    # This handles Red Kangaroo style: "Question text ending with ? or :" followed by table with options
+    para_table_questions = []
+    processed_paragraphs = set()  # Track which paragraphs were already processed
+
+    elem_idx = 0
+    while elem_idx < len(doc_elements):
+        elem = doc_elements[elem_idx]
+
+        if elem['type'] == 'paragraph':
+            text = elem['text']
+            # Check if this looks like a question (ends with : or ?)
+            is_question_text = (
+                (text.endswith(':') or text.endswith('?')) and
+                len(text) > 20 and
+                not is_instruction_line(text)
+            )
+
+            if is_question_text:
+                # Look ahead for a table with options OR paragraph options (A., B., C., D.)
+                if elem_idx + 1 < len(doc_elements):
+                    next_elem = doc_elements[elem_idx + 1]
+
+                    # Case 1: Options in table
+                    if next_elem['type'] == 'table' and len(next_elem['options']) >= 2:
+                        # Found question + table options pattern
+                        options = next_elem['options']
+                        # Clean option prefixes (A., B., C., D., E.)
+                        cleaned_options = []
+                        for opt in options:
+                            opt_match = re.match(r'^([A-E])\.\s*(.+)$', opt, re.IGNORECASE)
+                            if opt_match:
+                                cleaned_options.append(opt_match.group(2))
+                            else:
+                                cleaned_options.append(opt)
+
+                        q_dict = {
+                            'question': text,
+                            'options': cleaned_options
+                        }
+                        # Add correct answer from highlighted option
+                        if next_elem.get('highlighted', 0) > 0:
+                            q_dict['answer'] = str(next_elem['highlighted'])
+
+                        para_table_questions.append(q_dict)
+                        processed_paragraphs.add(text)
+                        elem_idx += 2  # Skip both paragraph and table
+                        continue
+
+                    # Case 2: Options in paragraphs (A., B., C., D. as separate paragraphs)
+                    elif next_elem['type'] == 'paragraph' and re.match(r'^A\.\s+', next_elem['text']):
+                        # Collect paragraph options
+                        para_options = []
+                        opt_idx = elem_idx + 1
+                        while opt_idx < len(doc_elements):
+                            opt_elem = doc_elements[opt_idx]
+                            if opt_elem['type'] != 'paragraph':
+                                break
+                            opt_match = re.match(r'^([A-E])\.\s+(.+)$', opt_elem['text'])
+                            if opt_match:
+                                para_options.append(opt_match.group(2))
+                                processed_paragraphs.add(opt_elem['text'])
+                                opt_idx += 1
+                            else:
+                                break
+
+                        if len(para_options) >= 2:
+                            q_dict = {
+                                'question': text,
+                                'options': para_options
+                            }
+                            para_table_questions.append(q_dict)
+                            processed_paragraphs.add(text)
+                            elem_idx = opt_idx
+                            continue
+
+        elem_idx += 1
+
+    # Add para_table_questions to the main questions list
+    questions.extend(para_table_questions)
+    # ============ END PRE-PROCESS ============
+
     i = 0
     while i < len(paragraphs):
         line = paragraphs[i].strip()
         if not line:
+            i += 1
+            continue
+
+        # Skip paragraphs already processed in para+table phase
+        if line in processed_paragraphs:
             i += 1
             continue
 
