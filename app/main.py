@@ -7658,3 +7658,559 @@ async def export_grading_results(
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": f"attachment; filename=ket_qua_cham_bai_{template_type}.xlsx"}
     )
+
+
+# ============================================================================
+# HANDWRITTEN ANSWER RECOGNITION (Nhận diện đáp án viết tay)
+# ============================================================================
+
+# Cache EasyOCR reader để tránh load lại model mỗi lần
+_easyocr_reader = None
+
+def _get_easyocr_reader():
+    """Lấy hoặc tạo EasyOCR reader (singleton pattern)"""
+    global _easyocr_reader
+    if _easyocr_reader is None:
+        import easyocr
+        # Hỗ trợ tiếng Anh và tiếng Việt
+        _easyocr_reader = easyocr.Reader(['en', 'vi'], gpu=False)
+    return _easyocr_reader
+
+
+def _preprocess_handwritten_image(image_bytes: bytes):
+    """Tiền xử lý ảnh cho nhận diện chữ viết tay"""
+    import cv2
+    import numpy as np
+
+    # Đọc ảnh
+    nparr = np.frombuffer(image_bytes, np.uint8)
+    image = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+
+    if image is None:
+        return None, None
+
+    # Chuyển sang grayscale
+    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+
+    # Tăng độ tương phản
+    clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
+    enhanced = clahe.apply(gray)
+
+    # Giảm nhiễu
+    denoised = cv2.fastNlMeansDenoising(enhanced, None, 10, 7, 21)
+
+    return image, denoised
+
+
+def _detect_answer_boxes(gray_image, num_questions: int = 30):
+    """Phát hiện các ô đáp án trong phiếu (dạng điền chữ)
+
+    Trả về danh sách các vùng chứa đáp án, sắp xếp theo thứ tự câu hỏi
+    """
+    import cv2
+    import numpy as np
+
+    height, width = gray_image.shape[:2]
+
+    # Binary threshold
+    _, binary = cv2.threshold(gray_image, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
+
+    # Tìm contours
+    contours, _ = cv2.findContours(binary, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+    # Lọc các ô có kích thước phù hợp (ô đáp án thường là hình chữ nhật nhỏ)
+    boxes = []
+    for contour in contours:
+        x, y, w, h = cv2.boundingRect(contour)
+        aspect_ratio = w / h if h > 0 else 0
+        area = w * h
+
+        # Ô đáp án thường có:
+        # - Kích thước vừa phải (không quá nhỏ, không quá lớn)
+        # - Tỉ lệ gần vuông hoặc hơi ngang
+        min_size = min(width, height) * 0.02
+        max_size = min(width, height) * 0.15
+
+        if (min_size < w < max_size and
+            min_size < h < max_size and
+            0.5 < aspect_ratio < 3.0 and
+            area > min_size * min_size):
+            boxes.append({
+                'x': x, 'y': y, 'w': w, 'h': h,
+                'cx': x + w // 2,
+                'cy': y + h // 2
+            })
+
+    if not boxes:
+        return []
+
+    # Sắp xếp theo vị trí: từ trên xuống, từ trái sang phải
+    # Nhóm theo hàng trước
+    boxes.sort(key=lambda b: b['cy'])
+
+    # Nhóm các ô theo hàng (tolerance = chiều cao trung bình / 2)
+    avg_height = np.mean([b['h'] for b in boxes])
+    row_tolerance = avg_height * 0.6
+
+    rows = []
+    current_row = [boxes[0]]
+
+    for box in boxes[1:]:
+        if abs(box['cy'] - current_row[-1]['cy']) < row_tolerance:
+            current_row.append(box)
+        else:
+            rows.append(sorted(current_row, key=lambda b: b['x']))
+            current_row = [box]
+
+    if current_row:
+        rows.append(sorted(current_row, key=lambda b: b['x']))
+
+    # Flatten và giới hạn số câu
+    sorted_boxes = []
+    for row in rows:
+        sorted_boxes.extend(row)
+
+    return sorted_boxes[:num_questions]
+
+
+def _recognize_handwritten_answer(reader, image, box, valid_answers: List[str] = None):
+    """Nhận diện chữ viết tay trong một ô đáp án
+
+    Args:
+        reader: EasyOCR reader
+        image: Ảnh gốc (grayscale hoặc color)
+        box: Dict chứa x, y, w, h của ô
+        valid_answers: Danh sách đáp án hợp lệ (e.g., ['A', 'B', 'C', 'D', 'E'])
+
+    Returns:
+        Tuple (recognized_text, confidence)
+    """
+    import cv2
+    import numpy as np
+
+    if valid_answers is None:
+        valid_answers = ['A', 'B', 'C', 'D', 'E']
+
+    # Cắt vùng ô đáp án với margin
+    margin = 3
+    x1 = max(0, box['x'] - margin)
+    y1 = max(0, box['y'] - margin)
+    x2 = min(image.shape[1], box['x'] + box['w'] + margin)
+    y2 = min(image.shape[0], box['y'] + box['h'] + margin)
+
+    roi = image[y1:y2, x1:x2]
+
+    if roi.size == 0:
+        return None, 0.0
+
+    # Resize nếu quá nhỏ (EasyOCR cần ảnh đủ lớn)
+    min_dim = 32
+    if roi.shape[0] < min_dim or roi.shape[1] < min_dim:
+        scale = max(min_dim / roi.shape[0], min_dim / roi.shape[1])
+        roi = cv2.resize(roi, None, fx=scale, fy=scale, interpolation=cv2.INTER_CUBIC)
+
+    # Nhận diện bằng EasyOCR
+    try:
+        results = reader.readtext(roi, detail=1, paragraph=False)
+    except Exception:
+        return None, 0.0
+
+    if not results:
+        return None, 0.0
+
+    # Lấy kết quả có confidence cao nhất
+    best_text = None
+    best_confidence = 0.0
+
+    for (bbox, text, confidence) in results:
+        # Chuẩn hóa text
+        text = text.strip().upper()
+
+        # Loại bỏ ký tự không hợp lệ
+        text = ''.join(c for c in text if c.isalnum())
+
+        if not text:
+            continue
+
+        # Kiểm tra xem có match với đáp án hợp lệ không
+        # Ưu tiên exact match
+        for valid in valid_answers:
+            if text == valid.upper():
+                if confidence > best_confidence:
+                    best_text = valid.upper()
+                    best_confidence = confidence
+                break
+        else:
+            # Nếu không exact match, lấy ký tự đầu tiên
+            first_char = text[0]
+            if first_char in [v.upper() for v in valid_answers]:
+                if confidence > best_confidence:
+                    best_text = first_char
+                    best_confidence = confidence
+
+    return best_text, best_confidence
+
+
+def _grade_handwritten_sheet(
+    image_bytes: bytes,
+    answer_key: List[str],
+    num_questions: int = 30,
+    valid_answers: List[str] = None
+):
+    """Chấm một phiếu đáp án viết tay
+
+    Args:
+        image_bytes: Dữ liệu ảnh
+        answer_key: Danh sách đáp án đúng
+        num_questions: Số câu hỏi
+        valid_answers: Danh sách đáp án hợp lệ
+
+    Returns:
+        Dict chứa kết quả chấm bài
+    """
+    if valid_answers is None:
+        valid_answers = ['A', 'B', 'C', 'D', 'E']
+
+    # Tiền xử lý ảnh
+    original, processed = _preprocess_handwritten_image(image_bytes)
+
+    if original is None:
+        return {"error": "Không thể đọc ảnh"}
+
+    # Lấy EasyOCR reader
+    try:
+        reader = _get_easyocr_reader()
+    except Exception as e:
+        return {"error": f"Không thể khởi tạo OCR: {str(e)}"}
+
+    # Phương pháp 1: Phát hiện ô đáp án tự động
+    boxes = _detect_answer_boxes(processed, num_questions)
+
+    student_answers = []
+    details = []
+    correct_count = 0
+    wrong_count = 0
+    blank_count = 0
+
+    if boxes and len(boxes) >= num_questions * 0.5:
+        # Có đủ ô đáp án -> nhận diện từng ô
+        for q_idx in range(num_questions):
+            if q_idx >= len(boxes):
+                student_answers.append(None)
+                blank_count += 1
+                correct_answer = answer_key[q_idx] if q_idx < len(answer_key) else None
+                details.append({
+                    "q": q_idx + 1,
+                    "student": None,
+                    "correct": correct_answer,
+                    "status": "not_found",
+                    "confidence": 0.0
+                })
+                continue
+
+            box = boxes[q_idx]
+            recognized, confidence = _recognize_handwritten_answer(
+                reader, processed, box, valid_answers
+            )
+
+            correct_answer = answer_key[q_idx] if q_idx < len(answer_key) else None
+
+            if recognized is None:
+                student_answers.append(None)
+                blank_count += 1
+                status = "blank"
+            elif correct_answer and recognized.upper() == correct_answer.upper():
+                student_answers.append(recognized)
+                correct_count += 1
+                status = "correct"
+            else:
+                student_answers.append(recognized)
+                wrong_count += 1
+                status = "wrong"
+
+            details.append({
+                "q": q_idx + 1,
+                "student": recognized,
+                "correct": correct_answer,
+                "status": status,
+                "confidence": round(confidence, 3)
+            })
+    else:
+        # Không phát hiện đủ ô -> scan toàn bộ ảnh
+        try:
+            results = reader.readtext(processed, detail=1, paragraph=False)
+        except Exception as e:
+            return {"error": f"Lỗi OCR: {str(e)}"}
+
+        # Lọc và sắp xếp kết quả
+        recognized_answers = []
+        for (bbox, text, confidence) in results:
+            text = text.strip().upper()
+            text = ''.join(c for c in text if c.isalnum())
+
+            if text and len(text) <= 2:  # Đáp án thường là 1-2 ký tự
+                # Kiểm tra ký tự đầu có hợp lệ không
+                first_char = text[0] if text else None
+                if first_char in [v.upper() for v in valid_answers]:
+                    # Lấy tọa độ trung tâm
+                    cx = (bbox[0][0] + bbox[2][0]) / 2
+                    cy = (bbox[0][1] + bbox[2][1]) / 2
+                    recognized_answers.append({
+                        'text': first_char,
+                        'confidence': confidence,
+                        'cx': cx,
+                        'cy': cy
+                    })
+
+        # Sắp xếp theo vị trí
+        recognized_answers.sort(key=lambda r: (r['cy'], r['cx']))
+
+        for q_idx in range(num_questions):
+            correct_answer = answer_key[q_idx] if q_idx < len(answer_key) else None
+
+            if q_idx >= len(recognized_answers):
+                student_answers.append(None)
+                blank_count += 1
+                details.append({
+                    "q": q_idx + 1,
+                    "student": None,
+                    "correct": correct_answer,
+                    "status": "not_found",
+                    "confidence": 0.0
+                })
+                continue
+
+            answer_info = recognized_answers[q_idx]
+            recognized = answer_info['text']
+            confidence = answer_info['confidence']
+
+            if correct_answer and recognized.upper() == correct_answer.upper():
+                student_answers.append(recognized)
+                correct_count += 1
+                status = "correct"
+            else:
+                student_answers.append(recognized)
+                wrong_count += 1
+                status = "wrong"
+
+            details.append({
+                "q": q_idx + 1,
+                "student": recognized,
+                "correct": correct_answer,
+                "status": status,
+                "confidence": round(confidence, 3)
+            })
+
+    # Tính điểm (đơn giản: 1 điểm/câu đúng)
+    score = correct_count
+
+    return {
+        "answers": student_answers,
+        "score": score,
+        "correct": correct_count,
+        "wrong": wrong_count,
+        "blank": blank_count,
+        "total": num_questions,
+        "details": details
+    }
+
+
+@app.post("/api/grade-handwritten")
+async def grade_handwritten_sheets(
+    files: List[UploadFile],
+    answer_key: str = Form(...),
+    num_questions: int = Form(30),
+    valid_answers: str = Form("A,B,C,D,E"),
+    scoring_correct: float = Form(1.0),
+    scoring_wrong: float = Form(0.0),
+    scoring_blank: float = Form(0.0)
+):
+    """Chấm nhiều phiếu đáp án viết tay
+
+    Args:
+        files: Danh sách file ảnh phiếu trả lời
+        answer_key: Đáp án đúng (JSON array hoặc comma-separated)
+        num_questions: Số câu hỏi
+        valid_answers: Các đáp án hợp lệ (comma-separated, default: A,B,C,D,E)
+        scoring_correct: Điểm cho câu đúng
+        scoring_wrong: Điểm cho câu sai (thường là 0 hoặc âm)
+        scoring_blank: Điểm cho câu bỏ trống
+    """
+    # Parse đáp án
+    try:
+        if answer_key.startswith('['):
+            keys = json.loads(answer_key)
+        else:
+            keys = [k.strip().upper() for k in answer_key.split(',')]
+    except Exception:
+        raise HTTPException(status_code=400, detail="Định dạng đáp án không hợp lệ")
+
+    # Parse valid answers
+    valid_list = [v.strip().upper() for v in valid_answers.split(',')]
+
+    results = []
+
+    for file in files:
+        try:
+            image_bytes = await file.read()
+
+            result = _grade_handwritten_sheet(
+                image_bytes,
+                keys,
+                num_questions,
+                valid_list
+            )
+
+            if "error" not in result:
+                # Tính lại điểm theo công thức
+                score = (
+                    result["correct"] * scoring_correct +
+                    result["wrong"] * scoring_wrong +
+                    result["blank"] * scoring_blank
+                )
+                result["score"] = round(score, 2)
+
+            result["filename"] = file.filename
+            results.append(result)
+
+        except Exception as e:
+            results.append({
+                "filename": file.filename,
+                "error": str(e)
+            })
+
+    # Tính thống kê
+    valid_results = [r for r in results if "error" not in r]
+    summary = {
+        "total_sheets": len(files),
+        "successful": len(valid_results),
+        "failed": len(files) - len(valid_results)
+    }
+
+    if valid_results:
+        scores = [r["score"] for r in valid_results]
+        summary["average_score"] = round(sum(scores) / len(scores), 2)
+        summary["highest"] = max(scores)
+        summary["lowest"] = min(scores)
+
+    return {
+        "ok": True,
+        "results": results,
+        "summary": summary
+    }
+
+
+@app.post("/api/grade-handwritten/export")
+async def export_handwritten_results(
+    results: str = Form(...),
+    num_questions: int = Form(30)
+):
+    """Xuất kết quả chấm bài viết tay ra Excel"""
+    import openpyxl
+    from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
+
+    try:
+        data = json.loads(results)
+    except json.JSONDecodeError:
+        raise HTTPException(status_code=400, detail="Dữ liệu không hợp lệ")
+
+    # Lấy số câu từ kết quả thực tế
+    for result in data:
+        if "details" in result and result["details"]:
+            num_questions = len(result["details"])
+            break
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Kết quả chấm bài viết tay"
+
+    # Styles
+    header_font = Font(bold=True, color="FFFFFF")
+    header_fill = PatternFill(start_color="4472C4", end_color="4472C4", fill_type="solid")
+    correct_fill = PatternFill(start_color="C6EFCE", end_color="C6EFCE", fill_type="solid")
+    wrong_fill = PatternFill(start_color="FFC7CE", end_color="FFC7CE", fill_type="solid")
+    low_conf_fill = PatternFill(start_color="FFEB9C", end_color="FFEB9C", fill_type="solid")
+    center_align = Alignment(horizontal="center", vertical="center")
+    thin_border = Border(
+        left=Side(style='thin'),
+        right=Side(style='thin'),
+        top=Side(style='thin'),
+        bottom=Side(style='thin')
+    )
+
+    # Headers
+    headers = ["STT", "Tên file", "Điểm", "Đúng", "Sai", "Bỏ trống"]
+    for i in range(1, num_questions + 1):
+        headers.append(f"Câu {i}")
+
+    for col, header in enumerate(headers, 1):
+        cell = ws.cell(row=1, column=col, value=header)
+        cell.font = header_font
+        cell.fill = header_fill
+        cell.alignment = center_align
+        cell.border = thin_border
+
+    # Data rows
+    for row_idx, result in enumerate(data, 2):
+        if "error" in result:
+            ws.cell(row=row_idx, column=1, value=row_idx - 1)
+            ws.cell(row=row_idx, column=2, value=result.get("filename", ""))
+            ws.cell(row=row_idx, column=3, value="Lỗi: " + result["error"])
+            continue
+
+        ws.cell(row=row_idx, column=1, value=row_idx - 1).alignment = center_align
+        ws.cell(row=row_idx, column=2, value=result.get("filename", "")).alignment = center_align
+        ws.cell(row=row_idx, column=3, value=result.get("score", 0)).alignment = center_align
+        ws.cell(row=row_idx, column=4, value=result.get("correct", 0)).alignment = center_align
+        ws.cell(row=row_idx, column=5, value=result.get("wrong", 0)).alignment = center_align
+        ws.cell(row=row_idx, column=6, value=result.get("blank", 0)).alignment = center_align
+
+        # Chi tiết từng câu
+        details = result.get("details", [])
+        for detail in details:
+            col = 6 + detail["q"]
+            cell = ws.cell(row=row_idx, column=col, value=detail.get("student", ""))
+            cell.alignment = center_align
+            cell.border = thin_border
+
+            # Màu theo status
+            if detail["status"] == "correct":
+                cell.fill = correct_fill
+            elif detail["status"] in ["wrong", "invalid"]:
+                cell.fill = wrong_fill
+
+            # Đánh dấu confidence thấp
+            confidence = detail.get("confidence", 1.0)
+            if confidence < 0.5 and detail["status"] != "blank":
+                cell.fill = low_conf_fill
+
+    # Đáp án đúng ở hàng cuối
+    answer_row = len(data) + 2
+    ws.cell(row=answer_row, column=2, value="ĐÁP ÁN ĐÚNG").font = Font(bold=True)
+
+    if data and "details" in data[0]:
+        for detail in data[0]["details"]:
+            col = 6 + detail["q"]
+            cell = ws.cell(row=answer_row, column=col, value=detail.get("correct", ""))
+            cell.alignment = center_align
+            cell.font = Font(bold=True)
+            cell.fill = PatternFill(start_color="FFFF00", end_color="FFFF00", fill_type="solid")
+
+    # Điều chỉnh độ rộng cột
+    ws.column_dimensions["A"].width = 5
+    ws.column_dimensions["B"].width = 30
+    ws.column_dimensions["C"].width = 8
+    ws.column_dimensions["D"].width = 6
+    ws.column_dimensions["E"].width = 6
+    ws.column_dimensions["F"].width = 10
+
+    # Lưu file
+    output = io.BytesIO()
+    wb.save(output)
+    output.seek(0)
+
+    return StreamingResponse(
+        output,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": "attachment; filename=ket_qua_cham_viet_tay.xlsx"}
+    )

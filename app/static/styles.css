@@ -1307,3 +1307,12 @@ ol.output-list li strong {
 .detail-table tr.blank {
   background: #f8fafc;
 }
+
+.detail-table tr.low-confidence {
+  background: #fef9c3;
+}
+
+.detail-table tr.not_found {
+  background: #f1f5f9;
+  color: var(--muted);
+}

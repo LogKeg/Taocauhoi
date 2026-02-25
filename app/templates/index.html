@@ -25,7 +25,8 @@
         <button class="nav-item" data-tab="tab-convert">Word → Excel</button>
         <button class="nav-item" data-tab="tab-bank">Ngân hàng câu hỏi</button>
         <button class="nav-item" data-tab="tab-history">Lịch sử sử dụng</button>
-        <button class="nav-item" data-tab="tab-grading">Chấm bài</button>
+        <button class="nav-item" data-tab="tab-grading">Chấm bài (OMR)</button>
+        <button class="nav-item" data-tab="tab-handwritten">Chấm bài (Viết tay)</button>
         <button class="nav-item" data-tab="tab-settings">Cài đặt</button>
         <button class="nav-item" data-tab="tab-blob" id="navBlob" hidden>Quản lý Blob</button>
       </nav>
@@ -304,6 +305,98 @@
                     <th>Lớp</th>
                     <th>SBD</th>
                     <th>Trường</th>
+                    <th>Điểm</th>
+                    <th>Đúng</th>
+                    <th>Sai</th>
+                    <th>Bỏ trống</th>
+                    <th>Chi tiết</th>
+                  </tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- Tab: Chấm bài viết tay -->
+        <section class="tab-panel" id="tab-handwritten">
+          <div class="panel">
+            <h2>Chấm bài viết tay</h2>
+            <p>Upload ảnh phiếu trả lời có đáp án viết tay (A, B, C, D, E) để chấm điểm tự động.</p>
+
+            <div class="auto-grid" style="margin-bottom: 1rem;">
+              <div>
+                <label for="hwNumQuestions">Số câu hỏi</label>
+                <input type="number" id="hwNumQuestions" value="30" min="1" max="100" />
+              </div>
+              <div>
+                <label for="hwValidAnswers">Đáp án hợp lệ</label>
+                <input type="text" id="hwValidAnswers" value="A,B,C,D,E" placeholder="A,B,C,D,E" />
+              </div>
+            </div>
+
+            <div class="auto-grid" style="margin-bottom: 1rem;">
+              <div>
+                <label for="hwScoringCorrect">Điểm đúng</label>
+                <input type="number" id="hwScoringCorrect" value="1" step="0.25" />
+              </div>
+              <div>
+                <label for="hwScoringWrong">Điểm sai</label>
+                <input type="number" id="hwScoringWrong" value="0" step="0.25" />
+              </div>
+              <div>
+                <label for="hwScoringBlank">Điểm bỏ trống</label>
+                <input type="number" id="hwScoringBlank" value="0" step="0.25" />
+              </div>
+            </div>
+
+            <div class="grading-section">
+              <h3>Bước 1: Nhập đáp án đúng</h3>
+              <div class="answer-input-tabs">
+                <button type="button" class="hw-answer-tab active" data-mode="manual">Nhập thủ công</button>
+                <button type="button" class="hw-answer-tab" data-mode="text">Nhập dạng text</button>
+              </div>
+
+              <div id="hwManualAnswerInput">
+                <p style="margin: 0.5rem 0; color: var(--muted);">Chọn đáp án đúng cho từng câu:</p>
+                <div class="answer-grid" id="hwAnswerGrid"></div>
+              </div>
+
+              <div id="hwTextAnswerInput" hidden>
+                <p style="margin: 0.5rem 0; color: var(--muted);">Nhập đáp án cách nhau bằng dấu phẩy (VD: A,B,C,D,A,B,...)</p>
+                <textarea id="hwAnswerText" rows="3" placeholder="A,B,C,D,E,A,B,C,D,E,..."></textarea>
+              </div>
+            </div>
+
+            <div class="grading-section" style="margin-top: 1.5rem;">
+              <h3>Bước 2: Upload phiếu trả lời</h3>
+              <p style="margin: 0.5rem 0; color: var(--muted);">Upload ảnh chứa đáp án viết tay của học sinh</p>
+              <div class="upload-area">
+                <input type="file" id="hwSheetImages" accept="image/*" multiple />
+                <span id="hwSheetCount" style="margin-left: 0.5rem;">0 file đã chọn</span>
+              </div>
+            </div>
+
+            <div style="margin-top: 1.5rem;">
+              <button id="hwGradeBtn" type="button" class="primary-btn">Chấm bài</button>
+            </div>
+            <div class="gen-status" id="hwGradingStatus"></div>
+          </div>
+
+          <div class="panel result-panel" id="hwGradingResult" hidden>
+            <div class="output-header">
+              <h2>Kết quả chấm bài viết tay</h2>
+              <div class="actions">
+                <button id="hwExportExcel">Xuất Excel</button>
+              </div>
+            </div>
+            <div class="grading-summary" id="hwGradingSummary"></div>
+            <div class="grading-table-container">
+              <table class="grading-table" id="hwGradingTable">
+                <thead>
+                  <tr>
+                    <th>STT</th>
+                    <th>Tên file</th>
                     <th>Điểm</th>
                     <th>Đúng</th>
                     <th>Sai</th>
@@ -1716,6 +1809,262 @@
           const a = document.createElement('a');
           a.href = url;
           a.download = `ket_qua_cham_bai_${gradingTemplate.value}.xlsx`;
+          a.click();
+          URL.revokeObjectURL(url);
+        } catch (err) {
+          alert('Lỗi xuất Excel: ' + err.message);
+        }
+      });
+
+      /* ---- Handwritten Grading (Chấm bài viết tay) ---- */
+      const hwNumQuestions = document.getElementById('hwNumQuestions');
+      const hwValidAnswers = document.getElementById('hwValidAnswers');
+      const hwScoringCorrect = document.getElementById('hwScoringCorrect');
+      const hwScoringWrong = document.getElementById('hwScoringWrong');
+      const hwScoringBlank = document.getElementById('hwScoringBlank');
+      const hwAnswerGrid = document.getElementById('hwAnswerGrid');
+      const hwAnswerText = document.getElementById('hwAnswerText');
+      const hwSheetImages = document.getElementById('hwSheetImages');
+      const hwSheetCount = document.getElementById('hwSheetCount');
+      const hwGradeBtn = document.getElementById('hwGradeBtn');
+      const hwGradingStatus = document.getElementById('hwGradingStatus');
+      const hwGradingResult = document.getElementById('hwGradingResult');
+      const hwGradingSummary = document.getElementById('hwGradingSummary');
+      const hwGradingTable = document.getElementById('hwGradingTable');
+
+      let hwGradingResults = [];
+
+      // Build answer grid for handwritten
+      function buildHwAnswerGrid() {
+        const numQ = parseInt(hwNumQuestions.value) || 30;
+        const validAns = hwValidAnswers.value.split(',').map(a => a.trim().toUpperCase());
+
+        let html = '';
+        for (let i = 1; i <= numQ; i++) {
+          html += `<div class="answer-item">
+            <span class="q-num">${i}</span>
+            <div class="options">
+              ${validAns.map(opt => `
+                <label><input type="radio" name="hwq${i}" value="${opt}" />${opt}</label>
+              `).join('')}
+            </div>
+          </div>`;
+        }
+        hwAnswerGrid.innerHTML = html;
+      }
+
+      // Initialize grid
+      buildHwAnswerGrid();
+
+      // Rebuild grid when num questions or valid answers change
+      hwNumQuestions.addEventListener('change', buildHwAnswerGrid);
+      hwValidAnswers.addEventListener('change', buildHwAnswerGrid);
+
+      // Tab switching for handwritten
+      document.querySelectorAll('.hw-answer-tab').forEach(tab => {
+        tab.addEventListener('click', () => {
+          document.querySelectorAll('.hw-answer-tab').forEach(t => t.classList.remove('active'));
+          tab.classList.add('active');
+
+          const mode = tab.dataset.mode;
+          document.getElementById('hwManualAnswerInput').hidden = mode !== 'manual';
+          document.getElementById('hwTextAnswerInput').hidden = mode !== 'text';
+        });
+      });
+
+      // File count display
+      hwSheetImages.addEventListener('change', () => {
+        hwSheetCount.textContent = `${hwSheetImages.files.length} file đã chọn`;
+      });
+
+      // Get answers from handwritten grid
+      function getHwAnswersFromGrid() {
+        const numQ = parseInt(hwNumQuestions.value) || 30;
+        const answers = [];
+        for (let i = 1; i <= numQ; i++) {
+          const selected = document.querySelector(`input[name="hwq${i}"]:checked`);
+          answers.push(selected ? selected.value : '');
+        }
+        return answers;
+      }
+
+      // Grade handwritten button click
+      hwGradeBtn.addEventListener('click', async () => {
+        if (!hwSheetImages.files.length) {
+          hwGradingStatus.textContent = 'Vui lòng chọn ảnh phiếu trả lời!';
+          return;
+        }
+
+        const numQ = parseInt(hwNumQuestions.value) || 30;
+
+        // Get answers
+        const activeTab = document.querySelector('.hw-answer-tab.active');
+        let answers = [];
+
+        if (activeTab?.dataset.mode === 'text') {
+          // Parse from text
+          answers = hwAnswerText.value.split(',').map(a => a.trim().toUpperCase());
+        } else {
+          answers = getHwAnswersFromGrid();
+        }
+
+        const filledCount = answers.filter(a => a).length;
+        if (filledCount < numQ) {
+          if (!confirm(`Chỉ có ${filledCount}/${numQ} đáp án được chọn. Tiếp tục chấm?`)) {
+            return;
+          }
+        }
+
+        hwGradingStatus.textContent = 'Đang chấm bài... (Lần đầu tiên có thể mất vài phút để tải model OCR)';
+        hwGradeBtn.disabled = true;
+
+        try {
+          const formData = new FormData();
+          formData.append('answer_key', JSON.stringify(answers));
+          formData.append('num_questions', numQ);
+          formData.append('valid_answers', hwValidAnswers.value);
+          formData.append('scoring_correct', hwScoringCorrect.value);
+          formData.append('scoring_wrong', hwScoringWrong.value);
+          formData.append('scoring_blank', hwScoringBlank.value);
+
+          // Add sheet images
+          for (const file of hwSheetImages.files) {
+            formData.append('files', file);
+          }
+
+          const res = await fetch('/api/grade-handwritten', { method: 'POST', body: formData });
+          const data = await res.json();
+
+          if (data.ok) {
+            hwGradingResults = data.results || [];
+            renderHwGradingResults(data);
+            hwGradingStatus.textContent = `Đã chấm xong ${data.summary?.successful || 0} bài`;
+          } else {
+            hwGradingStatus.textContent = 'Lỗi: ' + (data.detail || data.error || 'Không xác định');
+          }
+        } catch (err) {
+          hwGradingStatus.textContent = 'Lỗi: ' + err.message;
+        } finally {
+          hwGradeBtn.disabled = false;
+        }
+      });
+
+      // Render handwritten grading results
+      function renderHwGradingResults(data) {
+        hwGradingResult.hidden = false;
+        const summary = data.summary || {};
+
+        hwGradingSummary.innerHTML = `
+          <div class="summary-cards">
+            <div class="summary-card">
+              <span class="label">Tổng số bài</span>
+              <span class="value">${summary.total_sheets || 0}</span>
+            </div>
+            <div class="summary-card">
+              <span class="label">Thành công</span>
+              <span class="value">${summary.successful || 0}</span>
+            </div>
+            <div class="summary-card">
+              <span class="label">Điểm TB</span>
+              <span class="value">${summary.average_score || 0}</span>
+            </div>
+            <div class="summary-card">
+              <span class="label">Cao nhất</span>
+              <span class="value">${summary.highest || 0}</span>
+            </div>
+            <div class="summary-card">
+              <span class="label">Thấp nhất</span>
+              <span class="value">${summary.lowest || 0}</span>
+            </div>
+          </div>
+        `;
+
+        const tbody = hwGradingTable.querySelector('tbody');
+        tbody.innerHTML = (data.results || []).map((r, idx) => {
+          if (r.error) {
+            return `<tr class="error-row">
+              <td>${idx + 1}</td>
+              <td>${r.filename || ''}</td>
+              <td colspan="5" style="color: var(--danger);">Lỗi: ${r.error}</td>
+            </tr>`;
+          }
+          return `<tr>
+            <td>${idx + 1}</td>
+            <td>${r.filename || '-'}</td>
+            <td><strong>${r.score}</strong></td>
+            <td style="color: var(--success);">${r.correct}</td>
+            <td style="color: var(--danger);">${r.wrong}</td>
+            <td>${r.blank}</td>
+            <td><button class="hw-view-detail-btn" data-index="${idx}">Xem</button></td>
+          </tr>`;
+        }).join('');
+
+        // Detail button handlers
+        tbody.querySelectorAll('.hw-view-detail-btn').forEach(btn => {
+          btn.addEventListener('click', () => {
+            const idx = parseInt(btn.dataset.index);
+            showHwGradingDetail(hwGradingResults[idx]);
+          });
+        });
+      }
+
+      // Show handwritten grading detail modal
+      function showHwGradingDetail(result) {
+        if (!result || !result.details) return;
+        const modal = document.getElementById('historyModal');
+        const title = document.getElementById('modalTitle');
+        const body = document.getElementById('modalBody');
+        const footer = document.querySelector('.modal-footer');
+        footer.hidden = true;
+
+        title.textContent = `Chi tiết: ${result.filename} - Điểm: ${result.score}`;
+        body.innerHTML = `
+          <div class="detail-summary">
+            <span>Đúng: <strong style="color: var(--success);">${result.correct}</strong></span>
+            <span>Sai: <strong style="color: var(--danger);">${result.wrong}</strong></span>
+            <span>Bỏ trống: <strong>${result.blank}</strong></span>
+          </div>
+          <table class="detail-table">
+            <thead>
+              <tr><th>Câu</th><th>Trả lời</th><th>Đáp án</th><th>Độ tin cậy</th><th>Kết quả</th></tr>
+            </thead>
+            <tbody>
+              ${result.details.map(d => `
+                <tr class="${d.status} ${d.confidence < 0.5 ? 'low-confidence' : ''}">
+                  <td>${d.q}</td>
+                  <td>${d.student || '-'}</td>
+                  <td>${d.correct || '-'}</td>
+                  <td>${d.confidence ? (d.confidence * 100).toFixed(0) + '%' : '-'}</td>
+                  <td>${d.status === 'correct' ? '✓' : d.status === 'blank' || d.status === 'not_found' ? '-' : '✗'}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+          <p style="margin-top: 1rem; color: var(--muted); font-size: 0.9rem;">
+            <em>* Các ô có độ tin cậy thấp (&lt;50%) được đánh dấu màu vàng và có thể cần kiểm tra lại.</em>
+          </p>
+        `;
+        modal.hidden = false;
+      }
+
+      // Export handwritten grading to Excel
+      document.getElementById('hwExportExcel').addEventListener('click', async () => {
+        if (!hwGradingResults.length) {
+          alert('Không có kết quả để xuất!');
+          return;
+        }
+
+        try {
+          const formData = new FormData();
+          formData.append('results', JSON.stringify(hwGradingResults));
+          formData.append('num_questions', hwNumQuestions.value);
+
+          const res = await fetch('/api/grade-handwritten/export', { method: 'POST', body: formData });
+          const blob = await res.blob();
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = 'ket_qua_cham_viet_tay.xlsx';
           a.click();
           URL.revokeObjectURL(url);
         } catch (err) {
