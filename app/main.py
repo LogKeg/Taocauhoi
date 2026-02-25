@@ -1091,9 +1091,70 @@ def _parse_cell_based_questions(doc: Document) -> List[dict]:
     - Non-prefixed bilingual: lines with "/" separator (EN/VN)
     - Non-prefixed simple: short answer options like "20 m", "40 m"
 
+    Correct answer detection:
+    - Highlighted option (background color/shading) = correct answer
+    - A=1, B=2, C=3, D=4, E=5
+
     Returns list of parsed questions, or empty list if format doesn't match.
     """
     from docx.oxml.ns import qn
+
+    def has_highlight(element) -> bool:
+        """Check if an XML element has highlight or shading (background color)."""
+        # Check for w:highlight (text highlight like yellow, green, etc.)
+        highlights = element.findall('.//' + qn('w:highlight'))
+        for hl in highlights:
+            val = hl.get(qn('w:val'))
+            if val and val != 'none':
+                return True
+
+        # Check for w:shd (cell/paragraph shading)
+        shadings = element.findall('.//' + qn('w:shd'))
+        for shd in shadings:
+            fill = shd.get(qn('w:fill'))
+            # Has background color if fill is not empty/auto/white
+            if fill and fill not in ('', 'auto', 'FFFFFF', 'ffffff', 'none'):
+                return True
+
+        return False
+
+    def get_highlighted_option_from_cell(cell_element) -> int:
+        """
+        Find which option (1-5 for A-E) is highlighted in a cell.
+        Returns 0 if no option is highlighted.
+        """
+        # Look for nested table with options (2x2 or similar grid)
+        nested_tables = cell_element.findall('.//' + qn('w:tbl'))
+        if nested_tables:
+            option_idx = 0
+            for nt in nested_tables:
+                for tr in nt.findall('.//' + qn('w:tr')):
+                    for tc in tr.findall('.//' + qn('w:tc')):
+                        option_idx += 1
+                        # Check if this option cell has highlight/shading
+                        if has_highlight(tc):
+                            return option_idx
+            return 0
+
+        # No nested table - check paragraphs for A., B., C. style options
+        paragraphs = cell_element.findall('.//' + qn('w:p'))
+        option_idx = 0
+        for p in paragraphs:
+            # Get paragraph text
+            t_elements = p.findall('.//' + qn('w:t'))
+            p_text = ''.join([t.text or '' for t in t_elements]).strip()
+
+            # Check if this is an option line (A., B., C., etc.)
+            opt_match = re.match(r'^([A-E])\.\s*', p_text)
+            if opt_match:
+                option_letter = opt_match.group(1)
+                option_idx = ord(option_letter) - ord('A') + 1
+
+                # Check if this paragraph has highlight
+                if has_highlight(p):
+                    return option_idx
+
+        return 0
 
     def get_cell_text_from_row(row) -> str:
         """Get text from first cell, handling edge cases where row.cells is empty.
@@ -1216,6 +1277,16 @@ def _parse_cell_based_questions(doc: Document) -> List[dict]:
         if len(lines) < 2:  # Need at least 2 lines (EN + VN for fill-blank)
             continue
 
+        # Detect highlighted option (correct answer)
+        highlighted_option = 0
+        if row.cells:
+            cell_element = row.cells[0]._element
+            highlighted_option = get_highlighted_option_from_cell(cell_element)
+        else:
+            tc_elements = row._tr.findall(qn('w:tc'))
+            if tc_elements:
+                highlighted_option = get_highlighted_option_from_cell(tc_elements[0])
+
         question_lines = []
         options = []
 
@@ -1279,10 +1350,14 @@ def _parse_cell_based_questions(doc: Document) -> List[dict]:
         is_fill_blank = '___' in all_text or '________' in all_text
 
         if question_lines and options:
-            questions.append({
+            q_dict = {
                 "question": '\n'.join(question_lines),
                 "options": options
-            })
+            }
+            # Add correct answer from highlighted option (1=A, 2=B, 3=C, 4=D, 5=E)
+            if highlighted_option > 0:
+                q_dict["answer"] = str(highlighted_option)
+            questions.append(q_dict)
         elif is_fill_blank and len(lines) >= 2:
             # Fill-in-blank question (may not have separate options)
             questions.append({
