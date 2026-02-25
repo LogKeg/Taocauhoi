@@ -3984,8 +3984,17 @@ def _parse_envie_questions(doc: Document) -> List[dict]:
 
                     # Case 1: Options in table
                     if next_elem['type'] == 'table' and len(next_elem['options']) >= 2:
-                        # Found question + table options pattern
                         options = next_elem['options']
+
+                        # Skip Cloze passage tables (options start with number like "15.A)", "16.A)")
+                        # These are multi-question Cloze tables, not single question options
+                        first_opt = options[0] if options else ''
+                        is_cloze_table = re.match(r'^\d+\.\s*[A-E]\)', first_opt)
+                        if is_cloze_table:
+                            elem_idx += 1
+                            continue
+
+                        # Found question + table options pattern
                         # Clean option prefixes (A., B., C., D., E.)
                         cleaned_options = []
                         for opt in options:
