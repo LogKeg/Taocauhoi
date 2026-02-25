@@ -3805,7 +3805,45 @@ def _parse_envie_questions(doc: Document) -> List[dict]:
                 t_elements = child.findall('.//' + docx_qn('w:t'))
                 text = ''.join([t.text or '' for t in t_elements]).strip()
                 if text:
-                    elements.append({'type': 'paragraph', 'text': text})
+                    # Check for highlighted text in paragraph (for inline options)
+                    # Find which option (by position) has yellow highlight
+                    highlighted_opt_idx = 0
+                    if re.search(r'[A-E]\)', text):  # Has inline options
+                        # Parse runs to find highlighted option
+                        runs = child.findall('.//' + docx_qn('w:r'))
+                        current_opt_letter = None
+                        for run in runs:
+                            # Get run text
+                            run_texts = run.findall('.//' + docx_qn('w:t'))
+                            run_text = ''.join([t.text or '' for t in run_texts])
+
+                            # Check for option marker
+                            opt_match = re.search(r'([A-E])\)', run_text)
+                            if opt_match:
+                                current_opt_letter = opt_match.group(1)
+
+                            # Check for highlight in this run
+                            shd_elements = run.findall('.//' + docx_qn('w:shd'))
+                            hl_elements = run.findall('.//' + docx_qn('w:highlight'))
+                            has_yellow = False
+                            for shd in shd_elements:
+                                fill = shd.get(docx_qn('w:fill'))
+                                if fill and fill.upper() == 'FFFF00':
+                                    has_yellow = True
+                            for hl in hl_elements:
+                                val = hl.get(docx_qn('w:val'))
+                                if val and val.lower() == 'yellow':
+                                    has_yellow = True
+
+                            # If highlighted and we know which option, record it
+                            if has_yellow and current_opt_letter:
+                                highlighted_opt_idx = ord(current_opt_letter) - ord('A') + 1
+
+                    elements.append({
+                        'type': 'paragraph',
+                        'text': text,
+                        'highlighted_option': highlighted_opt_idx
+                    })
 
             elif tag == 'tbl':  # Table
                 # Extract options from table cells
@@ -3857,6 +3895,13 @@ def _parse_envie_questions(doc: Document) -> List[dict]:
         return elements
 
     doc_elements = get_document_elements()
+
+    # Build a map of option paragraph text -> highlighted option index
+    # This helps when processing inline options in paragraphs
+    para_highlight_map = {}
+    for elem in doc_elements:
+        if elem['type'] == 'paragraph' and elem.get('highlighted_option', 0) > 0:
+            para_highlight_map[elem['text']] = elem['highlighted_option']
 
     # Also keep traditional paragraph extraction for backward compatibility
     paragraphs = [p.text.strip() for p in doc.paragraphs]
@@ -3916,6 +3961,12 @@ def _parse_envie_questions(doc: Document) -> List[dict]:
                 if opt_text:
                     opts.append(opt_text)
         return opts
+
+    def get_answer_from_option_line(opt_line: str) -> str:
+        """Get answer from paragraph highlight map for an option line."""
+        if opt_line in para_highlight_map:
+            return str(para_highlight_map[opt_line])
+        return ''
 
     def is_option_line_envie(line: str) -> bool:
         """Check if line contains options."""
@@ -4062,7 +4113,8 @@ def _parse_envie_questions(doc: Document) -> List[dict]:
                                 opts = cloze_opts_by_num[q_num]
                                 q_dict = {
                                     'question': f'Cloze question {q_num}\n\n{cloze_passage}' if cloze_passage else f'Cloze question {q_num}',
-                                    'options': opts
+                                    'options': opts,
+                                    '_doc_pos': elem_idx  # Track document position
                                 }
                                 # Add answer from highlighted option
                                 if q_num in cloze_highlights:
@@ -4088,7 +4140,8 @@ def _parse_envie_questions(doc: Document) -> List[dict]:
 
                         q_dict = {
                             'question': text,
-                            'options': cleaned_options
+                            'options': cleaned_options,
+                            '_doc_pos': elem_idx  # Track document position
                         }
                         # Add correct answer from highlighted option
                         if next_elem.get('highlighted', 0) > 0:
@@ -4119,7 +4172,8 @@ def _parse_envie_questions(doc: Document) -> List[dict]:
                         if len(para_options) >= 2:
                             q_dict = {
                                 'question': text,
-                                'options': para_options
+                                'options': para_options,
+                                '_doc_pos': elem_idx  # Track document position
                             }
                             para_table_questions.append(q_dict)
                             processed_paragraphs.add(text)
@@ -4128,7 +4182,147 @@ def _parse_envie_questions(doc: Document) -> List[dict]:
 
         elem_idx += 1
 
-    # Add para_table_questions to the main questions list
+    # ============ SECOND PASS: Handle standalone Cloze tables ============
+    # Cloze tables not preceded by a question paragraph (e.g., Red Kangaroo format)
+    # These tables have options starting with "11.A)", "12.A)", etc.
+    processed_tables = set()  # Track which tables were processed
+    for pt_q in para_table_questions:
+        # Mark tables used in para_table_questions
+        pass
+
+    elem_idx = 0
+    while elem_idx < len(doc_elements):
+        elem = doc_elements[elem_idx]
+
+        if elem['type'] == 'table':
+            options = elem.get('options', [])
+            if options:
+                first_opt = options[0]
+                # Check for Cloze table format (starts with number like "11.A)", "12.A)")
+                is_cloze_table = re.match(r'^(\d+)\.\s*[A-E]\)', first_opt)
+
+                if is_cloze_table:
+                    first_q_num = int(is_cloze_table.group(1))
+
+                    # Check if this Cloze table was already processed
+                    already_processed = any(
+                        f'Cloze question {first_q_num}' in q.get('question', '')
+                        for q in para_table_questions
+                    )
+
+                    if not already_processed:
+                        # Find passage before this table (look back for instruction + content)
+                        # Strategy: First find the instruction line, then collect passage after it
+                        instruction_idx = -1
+                        instruction_text = ''
+                        for back_idx in range(elem_idx - 1, max(0, elem_idx - 25), -1):
+                            back_elem = doc_elements[back_idx]
+                            if back_elem['type'] == 'paragraph':
+                                back_text = back_elem['text']
+                                # Check for instruction line with question range (e.g., "(11-20)")
+                                # Must check BEFORE skipping headers, as instruction may start with header text
+                                if f'({first_q_num}-' in back_text or f'({first_q_num} -' in back_text:
+                                    # Extract the instruction part (after header if present)
+                                    if 'Read the' in back_text:
+                                        read_pos = back_text.find('Read the')
+                                        instruction_text = back_text[read_pos:]
+                                    else:
+                                        instruction_text = back_text
+                                    instruction_idx = back_idx
+                                    break
+                                # Also check for generic instruction patterns
+                                if ('Read the text' in back_text or 'Read the following' in back_text) and 'choose the best' in back_text.lower():
+                                    instruction_idx = back_idx
+                                    instruction_text = back_text
+                                    break
+                                # Skip header/watermark lines (only if no instruction pattern found)
+                                if back_text.startswith('Red Kangaroo') or back_text.startswith('Grey Kangaroo'):
+                                    continue
+
+                        # Now collect passage lines AFTER instruction (between instruction and Cloze table)
+                        passage_lines = []
+                        if instruction_idx >= 0:
+                            passage_lines.append(instruction_text)
+                            for fwd_idx in range(instruction_idx + 1, elem_idx):
+                                fwd_elem = doc_elements[fwd_idx]
+                                if fwd_elem['type'] == 'paragraph':
+                                    fwd_text = fwd_elem['text']
+                                    # Skip header/watermark lines
+                                    if fwd_text.startswith('Red Kangaroo') or fwd_text.startswith('Grey Kangaroo'):
+                                        continue
+                                    passage_lines.append(fwd_text)
+                        else:
+                            # Fallback: collect a few paragraphs before table if no instruction found
+                            for back_idx in range(elem_idx - 1, max(0, elem_idx - 5), -1):
+                                back_elem = doc_elements[back_idx]
+                                if back_elem['type'] == 'paragraph':
+                                    back_text = back_elem['text']
+                                    if back_text.startswith('Red Kangaroo') or back_text.startswith('Grey Kangaroo'):
+                                        continue
+                                    passage_lines.insert(0, back_text)
+
+                        cloze_passage = '\n'.join(passage_lines) if passage_lines else ''
+
+                        # Parse Cloze options - group by question number
+                        cloze_opts_by_num = {}
+                        current_q_num = None
+                        current_opts = []
+
+                        for opt in options:
+                            # Check if starts with question number (11.A), 12.A), etc.)
+                            q_match = re.match(r'^(\d+)\.\s*[A-E]\)\s*(.*)$', opt)
+                            if q_match:
+                                # Save previous question
+                                if current_q_num and current_opts:
+                                    cloze_opts_by_num[current_q_num] = current_opts
+                                current_q_num = int(q_match.group(1))
+                                current_opts = [q_match.group(2)]
+                            else:
+                                # Continuation option (B), C), D))
+                                opt_match = re.match(r'^[B-E]\)\s*(.*)$', opt)
+                                if opt_match:
+                                    current_opts.append(opt_match.group(1))
+
+                        # Save last question
+                        if current_q_num and current_opts:
+                            cloze_opts_by_num[current_q_num] = current_opts
+
+                        # Get highlighted answers from cloze_highlights map
+                        cloze_highlights = elem.get('cloze_highlights', {})
+
+                        # Create Cloze questions
+                        for q_num in sorted(cloze_opts_by_num.keys()):
+                            opts = cloze_opts_by_num[q_num]
+                            q_dict = {
+                                'question': f'Cloze question {q_num}\n\n{cloze_passage}' if cloze_passage else f'Cloze question {q_num}',
+                                'options': opts,
+                                '_doc_pos': elem_idx  # Track document position
+                            }
+                            # Add answer from highlighted option
+                            if q_num in cloze_highlights:
+                                q_dict['answer'] = str(cloze_highlights[q_num])
+                            para_table_questions.append(q_dict)
+
+                        # Mark passage paragraphs as processed
+                        for pl in passage_lines:
+                            processed_paragraphs.add(pl)
+
+        elem_idx += 1
+    # ============ END SECOND PASS ============
+
+    # Add para_table_questions with document position for later sorting
+    # Each question needs _doc_pos to maintain document order
+    for q in para_table_questions:
+        if '_doc_pos' not in q:
+            # Find position based on question text in paragraphs
+            q_text = q.get('question', '')[:50]
+            for pi, para in enumerate(paragraphs):
+                if q_text and q_text in para:
+                    q['_doc_pos'] = pi
+                    break
+            else:
+                q['_doc_pos'] = 9999  # Default to end if not found
+
     questions.extend(para_table_questions)
     # ============ END PRE-PROCESS ============
 
@@ -4265,7 +4459,8 @@ def _parse_envie_questions(doc: Document) -> List[dict]:
                         if len(q_opts) == 3:
                             questions.append({
                                 'question': q_contents[q_idx],
-                                'options': q_opts
+                                'options': q_opts,
+                                '_doc_pos': i  # Track document position
                             })
                             seen_q_numbers.add(str(q_idx + 1))
                     i = j
@@ -4305,7 +4500,8 @@ def _parse_envie_questions(doc: Document) -> List[dict]:
                 if len(opts) == 3:
                     questions.append({
                         'question': f'Question {q_num} (reading comprehension)',
-                        'options': opts
+                        'options': opts,
+                        '_doc_pos': i  # Track document position
                     })
                     i = j
                     continue
@@ -4342,9 +4538,29 @@ def _parse_envie_questions(doc: Document) -> List[dict]:
                             continue
                     break
                 if opts:
+                    # Word Groups format: Look back to collect additional fill-blank paragraphs
+                    question_parts = [line]
+                    for back_idx in range(i - 1, max(0, i - 10), -1):
+                        back_text = paragraphs[back_idx].strip()
+                        if not back_text:
+                            continue
+                        # Stop at instruction line
+                        if is_instruction_line(back_text):
+                            break
+                        # Stop at options line (previous question's options)
+                        if is_option_line_envie(back_text) and not has_fill_blank(back_text):
+                            break
+                        # Collect consecutive fill-blank paragraphs
+                        if has_fill_blank(back_text):
+                            question_parts.insert(0, back_text)
+                        else:
+                            break
+
+                    combined_question = ' '.join(question_parts)
                     questions.append({
-                        'question': line,
-                        'options': opts
+                        'question': combined_question,
+                        'options': opts,
+                        '_doc_pos': i  # Track document position
                     })
                     i = j
                     continue
@@ -4372,7 +4588,8 @@ def _parse_envie_questions(doc: Document) -> List[dict]:
                 if len(opts) >= 3:  # Need at least 3 options
                     questions.append({
                         'question': line,
-                        'options': opts[:4]
+                        'options': opts[:4],
+                        '_doc_pos': i  # Track document position
                     })
                     i = j
                     continue
@@ -4383,10 +4600,16 @@ def _parse_envie_questions(doc: Document) -> List[dict]:
             if next_line and is_option_line_envie(next_line):
                 opts = extract_options_envie(next_line)
                 if opts:
-                    questions.append({
+                    q_dict = {
                         'question': line,
-                        'options': opts
-                    })
+                        'options': opts,
+                        '_doc_pos': i  # Track document position
+                    }
+                    # Check for highlighted answer in option line
+                    ans = get_answer_from_option_line(next_line)
+                    if ans:
+                        q_dict['answer'] = ans
+                    questions.append(q_dict)
                     i = next_idx + 1
                     continue
 
@@ -4413,7 +4636,8 @@ def _parse_envie_questions(doc: Document) -> List[dict]:
             if len(opts) == 3:  # EN-VIE Q1-5 has exactly 3 options
                 questions.append({
                     'question': line,
-                    'options': opts
+                    'options': opts,
+                    '_doc_pos': i  # Track document position
                 })
                 i = j
                 continue
@@ -4460,7 +4684,8 @@ def _parse_envie_questions(doc: Document) -> List[dict]:
                     if opt_a and opt_b and opt_c:
                         questions.append({
                             'question': line,
-                            'options': [opt_a, opt_b, opt_c]
+                            'options': [opt_a, opt_b, opt_c],
+                            '_doc_pos': i  # Track document position
                         })
                         i = j
                         continue
@@ -4490,7 +4715,8 @@ def _parse_envie_questions(doc: Document) -> List[dict]:
             if len(dialogue_opts) == 3 or len(dialogue_opts) == 4:
                 questions.append({
                     'question': line,
-                    'options': dialogue_opts[:3]
+                    'options': dialogue_opts[:3],
+                    '_doc_pos': i  # Track document position
                 })
                 i = j
                 continue
@@ -4503,10 +4729,15 @@ def _parse_envie_questions(doc: Document) -> List[dict]:
                 # Check if options have 5 choices (matching format)
                 opts = extract_options_envie(next_line)
                 if len(opts) >= 4:  # Matching usually has 5 options
-                    questions.append({
+                    q_dict = {
                         'question': line,
-                        'options': opts[:5]
-                    })
+                        'options': opts[:5],
+                        '_doc_pos': i  # Track document position
+                    }
+                    ans = get_answer_from_option_line(next_line)
+                    if ans:
+                        q_dict['answer'] = ans
+                    questions.append(q_dict)
                     i = next_idx + 1
                     continue
 
@@ -4531,7 +4762,8 @@ def _parse_envie_questions(doc: Document) -> List[dict]:
             if len(opts) == 3:
                 questions.append({
                     'question': line,
-                    'options': opts
+                    'options': opts,
+                    '_doc_pos': i  # Track document position
                 })
                 i = j
                 continue
@@ -4563,7 +4795,8 @@ def _parse_envie_questions(doc: Document) -> List[dict]:
                     if opt2 and opt3:
                         questions.append({
                             'question': line,
-                            'options': [opt1, opt2, opt3]
+                            'options': [opt1, opt2, opt3],
+                            '_doc_pos': i  # Track document position
                         })
                         i = j + 2
                         continue
@@ -4611,7 +4844,8 @@ def _parse_envie_questions(doc: Document) -> List[dict]:
                     if opt_a and opt_b and opt_c:
                         questions.append({
                             'question': line,
-                            'options': [opt_a, opt_b, opt_c]
+                            'options': [opt_a, opt_b, opt_c],
+                            '_doc_pos': i  # Track document position
                         })
                         i = j
                         continue
@@ -4642,7 +4876,8 @@ def _parse_envie_questions(doc: Document) -> List[dict]:
             if len(opts) == 3:
                 questions.append({
                     'question': line,
-                    'options': opts
+                    'options': opts,
+                    '_doc_pos': i  # Track document position
                 })
                 i = j
                 continue
@@ -4691,7 +4926,8 @@ def _parse_envie_questions(doc: Document) -> List[dict]:
             if len(opts) >= 3:
                 questions.append({
                     'question': line,
-                    'options': opts[:5]
+                    'options': opts[:5],
+                    '_doc_pos': i  # Track document position
                 })
                 i = j
                 continue
@@ -4710,7 +4946,8 @@ def _parse_envie_questions(doc: Document) -> List[dict]:
                 if next_is_question:
                     questions.append({
                         'question': line,
-                        'options': ['[Option A in image]', '[Option B in image]', '[Option C in image]', '[Option D in image]', '[Option E in image]']
+                        'options': ['[Option A in image]', '[Option B in image]', '[Option C in image]', '[Option D in image]', '[Option E in image]'],
+                        '_doc_pos': i  # Track document position
                     })
                     i += 1
                     continue
@@ -4739,9 +4976,35 @@ def _parse_envie_questions(doc: Document) -> List[dict]:
                             continue
                     break
                 if len(opts) >= 3:
+                    # Check if this is a Word Groups format (multiple fill-blank sentences)
+                    # Look back to find additional fill-blank paragraphs that belong to this question
+                    # Strategy: Collect consecutive fill-blank paragraphs, stop at options line
+                    question_parts = [line]
+                    if has_fill_blank(line):
+                        found_fill_blank_sequence = False
+                        for back_idx in range(i - 1, max(0, i - 10), -1):
+                            back_text = paragraphs[back_idx].strip()
+                            if not back_text:
+                                continue
+                            # Stop if we hit instruction line
+                            if is_instruction_line(back_text):
+                                break
+                            # Options line marks the boundary between questions
+                            # Stop when we hit an options line (previous question's options)
+                            if is_option_line_envie(back_text) and not has_fill_blank(back_text):
+                                break
+                            if has_fill_blank(back_text):
+                                question_parts.insert(0, back_text)
+                                found_fill_blank_sequence = True
+                            else:
+                                # Non-fill-blank, non-option line - stop
+                                break
+
+                    combined_question = ' '.join(question_parts)
                     questions.append({
-                        'question': line,
-                        'options': opts[:5]
+                        'question': combined_question,
+                        'options': opts[:5],
+                        '_doc_pos': i  # Track document position
                     })
                     i = j
                     continue
@@ -4770,7 +5033,8 @@ def _parse_envie_questions(doc: Document) -> List[dict]:
             if len(opts) >= 3:
                 questions.append({
                     'question': f'Cloze question {q_num}',
-                    'options': opts[:4]
+                    'options': opts[:4],
+                    '_doc_pos': i  # Track document position
                 })
                 i += 1
                 continue
@@ -4797,7 +5061,8 @@ def _parse_envie_questions(doc: Document) -> List[dict]:
                 # Question text is in the passage as a numbered blank like (26)
                 questions.append({
                     'question': 'Cloze question (unnumbered)',
-                    'options': opts[:4]
+                    'options': opts[:4],
+                    '_doc_pos': i  # Track document position
                 })
                 i += 1
                 continue
@@ -4829,7 +5094,8 @@ def _parse_envie_questions(doc: Document) -> List[dict]:
                 if len(opts) >= 3:
                     questions.append({
                         'question': f'Cloze question {q_num}',
-                        'options': opts[:4]
+                        'options': opts[:4],
+                        '_doc_pos': 9000  # Tables come later in document
                     })
                 continue
 
@@ -4857,7 +5123,8 @@ def _parse_envie_questions(doc: Document) -> List[dict]:
                             if q_text and len(opts) >= 3:
                                 questions.append({
                                     'question': q_text,
-                                    'options': opts[:5]
+                                    'options': opts[:5],
+                                    '_doc_pos': 9000  # Tables come later in document
                                 })
                             break
 
@@ -4897,7 +5164,8 @@ def _parse_envie_questions(doc: Document) -> List[dict]:
                         # Store for later matching or use placeholder
                         questions.append({
                             'question': 'Table question (options in table row)',
-                            'options': opts[:5]
+                            'options': opts[:5],
+                            '_doc_pos': 9000  # Tables come later in document
                         })
 
     # Parse cloze questions from textboxes and paragraphs
@@ -5024,7 +5292,8 @@ def _parse_envie_questions(doc: Document) -> List[dict]:
             opts = cloze_opts_from_textbox[q_num]
             questions.append({
                 'question': f'Cloze question {q_num}',
-                'options': opts
+                'options': opts,
+                '_doc_pos': 8000 + q_num  # Textbox cloze, position by question number
             })
 
         # Add placeholder for any remaining missing cloze numbers (image-based)
@@ -5036,7 +5305,8 @@ def _parse_envie_questions(doc: Document) -> List[dict]:
                 if 20 <= cloze_num <= max_cloze:
                     questions.append({
                         'question': f'Cloze question {cloze_num} (image-based)',
-                        'options': ['[Option A in image]', '[Option B in image]', '[Option C in image]', '[Option D in image]']
+                        'options': ['[Option A in image]', '[Option B in image]', '[Option C in image]', '[Option D in image]'],
+                        '_doc_pos': 8000 + cloze_num  # Position by question number
                     })
 
     except Exception:
@@ -5084,6 +5354,9 @@ def _parse_envie_questions(doc: Document) -> List[dict]:
     cloze_questions = [q for q in questions if 'Cloze question' in q.get('question', '')]
     other_questions = [q for q in questions if 'Cloze question' not in q.get('question', '')]
 
+    # Sort other_questions by document position to maintain correct order
+    other_questions.sort(key=lambda q: q.get('_doc_pos', 9999))
+
     # Sort cloze questions by their number
     cloze_questions.sort(key=get_cloze_num)
 
@@ -5100,6 +5373,10 @@ def _parse_envie_questions(doc: Document) -> List[dict]:
         questions = other_questions[:insert_idx] + cloze_questions + other_questions[insert_idx:]
     else:
         questions = other_questions
+
+    # Clean up _doc_pos from final output
+    for q in questions:
+        q.pop('_doc_pos', None)
 
     return questions
 
