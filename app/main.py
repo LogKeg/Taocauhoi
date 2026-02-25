@@ -5722,12 +5722,12 @@ ANSWER_TEMPLATES = {
     "ASMO_SCIENCE_LEVEL_5": {"name": "ASMO Khoa học - Level 5 (Lớp 9-10)", "questions": 25, "options": 5, "questions_per_row": 5, "scoring": {"correct": 1, "wrong": 0, "blank": 0, "base": 0}},
     "ASMO_SCIENCE_LEVEL_6": {"name": "ASMO Khoa học - Level 6 (Lớp 11-12)", "questions": 25, "options": 5, "questions_per_row": 5, "scoring": {"correct": 1, "wrong": 0, "blank": 0, "base": 0}},
     # ASMO - English (theo Level: Level 1-3 = 50 câu, Level 4-6 = 60 câu)
-    "ASMO_ENGLISH_LEVEL_1": {"name": "ASMO Tiếng Anh - Level 1 (Lớp 1-2)", "questions": 50, "options": 4, "questions_per_row": 5, "scoring": {"correct": 1, "wrong": 0, "blank": 0, "base": 0}},
-    "ASMO_ENGLISH_LEVEL_2": {"name": "ASMO Tiếng Anh - Level 2 (Lớp 3-4)", "questions": 50, "options": 4, "questions_per_row": 5, "scoring": {"correct": 1, "wrong": 0, "blank": 0, "base": 0}},
-    "ASMO_ENGLISH_LEVEL_3": {"name": "ASMO Tiếng Anh - Level 3 (Lớp 5-6)", "questions": 50, "options": 4, "questions_per_row": 5, "scoring": {"correct": 1, "wrong": 0, "blank": 0, "base": 0}},
-    "ASMO_ENGLISH_LEVEL_4": {"name": "ASMO Tiếng Anh - Level 4 (Lớp 7-8)", "questions": 60, "options": 4, "questions_per_row": 5, "scoring": {"correct": 1, "wrong": 0, "blank": 0, "base": 0}},
-    "ASMO_ENGLISH_LEVEL_5": {"name": "ASMO Tiếng Anh - Level 5 (Lớp 9-10)", "questions": 60, "options": 4, "questions_per_row": 5, "scoring": {"correct": 1, "wrong": 0, "blank": 0, "base": 0}},
-    "ASMO_ENGLISH_LEVEL_6": {"name": "ASMO Tiếng Anh - Level 6 (Lớp 11-12)", "questions": 60, "options": 4, "questions_per_row": 5, "scoring": {"correct": 1, "wrong": 0, "blank": 0, "base": 0}},
+    "ASMO_ENGLISH_LEVEL_1": {"name": "ASMO Tiếng Anh - Level 1 (Lớp 1-2)", "questions": 50, "options": 5, "questions_per_row": 4, "scoring": {"correct": 1, "wrong": 0, "blank": 0, "base": 0}},
+    "ASMO_ENGLISH_LEVEL_2": {"name": "ASMO Tiếng Anh - Level 2 (Lớp 3-4)", "questions": 50, "options": 5, "questions_per_row": 4, "scoring": {"correct": 1, "wrong": 0, "blank": 0, "base": 0}},
+    "ASMO_ENGLISH_LEVEL_3": {"name": "ASMO Tiếng Anh - Level 3 (Lớp 5-6)", "questions": 50, "options": 5, "questions_per_row": 4, "scoring": {"correct": 1, "wrong": 0, "blank": 0, "base": 0}},
+    "ASMO_ENGLISH_LEVEL_4": {"name": "ASMO Tiếng Anh - Level 4 (Lớp 7-8)", "questions": 60, "options": 5, "questions_per_row": 4, "scoring": {"correct": 1, "wrong": 0, "blank": 0, "base": 0}},
+    "ASMO_ENGLISH_LEVEL_5": {"name": "ASMO Tiếng Anh - Level 5 (Lớp 9-10)", "questions": 60, "options": 5, "questions_per_row": 4, "scoring": {"correct": 1, "wrong": 0, "blank": 0, "base": 0}},
+    "ASMO_ENGLISH_LEVEL_6": {"name": "ASMO Tiếng Anh - Level 6 (Lớp 11-12)", "questions": 60, "options": 5, "questions_per_row": 4, "scoring": {"correct": 1, "wrong": 0, "blank": 0, "base": 0}},
     # SEAMO - Math (25 câu: 20 trắc nghiệm + 5 điền đáp án)
     "SEAMO_MATH_PAPER_A": {"name": "SEAMO Toán - Paper A (Lớp 1-2)", "questions": 25, "options": 5, "questions_per_row": 5, "scoring": {"correct": 1, "wrong": 0, "blank": 0, "base": 0}, "mixed_format": {"mcq": 20, "fill_in": 5}},
     "SEAMO_MATH_PAPER_B": {"name": "SEAMO Toán - Paper B (Lớp 3-4)", "questions": 25, "options": 5, "questions_per_row": 5, "scoring": {"correct": 1, "wrong": 0, "blank": 0, "base": 0}, "mixed_format": {"mcq": 20, "fill_in": 5}},
