@@ -3811,8 +3811,11 @@ def _parse_envie_questions(doc: Document) -> List[dict]:
                 # Extract options from table cells
                 rows = child.findall('.//' + docx_qn('w:tr'))
                 options = []
-                highlighted_idx = 0  # Track which option is highlighted
+                highlighted_idx = 0  # Track which option is highlighted (for single-question tables)
+                highlighted_map = {}  # Track highlights per Cloze question number
                 opt_counter = 0
+                current_cloze_num = None
+                opt_idx_in_cloze = 0
 
                 for tr in rows:
                     for tc in tr.findall('.//' + docx_qn('w:tc')):
@@ -3822,18 +3825,33 @@ def _parse_envie_questions(doc: Document) -> List[dict]:
                             opt_counter += 1
                             options.append(cell_text)
 
-                            # Check for highlight/shading
+                            # Check if this is a Cloze option (starts with number like "15.A)")
+                            cloze_match = re.match(r'^(\d+)\.\s*[A-E]\)', cell_text)
+                            if cloze_match:
+                                current_cloze_num = int(cloze_match.group(1))
+                                opt_idx_in_cloze = 1
+                            elif re.match(r'^[B-E]\)', cell_text) and current_cloze_num:
+                                opt_idx_in_cloze += 1
+
+                            # Check for highlight/shading (yellow = correct answer)
                             shd_elements = tc.findall('.//' + docx_qn('w:shd'))
                             for shd in shd_elements:
                                 fill = shd.get(docx_qn('w:fill'))
-                                if fill and fill not in ('', 'auto', 'FFFFFF', 'ffffff', 'none'):
-                                    highlighted_idx = opt_counter
+                                # FFFF00 = yellow (correct answer)
+                                if fill and fill.upper() == 'FFFF00':
+                                    if current_cloze_num:
+                                        # Cloze table - track per question
+                                        highlighted_map[current_cloze_num] = opt_idx_in_cloze
+                                    else:
+                                        # Single-question table
+                                        highlighted_idx = opt_counter
 
                 if options:
                     elements.append({
                         'type': 'table',
                         'options': options,
-                        'highlighted': highlighted_idx
+                        'highlighted': highlighted_idx,
+                        'cloze_highlights': highlighted_map  # For Cloze tables
                     })
 
         return elements
@@ -3986,12 +4004,76 @@ def _parse_envie_questions(doc: Document) -> List[dict]:
                     if next_elem['type'] == 'table' and len(next_elem['options']) >= 2:
                         options = next_elem['options']
 
-                        # Skip Cloze passage tables (options start with number like "15.A)", "16.A)")
-                        # These are multi-question Cloze tables, not single question options
+                        # Check for Cloze passage tables (options start with number like "15.A)", "16.A)")
                         first_opt = options[0] if options else ''
                         is_cloze_table = re.match(r'^\d+\.\s*[A-E]\)', first_opt)
                         if is_cloze_table:
-                            elem_idx += 1
+                            # Parse Cloze table - extract questions with passage
+                            # Find passage before this table (look back for instruction line)
+                            passage_lines = []
+                            for back_idx in range(elem_idx - 1, max(0, elem_idx - 15), -1):
+                                back_elem = doc_elements[back_idx]
+                                if back_elem['type'] == 'paragraph':
+                                    back_text = back_elem['text']
+                                    # Stop at instruction line or previous question
+                                    if 'Read the following' in back_text or 'choose the best' in back_text.lower():
+                                        passage_lines.insert(0, back_text)
+                                        break
+                                    # Skip header/watermark lines
+                                    if back_text.startswith('Red Kangaroo'):
+                                        continue
+                                    passage_lines.insert(0, back_text)
+
+                            cloze_passage = '\n'.join(passage_lines) if passage_lines else ''
+
+                            # Parse Cloze options - group by question number
+                            cloze_opts_by_num = {}
+                            cloze_highlights = {}  # Track highlighted option per question
+                            current_q_num = None
+                            current_opts = []
+                            opt_idx_in_q = 0
+
+                            for opt in options:
+                                # Check if starts with question number (15.A), 16.A), etc.)
+                                q_match = re.match(r'^(\d+)\.\s*[A-E]\)\s*(.*)$', opt)
+                                if q_match:
+                                    # Save previous question
+                                    if current_q_num and current_opts:
+                                        cloze_opts_by_num[current_q_num] = current_opts
+                                    current_q_num = int(q_match.group(1))
+                                    current_opts = [q_match.group(2)]
+                                    opt_idx_in_q = 1
+                                else:
+                                    # Continuation option (B), C), D))
+                                    opt_match = re.match(r'^[B-E]\)\s*(.*)$', opt)
+                                    if opt_match:
+                                        current_opts.append(opt_match.group(1))
+                                        opt_idx_in_q += 1
+
+                            # Save last question
+                            if current_q_num and current_opts:
+                                cloze_opts_by_num[current_q_num] = current_opts
+
+                            # Get highlighted answers from cloze_highlights map
+                            cloze_highlights = next_elem.get('cloze_highlights', {})
+
+                            # Create Cloze questions
+                            for q_num in sorted(cloze_opts_by_num.keys()):
+                                opts = cloze_opts_by_num[q_num]
+                                q_dict = {
+                                    'question': f'Cloze question {q_num}\n\n{cloze_passage}' if cloze_passage else f'Cloze question {q_num}',
+                                    'options': opts
+                                }
+                                # Add answer from highlighted option
+                                if q_num in cloze_highlights:
+                                    q_dict['answer'] = str(cloze_highlights[q_num])
+                                para_table_questions.append(q_dict)
+
+                            # Mark passage paragraphs as processed
+                            for pl in passage_lines:
+                                processed_paragraphs.add(pl)
+
+                            elem_idx += 2  # Skip paragraph and table
                             continue
 
                         # Found question + table options pattern
@@ -4962,6 +5044,33 @@ def _parse_envie_questions(doc: Document) -> List[dict]:
 
     # Remove incorrectly parsed "A) ..." lines as questions
     questions = [q for q in questions if not q.get('question', '').startswith('A)')]
+
+    # Remove duplicate Cloze questions (keep ones with passage/answer)
+    # Group by Cloze number and keep the best version
+    cloze_by_num = {}
+    non_cloze = []
+    for q in questions:
+        text = q.get('question', '')
+        m = re.search(r'Cloze question (\d+)', text)
+        if m:
+            q_num = int(m.group(1))
+            existing = cloze_by_num.get(q_num)
+            # Prefer version with passage (longer text) or with answer
+            if existing is None:
+                cloze_by_num[q_num] = q
+            else:
+                # Keep the one with more content or answer
+                existing_len = len(existing.get('question', ''))
+                new_len = len(text)
+                existing_has_ans = bool(existing.get('answer'))
+                new_has_ans = bool(q.get('answer'))
+                if (new_has_ans and not existing_has_ans) or (new_len > existing_len and not existing_has_ans):
+                    cloze_by_num[q_num] = q
+        else:
+            non_cloze.append(q)
+
+    # Rebuild questions list
+    questions = non_cloze + list(cloze_by_num.values())
 
     # Sort cloze questions by their question number and insert at correct position
     def get_cloze_num(q):
