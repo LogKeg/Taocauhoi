@@ -1928,11 +1928,25 @@ def generate(payload: GenerateRequest) -> dict:
     engine = payload.ai_engine
     if payload.use_ai and not _is_engine_available(engine):
         engine_names = {"openai": "OPENAI_API_KEY", "gemini": "GEMINI_API_KEY", "ollama": "Ollama"}
+        questions = generate_variants(payload)
+        # Save to question bank
+        saved = _save_text_questions_to_bank(
+            questions,
+            subject=payload.topic or "general",
+            source="generated",
+        )
         return {
-            "questions": generate_variants(payload),
+            "questions": questions,
             "message": f"Chưa cấu hình {engine_names.get(engine, engine)} nên AI không được dùng.",
+            "saved_to_bank": saved,
         }
     questions = generate_variants(payload)
+    # Save to question bank
+    saved = _save_text_questions_to_bank(
+        questions,
+        subject=payload.topic or "general",
+        source="generated-ai" if payload.use_ai else "generated",
+    )
     if payload.use_ai and _is_engine_available(engine):
         src = {_normalize_question(s) for s in payload.samples if s.strip()}
         out = {_normalize_question(q) for q in questions if q.strip()}
@@ -1940,8 +1954,9 @@ def generate(payload: GenerateRequest) -> dict:
             return {
                 "questions": questions,
                 "message": "AI đang trả về câu gần giống câu gốc. Hệ thống đã thêm biến thể đơn giản.",
+                "saved_to_bank": saved,
             }
-    return {"questions": questions}
+    return {"questions": questions, "saved_to_bank": saved}
 
 
 @app.post("/generate-topic")
@@ -1976,7 +1991,17 @@ def generate_topic(
         text = text[:match.start()]
     questions = _normalize_ai_blocks(text)
     questions = [q for q in questions if q.strip()]
-    return {"questions": questions[:count], "answers": answers}
+    final_questions = questions[:count]
+
+    # Save to question bank
+    saved = _save_text_questions_to_bank(
+        final_questions,
+        subject=subject,
+        source="generated-topic",
+        difficulty=difficulty,
+    )
+
+    return {"questions": final_questions, "answers": answers, "saved_to_bank": saved}
 
 
 @app.post("/auto-generate")
@@ -2046,7 +2071,16 @@ def auto_generate(
             questions.extend(ai_questions[:ai_count])
 
     random.shuffle(questions)
-    result = {"questions": questions[:count]}
+    final_questions = questions[:count]
+
+    # Save to question bank
+    saved = _save_text_questions_to_bank(
+        final_questions,
+        subject=subject,
+        source="auto-generated",
+    )
+
+    result = {"questions": final_questions, "saved_to_bank": saved}
     if use_ai and _is_engine_available(ai_engine):
         src = {_normalize_question(s) for s in samples if s.strip()}
         out = {_normalize_question(q) for q in result["questions"] if q.strip()}
@@ -2445,11 +2479,143 @@ def upload_sample(subject: str = Form(...), file: UploadFile = Form(...)) -> dic
 # ============================================================================
 
 from app.database import (
-    get_db, QuestionCRUD, ExamCRUD, HistoryCRUD, Question, Exam, ExamQuestion, ExamVariant, UsageHistory, init_db
+    get_db, QuestionCRUD, ExamCRUD, HistoryCRUD, Question, Exam, ExamQuestion, ExamVariant, UsageHistory, init_db, SessionLocal
 )
 
 # Ensure database is initialized
 init_db()
+
+
+def _save_questions_to_bank(
+    questions: List[dict],
+    subject: str = "general",
+    source: str = "generated",
+    difficulty: str = "medium",
+    question_type: str = "mcq",
+) -> int:
+    """
+    Save a list of questions to the question bank.
+
+    Args:
+        questions: List of question dicts with keys like 'question'/'content', 'options', 'answer'
+        subject: Subject/category for the questions
+        source: Source of the questions (e.g., 'generated', 'word-import', 'similar-exam')
+        difficulty: Difficulty level
+        question_type: Type of question (mcq, blank, etc.)
+
+    Returns:
+        Number of questions saved
+    """
+    if not questions:
+        return 0
+
+    db = SessionLocal()
+    try:
+        saved_count = 0
+        for q in questions:
+            # Handle different key names for question content
+            content = q.get('question') or q.get('content') or ''
+            if not content.strip():
+                continue
+
+            # Get options - handle both list and string formats
+            options = q.get('options', [])
+            if isinstance(options, list):
+                options_str = json.dumps(options, ensure_ascii=False)
+            else:
+                options_str = str(options) if options else None
+
+            # Get answer
+            answer = q.get('answer') or q.get('correct_answer') or ''
+
+            # Detect question type from content
+            q_type = question_type
+            if '___' in content or '______' in content:
+                q_type = 'blank'
+
+            try:
+                QuestionCRUD.create(
+                    db,
+                    content=content.strip(),
+                    options=options_str,
+                    answer=str(answer) if answer else None,
+                    subject=subject,
+                    source=source,
+                    difficulty=difficulty,
+                    question_type=q_type,
+                )
+                saved_count += 1
+            except Exception:
+                # Skip duplicate or invalid questions
+                continue
+
+        return saved_count
+    finally:
+        db.close()
+
+
+def _save_text_questions_to_bank(
+    questions_text: List[str],
+    subject: str = "general",
+    source: str = "generated",
+    difficulty: str = "medium",
+) -> int:
+    """
+    Save text-format questions (from /generate endpoint) to question bank.
+
+    Args:
+        questions_text: List of question strings (may include options in text)
+        subject: Subject for the questions
+        source: Source of the questions
+        difficulty: Difficulty level
+
+    Returns:
+        Number of questions saved
+    """
+    if not questions_text:
+        return 0
+
+    db = SessionLocal()
+    try:
+        saved_count = 0
+        for q_text in questions_text:
+            if not q_text.strip():
+                continue
+
+            # Parse question text to extract content and options
+            lines = q_text.strip().split('\n')
+            content = lines[0] if lines else q_text
+            options = []
+            answer = None
+
+            # Try to extract options (A), B), C), D) format)
+            for line in lines[1:]:
+                line = line.strip()
+                opt_match = re.match(r'^([A-E])\)\s*(.+)$', line, re.IGNORECASE)
+                if opt_match:
+                    options.append(opt_match.group(2).strip())
+
+            # Detect question type
+            q_type = 'mcq' if options else 'blank' if '___' in content else 'mcq'
+
+            try:
+                QuestionCRUD.create(
+                    db,
+                    content=content.strip(),
+                    options=json.dumps(options, ensure_ascii=False) if options else None,
+                    answer=answer,
+                    subject=subject,
+                    source=source,
+                    difficulty=difficulty,
+                    question_type=q_type,
+                )
+                saved_count += 1
+            except Exception:
+                continue
+
+        return saved_count
+    finally:
+        db.close()
 
 
 @app.get("/api/questions")
@@ -5477,6 +5643,25 @@ def convert_word_to_excel(
             else:
                 questions = _parse_bilingual_questions(lines, table_options)
 
+        # Save questions to question bank
+        # Detect subject from filename
+        filename_lower = (file.filename or '').lower()
+        if 'math' in filename_lower or 'toán' in filename_lower:
+            detected_subject = 'math'
+        elif 'english' in filename_lower or 'tiếng anh' in filename_lower or 'en-vie' in filename_lower:
+            detected_subject = 'english'
+        elif 'science' in filename_lower or 'khoa học' in filename_lower:
+            detected_subject = 'science'
+        else:
+            detected_subject = 'general'
+
+        _save_questions_to_bank(
+            questions,
+            subject=detected_subject,
+            source=f"word-import:{file.filename}",
+            question_type='mcq' if questions and questions[0].get('options') else 'blank',
+        )
+
         # Create Excel file
         try:
             import openpyxl
@@ -6162,6 +6347,23 @@ Return ONLY valid JSON array, no markdown, no explanation:"""
                 })
 
     if all_generated:
+        # Save generated questions to question bank
+        # Convert to format expected by _save_questions_to_bank
+        questions_to_save = []
+        for q in all_generated:
+            questions_to_save.append({
+                'question': q.get('content', ''),
+                'options': q.get('options', []),
+                'answer': q.get('correct_answer', ''),
+            })
+
+        saved_count = _save_questions_to_bank(
+            questions_to_save,
+            subject=detected_subject,
+            source=f"similar-exam:{file.filename}",
+            difficulty=difficulty if difficulty != 'same' else 'medium',
+        )
+
         return {
             "ok": True,
             "original_file": file.filename,
@@ -6169,6 +6371,7 @@ Return ONLY valid JSON array, no markdown, no explanation:"""
             "generated_questions": all_generated,
             "count": len(all_generated),
             "difficulty": difficulty,
+            "saved_to_bank": saved_count,
         }
     return {"ok": False, "error": "Không thể tạo câu hỏi. Vui lòng thử lại."}
 
