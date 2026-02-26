@@ -1083,23 +1083,30 @@ ol.output-list li strong {
   margin-bottom: 1rem;
 }
 
-.answer-tab {
+.answer-tab,
+.hw-answer-tab {
   padding: 0.5rem 1rem;
-  border: 1px solid var(--border);
-  background: var(--panel);
+  border: 2px solid var(--border);
+  background: var(--panel) !important;
   border-radius: 8px;
   cursor: pointer;
   font-size: 0.875rem;
   transition: all 0.2s;
+  color: var(--ink) !important;
+  box-shadow: none !important;
 }
 
-.answer-tab:hover {
+.answer-tab:hover,
+.hw-answer-tab:hover {
   border-color: var(--accent);
+  transform: none;
+  background: var(--bg) !important;
 }
 
-.answer-tab.active {
-  background: var(--accent);
-  color: white;
+.answer-tab.active,
+.hw-answer-tab.active {
+  background: linear-gradient(135deg, var(--gradient-start), var(--gradient-end)) !important;
+  color: white !important;
   border-color: var(--accent);
 }
 
