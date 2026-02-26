@@ -4021,28 +4021,57 @@ def _parse_envie_questions(doc: Document) -> List[dict]:
                 current_cloze_num = None
                 opt_idx_in_cloze = 0
 
+                def split_cell_options(cell_text: str) -> List[str]:
+                    """Split cell text that may contain multiple tab-separated options.
+                    E.g., 'Selfish.\tB) Emancipatory.' -> ['Selfish.', 'Emancipatory.']
+                    """
+                    # Check for tab-separated options with markers
+                    if '\t' in cell_text and re.search(r'\t[A-E]\s*[.)]', cell_text):
+                        parts = []
+                        # Split by tab and process each part
+                        raw_parts = cell_text.split('\t')
+                        for part in raw_parts:
+                            part = part.strip()
+                            if not part:
+                                continue
+                            # Remove option marker (A), B., etc.)
+                            cleaned = re.sub(r'^[A-Ea-e]\s*[.)]\s*', '', part)
+                            if cleaned:
+                                parts.append(cleaned)
+                        return parts if parts else [cell_text]
+                    return [cell_text]
+
                 for tr in rows:
                     for tc in tr.findall('.//' + docx_qn('w:tc')):
                         t_elements = tc.findall('.//' + docx_qn('w:t'))
                         cell_text = ''.join([t.text or '' for t in t_elements]).strip()
                         if cell_text:
-                            opt_counter += 1
-                            options.append(cell_text)
-
-                            # Check if this is a Cloze option (starts with number like "15.A)")
-                            cloze_match = re.match(r'^(\d+)\.\s*[A-E]\)', cell_text)
-                            if cloze_match:
-                                current_cloze_num = int(cloze_match.group(1))
-                                opt_idx_in_cloze = 1
-                            elif re.match(r'^[B-E]\)', cell_text) and current_cloze_num:
-                                opt_idx_in_cloze += 1
-
-                            # Check for highlight/shading (yellow = correct answer)
+                            # Check for highlight/shading (yellow = correct answer) BEFORE splitting
+                            cell_is_highlighted = False
                             shd_elements = tc.findall('.//' + docx_qn('w:shd'))
                             for shd in shd_elements:
                                 fill = shd.get(docx_qn('w:fill'))
                                 # FFFF00 = yellow (correct answer)
                                 if fill and fill.upper() == 'FFFF00':
+                                    cell_is_highlighted = True
+                                    break
+
+                            # Split cell into multiple options if needed
+                            cell_options = split_cell_options(cell_text)
+                            for cell_opt in cell_options:
+                                opt_counter += 1
+                                options.append(cell_opt)
+
+                                # Check if this is a Cloze option (starts with number like "15.A)")
+                                cloze_match = re.match(r'^(\d+)\.\s*[A-E]\)', cell_opt)
+                                if cloze_match:
+                                    current_cloze_num = int(cloze_match.group(1))
+                                    opt_idx_in_cloze = 1
+                                elif re.match(r'^[B-E]\)', cell_opt) and current_cloze_num:
+                                    opt_idx_in_cloze += 1
+
+                                # Track highlighted option
+                                if cell_is_highlighted:
                                     if current_cloze_num:
                                         # Cloze table - track per question
                                         highlighted_map[current_cloze_num] = opt_idx_in_cloze
@@ -4119,7 +4148,12 @@ def _parse_envie_questions(doc: Document) -> List[dict]:
                 # Option A is text before B)
                 opt_a = line[:b_match.start()].strip().rstrip('\t ')
                 if opt_a:
-                    opts.append(opt_a)
+                    # Clean option A - remove A) or A. marker if present
+                    opt_a_clean = re.sub(r'^[Aa]\s*[.)]\s*', '', opt_a)
+                    # Also handle newline - take only first part
+                    if '\n' in opt_a_clean:
+                        opt_a_clean = opt_a_clean.split('\n')[0].strip()
+                    opts.append(opt_a_clean if opt_a_clean else opt_a)
                 else:
                     # Image option - add placeholder
                     opts.append('[Image A]')
@@ -4133,6 +4167,9 @@ def _parse_envie_questions(doc: Document) -> List[dict]:
                         end = len(line)
                     opt_text = line[start:end].strip().rstrip('\t ')
                     if opt_text:
+                        # Handle newline - take only first part
+                        if '\n' in opt_text:
+                            opt_text = opt_text.split('\n')[0].strip()
                         opts.append(opt_text)
                     else:
                         # Image option - add placeholder
@@ -4148,6 +4185,9 @@ def _parse_envie_questions(doc: Document) -> List[dict]:
                     end = len(line)
                 opt_text = line[start:end].strip().rstrip('\t ')
                 if opt_text:
+                    # Handle newline - take only first part
+                    if '\n' in opt_text:
+                        opt_text = opt_text.split('\n')[0].strip()
                     opts.append(opt_text)
         # Format: "C) optC D) optD" or "D) optD E) optE" (continuation line)
         elif re.match(r'^[C-E]\s*\)', line, re.IGNORECASE):
@@ -4160,6 +4200,9 @@ def _parse_envie_questions(doc: Document) -> List[dict]:
                     end = len(line)
                 opt_text = line[start:end].strip().rstrip('\t ')
                 if opt_text:
+                    # Handle newline - take only first part
+                    if '\n' in opt_text:
+                        opt_text = opt_text.split('\n')[0].strip()
                     opts.append(opt_text)
         return opts
 
@@ -4168,6 +4211,38 @@ def _parse_envie_questions(doc: Document) -> List[dict]:
         if opt_line in para_highlight_map:
             return str(para_highlight_map[opt_line])
         return ''
+
+    def clean_option_text(opt: str) -> str:
+        """Clean option text by removing markers and extracting just the content.
+
+        Handles formats like:
+        - 'A) Option text' -> 'Option text'
+        - 'A. Option text' -> 'Option text'
+        - 'a) Option text' -> 'Option text'
+        - 'A) Option text\n34. Next question' -> 'Option text' (split at newline)
+        """
+        if not opt:
+            return opt
+
+        # First, split at newline and take only first part (in case question is embedded)
+        if '\n' in opt:
+            opt = opt.split('\n')[0].strip()
+
+        # Remove option markers: A), A., a), a., etc.
+        opt_match = re.match(r'^([A-Ea-e])[.)]\s*(.*)$', opt)
+        if opt_match:
+            return opt_match.group(2).strip()
+
+        return opt.strip()
+
+    def clean_options_list(options: List[str]) -> List[str]:
+        """Clean a list of options, removing markers and embedded questions."""
+        cleaned = []
+        for opt in options:
+            clean_opt = clean_option_text(opt)
+            if clean_opt:
+                cleaned.append(clean_opt)
+        return cleaned
 
     def is_option_line_envie(line: str) -> bool:
         """Check if line contains options."""
@@ -4180,8 +4255,8 @@ def _parse_envie_questions(doc: Document) -> List[dict]:
         # Image-only options: "B)\tC)\tD)"
         if re.match(r'^B\s*\)\s*\t', line, re.IGNORECASE):
             return True
-        # Continuation line: "D) opt E) opt"
-        if re.match(r'^[D-E]\s*\)', line, re.IGNORECASE):
+        # Continuation line: "C) opt D) opt" or "D) opt E) opt"
+        if re.match(r'^[C-E]\s*\)', line, re.IGNORECASE):
             return True
         return False
 
@@ -4330,14 +4405,8 @@ def _parse_envie_questions(doc: Document) -> List[dict]:
                             continue
 
                         # Found question + table options pattern
-                        # Clean option prefixes (A., B., C., D., E.)
-                        cleaned_options = []
-                        for opt in options:
-                            opt_match = re.match(r'^([A-E])\.\s*(.+)$', opt, re.IGNORECASE)
-                            if opt_match:
-                                cleaned_options.append(opt_match.group(2))
-                            else:
-                                cleaned_options.append(opt)
+                        # Clean option prefixes (A., B., C., D., E. or A), B), etc.)
+                        cleaned_options = clean_options_list(options)
 
                         q_dict = {
                             'question': text,
@@ -4767,11 +4836,11 @@ def _parse_envie_questions(doc: Document) -> List[dict]:
                     continue
 
             # Case 1b: Options as separate paragraphs (no A/B/C markers)
-            # Common in Story format
+            # Common in Story format, Red Kangaroo has 5 options (A-E)
             if next_line and not is_option_line_envie(next_line):
                 opts = []
                 j = i + 1
-                while j < len(paragraphs) and len(opts) < 4:
+                while j < len(paragraphs) and len(opts) < 5:  # Max 5 options (A-E)
                     opt_line = paragraphs[j].strip()
                     if not opt_line:
                         j += 1
@@ -4789,7 +4858,7 @@ def _parse_envie_questions(doc: Document) -> List[dict]:
                 if len(opts) >= 3:  # Need at least 3 options
                     questions.append({
                         'question': line,
-                        'options': opts[:4],
+                        'options': opts[:5],  # Max 5 options (A-E)
                         '_doc_pos': para_idx_to_doc_idx.get(i, i)  # Track document position
                     })
                     i = j
@@ -4800,10 +4869,25 @@ def _parse_envie_questions(doc: Document) -> List[dict]:
             # First check if next line is an option line (image options)
             if next_line and is_option_line_envie(next_line):
                 opts = extract_options_envie(next_line)
+                j = next_idx + 1
+                # Check for continuation lines (C) D) on next line)
+                while j < len(paragraphs) and len(opts) < 5:
+                    cont_line = paragraphs[j].strip()
+                    if not cont_line:
+                        j += 1
+                        continue
+                    # Check if line starts with C), D), or E) (continuation)
+                    if re.match(r'^[C-E]\s*\)', cont_line, re.IGNORECASE):
+                        more_opts = extract_options_envie(cont_line)
+                        if more_opts:
+                            opts.extend(more_opts)
+                            j += 1
+                            continue
+                    break
                 if opts:
                     q_dict = {
                         'question': line,
-                        'options': opts,
+                        'options': opts[:5],  # Max 5 options (A-E)
                         '_doc_pos': para_idx_to_doc_idx.get(i, i)  # Track document position
                     }
                     # Check for highlighted answer in option line
@@ -4811,14 +4895,15 @@ def _parse_envie_questions(doc: Document) -> List[dict]:
                     if ans:
                         q_dict['answer'] = ans
                     questions.append(q_dict)
-                    i = next_idx + 1
+                    i = j
                     continue
 
-            # Otherwise collect next 3 paragraphs as options (no markers)
+            # Otherwise collect next 3-4 paragraphs as options (no markers)
             # Common in Q1-5 sections with reading comprehension
+            # Red Kangaroo has 4 options (A-D), other levels may have 3
             opts = []
             j = i + 1
-            while j < len(paragraphs) and len(opts) < 3:
+            while j < len(paragraphs) and len(opts) < 4:
                 opt_line = paragraphs[j].strip()
                 if not opt_line:
                     j += 1
@@ -4834,10 +4919,10 @@ def _parse_envie_questions(doc: Document) -> List[dict]:
                 opts.append(opt_line)
                 j += 1
 
-            if len(opts) == 3:  # EN-VIE Q1-5 has exactly 3 options
+            if len(opts) >= 3:  # EN-VIE has 3-4 options per reading comprehension question
                 questions.append({
                     'question': line,
-                    'options': opts,
+                    'options': opts[:4],  # Take at most 4 options
                     '_doc_pos': para_idx_to_doc_idx.get(i, i)  # Track document position
                 })
                 i = j
@@ -4875,17 +4960,31 @@ def _parse_envie_questions(doc: Document) -> List[dict]:
                             j += 1
                             continue
                         break
-                    opt_c = None
-                    if j < len(paragraphs):
-                        c_line = paragraphs[j].strip()
-                        c_match = re.match(r'^C\s*\)\s*(.+)$', c_line, re.IGNORECASE)
-                        if c_match:
-                            opt_c = c_match.group(1).strip()
+                    # Collect remaining options (C, D, E) from continuation lines
+                    remaining_opts = []
+                    while j < len(paragraphs) and len(remaining_opts) < 3:
+                        np = paragraphs[j].strip()
+                        if not np:
                             j += 1
-                    if opt_a and opt_b and opt_c:
+                            continue
+                        # Check if line starts with C), D), or E)
+                        if re.match(r'^[C-E]\s*\)', np, re.IGNORECASE):
+                            cont_opts = extract_options_envie(np)
+                            if cont_opts:
+                                remaining_opts.extend(cont_opts)
+                                j += 1
+                                continue
+                        # Check if it's a single option without marker (E option)
+                        elif not re.search(r'[A-D]\s*\)', np) and len(np) < 50:
+                            remaining_opts.append(np)
+                            j += 1
+                            continue
+                        break
+                    if opt_a and opt_b and remaining_opts:
+                        all_opts = [opt_a, opt_b] + remaining_opts
                         questions.append({
                             'question': line,
-                            'options': [opt_a, opt_b, opt_c],
+                            'options': all_opts[:5],  # Max 5 options (A-E)
                             '_doc_pos': para_idx_to_doc_idx.get(i, i)  # Track document position
                         })
                         i = j
@@ -4944,7 +5043,42 @@ def _parse_envie_questions(doc: Document) -> List[dict]:
 
         # Case 4: Question ending with , followed by paragraph options (incomplete sentence)
         # e.g., "According to the notice," followed by 3 options
+        # Or: Question split across paragraphs ending with , then . followed by option line
         if line.endswith(',') and len(line) > 15:
+            # First check if next paragraph is a continuation (ends with .) followed by option line
+            j = i + 1
+            while j < len(paragraphs):
+                np = paragraphs[j].strip()
+                if np:
+                    break
+                j += 1
+
+            if j < len(paragraphs):
+                continuation = paragraphs[j].strip()
+                # Check if this is a continuation ending with . (not a question)
+                if continuation.endswith('.') and not continuation.endswith('?') and len(continuation) < 80:
+                    # Check if next line after continuation is an option line
+                    k = j + 1
+                    while k < len(paragraphs):
+                        np = paragraphs[k].strip()
+                        if np:
+                            break
+                        k += 1
+                    if k < len(paragraphs) and is_option_line_envie(paragraphs[k].strip()):
+                        # Merge question parts and get options
+                        combined_question = line + ' ' + continuation
+                        opt_line = paragraphs[k].strip()
+                        opts = extract_options_envie(opt_line)
+                        if opts:
+                            questions.append({
+                                'question': combined_question,
+                                'options': opts[:5],
+                                '_doc_pos': para_idx_to_doc_idx.get(i, i)  # Track document position
+                            })
+                            i = k + 1
+                            continue
+
+            # Otherwise, collect paragraph options
             opts = []
             j = i + 1
             while j < len(paragraphs) and len(opts) < 3:
@@ -4987,20 +5121,22 @@ def _parse_envie_questions(doc: Document) -> List[dict]:
 
             if opt1 and j + 1 < len(paragraphs):
                 opt2_line = paragraphs[j + 1].strip() if j + 1 < len(paragraphs) else ""
-                c_marker = re.search(r'\tC\s*\)|(\s{2,})C\s*\)', opt2_line)
-                if c_marker:
-                    opt2 = opt2_line[:c_marker.start()].strip()
-                    opt3_match = re.search(r'C\s*\)\s*(.+)$', opt2_line, re.IGNORECASE)
-                    opt3 = opt3_match.group(1).strip() if opt3_match else ""
+                # Skip if opt2_line has B) marker - this is a full option line, not Case 5a format
+                if not re.search(r'B\s*\)', opt2_line):
+                    c_marker = re.search(r'\tC\s*\)|(\s{2,})C\s*\)', opt2_line)
+                    if c_marker:
+                        opt2 = opt2_line[:c_marker.start()].strip()
+                        opt3_match = re.search(r'C\s*\)\s*(.+)$', opt2_line, re.IGNORECASE)
+                        opt3 = opt3_match.group(1).strip() if opt3_match else ""
 
-                    if opt2 and opt3:
-                        questions.append({
-                            'question': line,
-                            'options': [opt1, opt2, opt3],
-                            '_doc_pos': para_idx_to_doc_idx.get(i, i)  # Track document position
-                        })
-                        i = j + 2
-                        continue
+                        if opt2 and opt3:
+                            questions.append({
+                                'question': line,
+                                'options': [opt1, opt2, opt3],
+                                '_doc_pos': para_idx_to_doc_idx.get(i, i)  # Track document position
+                            })
+                            i = j + 2
+                            continue
 
         # Case 5b-new: Grey Kangaroo Q1-5 reading comprehension (MUST come before 5b)
         # Format: stem line (no ? ending), then "opt1\tB) opt2" then "C) opt3"
