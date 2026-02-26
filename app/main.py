@@ -66,6 +66,7 @@ class QuestionUpdate(BaseModel):
     question_type: Optional[str] = None
     difficulty: Optional[str] = None
     tags: Optional[str] = None
+    source: Optional[str] = None
 
 
 class ExamCreate(BaseModel):

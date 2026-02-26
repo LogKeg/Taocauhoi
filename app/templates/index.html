@@ -480,6 +480,86 @@
       </div>
     </div>
 
+    <!-- Modal xem/sửa câu hỏi -->
+    <div class="modal-overlay" id="questionModal" hidden>
+      <div class="modal" style="max-width: 800px;">
+        <div class="modal-header">
+          <h2 id="questionModalTitle">Chi tiết câu hỏi</h2>
+          <button class="modal-close" id="questionModalClose">&times;</button>
+        </div>
+        <div class="modal-body">
+          <form id="questionForm">
+            <input type="hidden" id="questionId" />
+            <div class="form-group">
+              <label for="questionContent">Nội dung câu hỏi *</label>
+              <textarea id="questionContent" rows="4" required></textarea>
+            </div>
+            <div class="form-group">
+              <label>Các đáp án</label>
+              <div id="optionsContainer">
+                <div class="option-row">
+                  <span class="option-label">A)</span>
+                  <input type="text" class="option-input" data-index="0" placeholder="Đáp án A" />
+                  <input type="radio" name="correctAnswer" value="0" title="Đáp án đúng" />
+                </div>
+                <div class="option-row">
+                  <span class="option-label">B)</span>
+                  <input type="text" class="option-input" data-index="1" placeholder="Đáp án B" />
+                  <input type="radio" name="correctAnswer" value="1" title="Đáp án đúng" />
+                </div>
+                <div class="option-row">
+                  <span class="option-label">C)</span>
+                  <input type="text" class="option-input" data-index="2" placeholder="Đáp án C" />
+                  <input type="radio" name="correctAnswer" value="2" title="Đáp án đúng" />
+                </div>
+                <div class="option-row">
+                  <span class="option-label">D)</span>
+                  <input type="text" class="option-input" data-index="3" placeholder="Đáp án D" />
+                  <input type="radio" name="correctAnswer" value="3" title="Đáp án đúng" />
+                </div>
+              </div>
+            </div>
+            <div class="auto-grid">
+              <div class="form-group">
+                <label for="questionSubject">Môn học</label>
+                <input type="text" id="questionSubject" placeholder="Ví dụ: math, english..." />
+              </div>
+              <div class="form-group">
+                <label for="questionDifficulty">Độ khó</label>
+                <select id="questionDifficulty">
+                  <option value="easy">Dễ</option>
+                  <option value="medium" selected>Trung bình</option>
+                  <option value="hard">Khó</option>
+                </select>
+              </div>
+            </div>
+            <div class="auto-grid">
+              <div class="form-group">
+                <label for="questionType">Loại câu hỏi</label>
+                <select id="questionType">
+                  <option value="mcq">Trắc nghiệm</option>
+                  <option value="fill">Điền khuyết</option>
+                  <option value="essay">Tự luận</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label for="questionSource">Nguồn</label>
+                <input type="text" id="questionSource" placeholder="Ví dụ: generated, imported..." />
+              </div>
+            </div>
+            <div class="form-group">
+              <label for="questionExplanation">Giải thích (tùy chọn)</label>
+              <textarea id="questionExplanation" rows="2" placeholder="Giải thích đáp án..."></textarea>
+            </div>
+          </form>
+        </div>
+        <div class="modal-footer">
+          <button type="button" id="questionSaveBtn" class="primary-btn">Lưu</button>
+          <button type="button" id="questionCancelBtn">Hủy</button>
+        </div>
+      </div>
+    </div>
+
     <script type="module">
       import { upload } from 'https://esm.sh/@vercel/blob/client';
 
@@ -1315,10 +1395,26 @@
 
           // Attach delete handlers
           list.querySelectorAll('.delete-q').forEach(btn => {
-            btn.addEventListener('click', async () => {
+            btn.addEventListener('click', async (e) => {
+              e.stopPropagation();
               if (!confirm('Xóa câu hỏi này?')) return;
               await fetch(`/api/questions/${btn.dataset.id}`, { method: 'DELETE' });
               loadBankQuestions();
+            });
+          });
+
+          // Attach edit handlers
+          list.querySelectorAll('.edit-q').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+              e.stopPropagation();
+              openQuestionModal(btn.dataset.id);
+            });
+          });
+
+          // Attach click handler to view detail
+          list.querySelectorAll('.bank-item').forEach(item => {
+            item.addEventListener('click', () => {
+              openQuestionModal(item.dataset.id);
             });
           });
         } catch (err) {
@@ -1336,6 +1432,169 @@
           console.error(err);
         }
       }
+
+      // Question Modal functions
+      const questionModal = document.getElementById('questionModal');
+      const questionForm = document.getElementById('questionForm');
+
+      async function openQuestionModal(questionId = null) {
+        const title = document.getElementById('questionModalTitle');
+        const idField = document.getElementById('questionId');
+        const contentField = document.getElementById('questionContent');
+        const subjectField = document.getElementById('questionSubject');
+        const difficultyField = document.getElementById('questionDifficulty');
+        const typeField = document.getElementById('questionType');
+        const sourceField = document.getElementById('questionSource');
+        const explanationField = document.getElementById('questionExplanation');
+        const optionInputs = document.querySelectorAll('.option-input');
+        const correctRadios = document.querySelectorAll('input[name="correctAnswer"]');
+
+        // Reset form
+        questionForm.reset();
+        optionInputs.forEach(input => input.value = '');
+        correctRadios.forEach(radio => radio.checked = false);
+
+        if (questionId) {
+          // Edit mode - load question data
+          title.textContent = 'Chi tiết câu hỏi';
+          try {
+            const res = await fetch(`/api/questions/${questionId}`);
+            const q = await res.json();
+
+            idField.value = q.id;
+            contentField.value = q.content || '';
+            subjectField.value = q.subject || '';
+            difficultyField.value = q.difficulty || 'medium';
+            typeField.value = q.question_type || 'mcq';
+            sourceField.value = q.source || '';
+            explanationField.value = q.explanation || '';
+
+            // Parse options from content or options field
+            let options = [];
+            if (q.options) {
+              try {
+                options = typeof q.options === 'string' ? JSON.parse(q.options) : q.options;
+              } catch (e) {
+                options = [];
+              }
+            }
+
+            // Fill options
+            options.forEach((opt, idx) => {
+              if (idx < optionInputs.length) {
+                optionInputs[idx].value = opt;
+              }
+            });
+
+            // Set correct answer (API returns 'answer' field)
+            const answerValue = q.answer || q.correct_answer;
+            if (answerValue !== null && answerValue !== undefined) {
+              const answerIdx = parseInt(answerValue);
+              if (!isNaN(answerIdx) && answerIdx >= 0 && answerIdx < correctRadios.length) {
+                correctRadios[answerIdx].checked = true;
+              }
+            }
+          } catch (err) {
+            console.error('Error loading question:', err);
+          }
+        } else {
+          // Add mode
+          title.textContent = 'Thêm câu hỏi mới';
+          idField.value = '';
+        }
+
+        questionModal.hidden = false;
+      }
+
+      function closeQuestionModal() {
+        questionModal.hidden = true;
+      }
+
+      async function saveQuestion() {
+        const idField = document.getElementById('questionId');
+        const contentField = document.getElementById('questionContent');
+        const subjectField = document.getElementById('questionSubject');
+        const difficultyField = document.getElementById('questionDifficulty');
+        const typeField = document.getElementById('questionType');
+        const sourceField = document.getElementById('questionSource');
+        const explanationField = document.getElementById('questionExplanation');
+        const optionInputs = document.querySelectorAll('.option-input');
+        const correctRadios = document.querySelectorAll('input[name="correctAnswer"]');
+
+        // Collect options
+        const options = [];
+        optionInputs.forEach(input => {
+          if (input.value.trim()) {
+            options.push(input.value.trim());
+          }
+        });
+
+        // Get correct answer
+        let correctAnswer = null;
+        correctRadios.forEach((radio, idx) => {
+          if (radio.checked) {
+            correctAnswer = idx;
+          }
+        });
+
+        const questionData = {
+          content: contentField.value.trim(),
+          subject: subjectField.value.trim() || 'general',
+          difficulty: difficultyField.value,
+          question_type: typeField.value,
+          source: sourceField.value.trim() || 'manual',
+          explanation: explanationField.value.trim(),
+          options: JSON.stringify(options),  // API expects string
+          answer: correctAnswer !== null ? String(correctAnswer) : null
+        };
+
+        if (!questionData.content) {
+          alert('Vui lòng nhập nội dung câu hỏi');
+          return;
+        }
+
+        try {
+          const questionId = idField.value;
+          let url = '/api/questions';
+          let method = 'POST';
+
+          if (questionId) {
+            url = `/api/questions/${questionId}`;
+            method = 'PUT';
+          }
+
+          const res = await fetch(url, {
+            method: method,
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(questionData)
+          });
+
+          if (res.ok) {
+            closeQuestionModal();
+            loadBankQuestions();
+            loadBankStats();
+          } else {
+            const err = await res.json();
+            alert('Lỗi: ' + (err.detail || 'Không thể lưu câu hỏi'));
+          }
+        } catch (err) {
+          console.error('Error saving question:', err);
+          alert('Lỗi kết nối server');
+        }
+      }
+
+      // Event listeners for question modal
+      document.getElementById('questionModalClose').addEventListener('click', closeQuestionModal);
+      document.getElementById('questionCancelBtn').addEventListener('click', closeQuestionModal);
+      document.getElementById('questionSaveBtn').addEventListener('click', saveQuestion);
+      document.getElementById('addQuestionBtn').addEventListener('click', () => openQuestionModal());
+
+      // Close modal on overlay click
+      questionModal.addEventListener('click', (e) => {
+        if (e.target === questionModal) {
+          closeQuestionModal();
+        }
+      });
 
       document.getElementById('bankSearchBtn').addEventListener('click', () => {
         bankPage = 0;
