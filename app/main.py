@@ -4739,9 +4739,32 @@ def _parse_envie_questions(doc: Document) -> List[dict]:
             continue
 
         # Skip general instruction lines (after handling Q1-5 special case)
+        # BUT: If instruction line is followed by option line, treat it as a question
+        # EXCEPT: If instruction mentions question range like "(21-30)", always skip
         if is_instruction_line(line):
-            i += 1
-            continue
+            # Always skip if it's a section instruction with question range
+            if re.search(r'\(\d+-\d+\)', line):
+                i += 1
+                continue
+            # Check if next non-empty line is an option line
+            j = i + 1
+            while j < len(paragraphs):
+                np = paragraphs[j].strip()
+                if np:
+                    break
+                j += 1
+            if j < len(paragraphs) and is_option_line_envie(paragraphs[j].strip()):
+                # Check if next line is a numbered cloze option (e.g., "22.\tA) neither")
+                # If so, skip this instruction - it's for Cloze section
+                next_line_text = paragraphs[j].strip()
+                if re.match(r'^\d+\.\s*\t?A\s*\)', next_line_text):
+                    i += 1
+                    continue
+                # This instruction acts as a question - process it below
+                pass
+            else:
+                i += 1
+                continue
 
         # Case 0b: Standalone question number "1." or "2." etc.
         # Followed by 3 option paragraphs (normal format)
@@ -4947,41 +4970,32 @@ def _parse_envie_questions(doc: Document) -> List[dict]:
 
             if j < len(paragraphs):
                 first_opt_line = paragraphs[j].strip()
-                # Check for "optA\tB) optB" pattern
-                ab_match = re.search(r'^(.+?)\tB\s*\)\s*(.+)$', first_opt_line)
-                if ab_match:
-                    opt_a = ab_match.group(1).strip()
-                    opt_b = ab_match.group(2).strip()
-                    # Look for C) option on next line
-                    j += 1
-                    while j < len(paragraphs):
-                        np = paragraphs[j].strip()
-                        if not np:
-                            j += 1
-                            continue
-                        break
-                    # Collect remaining options (C, D, E) from continuation lines
-                    remaining_opts = []
-                    while j < len(paragraphs) and len(remaining_opts) < 3:
-                        np = paragraphs[j].strip()
-                        if not np:
-                            j += 1
-                            continue
-                        # Check if line starts with C), D), or E)
-                        if re.match(r'^[C-E]\s*\)', np, re.IGNORECASE):
-                            cont_opts = extract_options_envie(np)
-                            if cont_opts:
-                                remaining_opts.extend(cont_opts)
+                # Check for "optA\tB) optB" pattern - use extract_options_envie for proper parsing
+                if re.search(r'\tB\s*\)', first_opt_line):
+                    first_opts = extract_options_envie(first_opt_line)
+                    if len(first_opts) >= 2:
+                        # Look for continuation options (C), D), E)) on next lines
+                        j += 1
+                        while j < len(paragraphs) and len(first_opts) < 5:
+                            np = paragraphs[j].strip()
+                            if not np:
                                 j += 1
                                 continue
-                        # Check if it's a single option without marker (E option)
-                        elif not re.search(r'[A-D]\s*\)', np) and len(np) < 50:
-                            remaining_opts.append(np)
-                            j += 1
-                            continue
-                        break
-                    if opt_a and opt_b and remaining_opts:
-                        all_opts = [opt_a, opt_b] + remaining_opts
+                            # Check if line starts with C), D), or E)
+                            if re.match(r'^[C-E]\s*\)', np, re.IGNORECASE):
+                                cont_opts = extract_options_envie(np)
+                                if cont_opts:
+                                    first_opts.extend(cont_opts)
+                                    j += 1
+                                    continue
+                            # Check if it's a single option without marker (E option)
+                            elif not re.search(r'[A-D]\s*\)', np) and len(np) < 50:
+                                first_opts.append(np)
+                                j += 1
+                                continue
+                            break
+                        if len(first_opts) >= 3:
+                            all_opts = first_opts
                         questions.append({
                             'question': line,
                             'options': all_opts[:5],  # Max 5 options (A-E)
@@ -5021,14 +5035,30 @@ def _parse_envie_questions(doc: Document) -> List[dict]:
                 i = j
                 continue
 
-        # Case 3: Matching question - description followed by option line with 5 choices
+        # Case 3: Matching question - description followed by option line with 3+ choices
         # e.g., "Maria loves comfort food..." followed by "The Safari. B) Origo. C)..."
+        # Also handles instruction line as question: "Fill in the missing letter" + "A\tB) I\tC) U"
         # Skip numbered cloze format "22. A) ..."
         if len(line) > 30 and not line.endswith('?') and not has_fill_blank(line) and not re.match(r'^(\d+)\.\s*A\s*\)', line):
             if next_line and is_option_line_envie(next_line):
-                # Check if options have 5 choices (matching format)
+                # Extract options from option line
                 opts = extract_options_envie(next_line)
-                if len(opts) >= 4:  # Matching usually has 5 options
+                j = next_idx + 1
+                # Check for continuation lines (D), E) on next line)
+                while j < len(paragraphs) and len(opts) < 5:
+                    cont_line = paragraphs[j].strip()
+                    if not cont_line:
+                        j += 1
+                        continue
+                    # Check if line starts with D) or E) (continuation)
+                    if re.match(r'^[D-E]\s*\)', cont_line, re.IGNORECASE):
+                        more_opts = extract_options_envie(cont_line)
+                        if more_opts:
+                            opts.extend(more_opts)
+                            j += 1
+                            continue
+                    break
+                if len(opts) >= 3:  # At least 3 options (A, B, C)
                     q_dict = {
                         'question': line,
                         'options': opts[:5],
@@ -5038,7 +5068,7 @@ def _parse_envie_questions(doc: Document) -> List[dict]:
                     if ans:
                         q_dict['answer'] = ans
                     questions.append(q_dict)
-                    i = next_idx + 1
+                    i = j
                     continue
 
         # Case 4: Question ending with , followed by paragraph options (incomplete sentence)
