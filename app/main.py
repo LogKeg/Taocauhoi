@@ -3899,12 +3899,47 @@ def _parse_envie_questions(doc: Document) -> List[dict]:
     # Build a map of option paragraph text -> highlighted option index
     # This helps when processing inline options in paragraphs
     para_highlight_map = {}
-    for elem in doc_elements:
-        if elem['type'] == 'paragraph' and elem.get('highlighted_option', 0) > 0:
-            para_highlight_map[elem['text']] = elem['highlighted_option']
+    # Build list of (doc_elem_idx, normalized_text) for fuzzy matching
+    doc_elem_texts = []
+    for idx, elem in enumerate(doc_elements):
+        if elem['type'] == 'paragraph':
+            text = elem['text']
+            if elem.get('highlighted_option', 0) > 0:
+                para_highlight_map[text] = elem['highlighted_option']
+            # Store normalized text for matching
+            normalized_text = text.replace('\n', '').replace('\r', '')
+            doc_elem_texts.append((idx, normalized_text))
 
     # Also keep traditional paragraph extraction for backward compatibility
     paragraphs = [p.text.strip() for p in doc.paragraphs]
+
+    # Create a mapping from paragraphs index to doc_elements index
+    # This ensures consistent ordering when sorting by _doc_pos
+    # Use fuzzy matching: find doc_element that contains the paragraph text
+    para_idx_to_doc_idx = {}
+    for pi, p_text in enumerate(paragraphs):
+        if not p_text:
+            para_idx_to_doc_idx[pi] = 10000 + pi
+            continue
+        # Normalize paragraph text for matching
+        normalized_p = p_text.replace('\n', '').replace('\r', '')
+        # First try exact match
+        found = False
+        for doc_idx, doc_text in doc_elem_texts:
+            if normalized_p == doc_text:
+                para_idx_to_doc_idx[pi] = doc_idx
+                found = True
+                break
+        if not found:
+            # Try fuzzy match: check if doc_text contains or ends with normalized_p
+            for doc_idx, doc_text in doc_elem_texts:
+                if doc_text.endswith(normalized_p) or normalized_p in doc_text:
+                    para_idx_to_doc_idx[pi] = doc_idx
+                    found = True
+                    break
+        if not found:
+            # Fallback: use paragraph index (paragraphs are roughly in order)
+            para_idx_to_doc_idx[pi] = pi
 
     def extract_options_envie(line: str) -> List[str]:
         """Extract options from EN-VIE format line."""
@@ -4460,7 +4495,7 @@ def _parse_envie_questions(doc: Document) -> List[dict]:
                             questions.append({
                                 'question': q_contents[q_idx],
                                 'options': q_opts,
-                                '_doc_pos': i  # Track document position
+                                '_doc_pos': para_idx_to_doc_idx.get(i, i)  # Track document position
                             })
                             seen_q_numbers.add(str(q_idx + 1))
                     i = j
@@ -4501,7 +4536,7 @@ def _parse_envie_questions(doc: Document) -> List[dict]:
                     questions.append({
                         'question': f'Question {q_num} (reading comprehension)',
                         'options': opts,
-                        '_doc_pos': i  # Track document position
+                        '_doc_pos': para_idx_to_doc_idx.get(i, i)  # Track document position
                     })
                     i = j
                     continue
@@ -4560,7 +4595,7 @@ def _parse_envie_questions(doc: Document) -> List[dict]:
                     questions.append({
                         'question': combined_question,
                         'options': opts,
-                        '_doc_pos': i  # Track document position
+                        '_doc_pos': para_idx_to_doc_idx.get(i, i)  # Track document position
                     })
                     i = j
                     continue
@@ -4589,7 +4624,7 @@ def _parse_envie_questions(doc: Document) -> List[dict]:
                     questions.append({
                         'question': line,
                         'options': opts[:4],
-                        '_doc_pos': i  # Track document position
+                        '_doc_pos': para_idx_to_doc_idx.get(i, i)  # Track document position
                     })
                     i = j
                     continue
@@ -4603,7 +4638,7 @@ def _parse_envie_questions(doc: Document) -> List[dict]:
                     q_dict = {
                         'question': line,
                         'options': opts,
-                        '_doc_pos': i  # Track document position
+                        '_doc_pos': para_idx_to_doc_idx.get(i, i)  # Track document position
                     }
                     # Check for highlighted answer in option line
                     ans = get_answer_from_option_line(next_line)
@@ -4637,7 +4672,7 @@ def _parse_envie_questions(doc: Document) -> List[dict]:
                 questions.append({
                     'question': line,
                     'options': opts,
-                    '_doc_pos': i  # Track document position
+                    '_doc_pos': para_idx_to_doc_idx.get(i, i)  # Track document position
                 })
                 i = j
                 continue
@@ -4685,7 +4720,7 @@ def _parse_envie_questions(doc: Document) -> List[dict]:
                         questions.append({
                             'question': line,
                             'options': [opt_a, opt_b, opt_c],
-                            '_doc_pos': i  # Track document position
+                            '_doc_pos': para_idx_to_doc_idx.get(i, i)  # Track document position
                         })
                         i = j
                         continue
@@ -4716,7 +4751,7 @@ def _parse_envie_questions(doc: Document) -> List[dict]:
                 questions.append({
                     'question': line,
                     'options': dialogue_opts[:3],
-                    '_doc_pos': i  # Track document position
+                    '_doc_pos': para_idx_to_doc_idx.get(i, i)  # Track document position
                 })
                 i = j
                 continue
@@ -4732,7 +4767,7 @@ def _parse_envie_questions(doc: Document) -> List[dict]:
                     q_dict = {
                         'question': line,
                         'options': opts[:5],
-                        '_doc_pos': i  # Track document position
+                        '_doc_pos': para_idx_to_doc_idx.get(i, i)  # Track document position
                     }
                     ans = get_answer_from_option_line(next_line)
                     if ans:
@@ -4763,7 +4798,7 @@ def _parse_envie_questions(doc: Document) -> List[dict]:
                 questions.append({
                     'question': line,
                     'options': opts,
-                    '_doc_pos': i  # Track document position
+                    '_doc_pos': para_idx_to_doc_idx.get(i, i)  # Track document position
                 })
                 i = j
                 continue
@@ -4796,7 +4831,7 @@ def _parse_envie_questions(doc: Document) -> List[dict]:
                         questions.append({
                             'question': line,
                             'options': [opt1, opt2, opt3],
-                            '_doc_pos': i  # Track document position
+                            '_doc_pos': para_idx_to_doc_idx.get(i, i)  # Track document position
                         })
                         i = j + 2
                         continue
@@ -4845,7 +4880,7 @@ def _parse_envie_questions(doc: Document) -> List[dict]:
                         questions.append({
                             'question': line,
                             'options': [opt_a, opt_b, opt_c],
-                            '_doc_pos': i  # Track document position
+                            '_doc_pos': para_idx_to_doc_idx.get(i, i)  # Track document position
                         })
                         i = j
                         continue
@@ -4877,7 +4912,7 @@ def _parse_envie_questions(doc: Document) -> List[dict]:
                 questions.append({
                     'question': line,
                     'options': opts,
-                    '_doc_pos': i  # Track document position
+                    '_doc_pos': para_idx_to_doc_idx.get(i, i)  # Track document position
                 })
                 i = j
                 continue
@@ -4927,7 +4962,7 @@ def _parse_envie_questions(doc: Document) -> List[dict]:
                 questions.append({
                     'question': line,
                     'options': opts[:5],
-                    '_doc_pos': i  # Track document position
+                    '_doc_pos': para_idx_to_doc_idx.get(i, i)  # Track document position
                 })
                 i = j
                 continue
@@ -4947,7 +4982,7 @@ def _parse_envie_questions(doc: Document) -> List[dict]:
                     questions.append({
                         'question': line,
                         'options': ['[Option A in image]', '[Option B in image]', '[Option C in image]', '[Option D in image]', '[Option E in image]'],
-                        '_doc_pos': i  # Track document position
+                        '_doc_pos': para_idx_to_doc_idx.get(i, i)  # Track document position
                     })
                     i += 1
                     continue
@@ -5004,7 +5039,7 @@ def _parse_envie_questions(doc: Document) -> List[dict]:
                     questions.append({
                         'question': combined_question,
                         'options': opts[:5],
-                        '_doc_pos': i  # Track document position
+                        '_doc_pos': para_idx_to_doc_idx.get(i, i)  # Track document position
                     })
                     i = j
                     continue
@@ -5034,7 +5069,7 @@ def _parse_envie_questions(doc: Document) -> List[dict]:
                 questions.append({
                     'question': f'Cloze question {q_num}',
                     'options': opts[:4],
-                    '_doc_pos': i  # Track document position
+                    '_doc_pos': para_idx_to_doc_idx.get(i, i)  # Track document position
                 })
                 i += 1
                 continue
@@ -5062,7 +5097,7 @@ def _parse_envie_questions(doc: Document) -> List[dict]:
                 questions.append({
                     'question': 'Cloze question (unnumbered)',
                     'options': opts[:4],
-                    '_doc_pos': i  # Track document position
+                    '_doc_pos': para_idx_to_doc_idx.get(i, i)  # Track document position
                 })
                 i += 1
                 continue
