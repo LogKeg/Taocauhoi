@@ -3965,6 +3965,10 @@ def _parse_envie_questions(doc: Document) -> List[dict]:
         elements = []
         body = doc._element.body
 
+        # Track numbering counters per numId and ilvl
+        # Format: {(numId, ilvl): current_count}
+        numbering_counters = {}
+
         for child in body:
             tag = child.tag.split('}')[-1]
 
@@ -4006,10 +4010,42 @@ def _parse_envie_questions(doc: Document) -> List[dict]:
                             if has_yellow and current_opt_letter:
                                 highlighted_opt_idx = ord(current_opt_letter) - ord('A') + 1
 
+                    # Check for Word numbering (List Paragraph style)
+                    # This handles files where question numbers are in Word's numbering system
+                    num_level = None  # 0 = question level, 1 = option level
+                    num_value = None  # The actual number (1, 2, 3, ...)
+
+                    pPr = child.find(docx_qn('w:pPr'))
+                    if pPr is not None:
+                        numPr = pPr.find(docx_qn('w:numPr'))
+                        if numPr is not None:
+                            numId_elem = numPr.find(docx_qn('w:numId'))
+                            ilvl_elem = numPr.find(docx_qn('w:ilvl'))
+
+                            if numId_elem is not None and ilvl_elem is not None:
+                                numId = numId_elem.get(docx_qn('w:val'))
+                                ilvl = int(ilvl_elem.get(docx_qn('w:val')) or '0')
+                                num_level = ilvl
+
+                                # Track and increment counter for this numbering
+                                key = (numId, ilvl)
+                                if key not in numbering_counters:
+                                    numbering_counters[key] = 0
+                                numbering_counters[key] += 1
+                                num_value = numbering_counters[key]
+
+                                # Reset sub-level counters when parent level increments
+                                # e.g., when question (ilvl=0) increments, reset option counter (ilvl=1)
+                                if ilvl == 0:
+                                    sub_key = (numId, 1)
+                                    numbering_counters[sub_key] = 0
+
                     elements.append({
                         'type': 'paragraph',
                         'text': text,
-                        'highlighted_option': highlighted_opt_idx
+                        'highlighted_option': highlighted_opt_idx,
+                        'num_level': num_level,  # None = no numbering, 0 = question, 1 = option
+                        'num_value': num_value   # The number (1, 2, 3, ...)
                     })
 
             elif tag == 'tbl':  # Table
@@ -4297,11 +4333,118 @@ def _parse_envie_questions(doc: Document) -> List[dict]:
     # Track question numbers we've seen to detect standalone number patterns
     seen_q_numbers = set()
 
+    # Track which paragraphs were already processed
+    processed_paragraphs = set()
+
+    # ============ WORD NUMBERING PASS: Handle Word List Paragraph format ============
+    # For files like "Kangaroo Start R2 demo.docx" where:
+    # - Questions have num_level=0 (numbered list items)
+    # - Options have num_level=1 (sub-list items) with tab-separated B) C) D)
+    # - IMPORTANT: Each question has exactly ONE option paragraph (1:1 ratio)
+    # Check if document uses Word numbering format
+    num_level_0_count = sum(1 for elem in doc_elements if elem['type'] == 'paragraph' and elem.get('num_level') == 0)
+    num_level_1_count = sum(1 for elem in doc_elements if elem['type'] == 'paragraph' and elem.get('num_level') == 1)
+
+    has_word_numbering = num_level_0_count > 0
+
+    # Check if this is a clean 1:1 format (each question has exactly one option paragraph)
+    # Story file has 30 questions but 54 options (options split across multiple paragraphs)
+    # Start R2 file has 25 questions and 25 options (1:1)
+    is_1to1_format = (num_level_0_count > 0 and num_level_0_count == num_level_1_count)
+
+    # Check if options have duplicate pattern (old format files)
+    # Old format: "book.book.sign.sign.map.map." - words repeated due to Word formatting
+    # New R2 format: "park\tB) beach\tC) school" - clean options
+    has_duplicate_options = False
+    if has_word_numbering and is_1to1_format:
+        for elem in doc_elements:
+            if elem['type'] == 'paragraph' and elem.get('num_level') == 1:
+                opt_text = elem['text']
+                # Check for duplicate pattern like "word.word." or "wordword"
+                # Split by B) and check the first option (A)
+                if 'B)' in opt_text:
+                    before_b = opt_text.split('B)')[0].strip()
+                    # Remove StartStart prefix for checking
+                    before_b = re.sub(r'^(Start)+', '', before_b)
+                    # Check for duplicate words: "book.book." or "a cameraa camera"
+                    if re.search(r'(\w{3,}\.)\1', before_b) or re.search(r'(\w{4,})\1', before_b):
+                        has_duplicate_options = True
+                        break
+
+    # Only use Word numbering pass for:
+    # 1. Clean 1:1 format (each question has exactly one option paragraph)
+    # 2. No duplicate patterns in options
+    if has_word_numbering and is_1to1_format and not has_duplicate_options:
+        word_num_questions = []
+        elem_idx = 0
+
+        while elem_idx < len(doc_elements):
+            elem = doc_elements[elem_idx]
+
+            # Skip non-paragraph elements
+            if elem['type'] != 'paragraph':
+                elem_idx += 1
+                continue
+
+            # Check if this is a question (num_level=0) or instruction
+            if elem.get('num_level') == 0:
+                text = elem['text']
+                q_num = elem.get('num_value')
+
+                # Skip instruction lines
+                if is_instruction_line(text):
+                    elem_idx += 1
+                    continue
+
+                # Check if next element is options (num_level=1)
+                if elem_idx + 1 < len(doc_elements):
+                    next_elem = doc_elements[elem_idx + 1]
+
+                    if next_elem['type'] == 'paragraph' and next_elem.get('num_level') == 1:
+                        opt_text = next_elem['text']
+                        # Clean watermark/header artifacts (e.g., "StartStart" prefix)
+                        # These appear when document has repeated header text runs
+                        opt_text = re.sub(r'^(Start)+', '', opt_text)
+                        # Parse options from format: "optA\tB) optB\tC) optC\tD) optD"
+                        opts = extract_options_envie(opt_text)
+
+                        if len(opts) >= 2:
+                            # Get answer from highlighted option if available
+                            answer = ''
+                            hl = next_elem.get('highlighted_option', 0)
+                            if hl > 0:
+                                answer = str(hl)
+
+                            q_dict = {
+                                'question': text,
+                                'options': opts,
+                                '_doc_pos': elem_idx,
+                                '_q_num': q_num
+                            }
+                            if answer:
+                                q_dict['answer'] = answer
+
+                            word_num_questions.append(q_dict)
+                            processed_paragraphs.add(text)
+                            processed_paragraphs.add(opt_text)
+                            elem_idx += 2
+                            continue
+
+            elem_idx += 1
+
+        # If we found questions using Word numbering, use them and skip other parsing
+        if word_num_questions:
+            # Sort by question number
+            word_num_questions.sort(key=lambda q: q.get('_q_num', 0))
+            questions.extend(word_num_questions)
+            # Return early - no need for other parsing passes
+            return questions
+    # ============ END WORD NUMBERING PASS ============
+
     # ============ PRE-PROCESS: Parse paragraph + table pairs ============
     # For formats where question is in paragraph and options are in following table
     # This handles Red Kangaroo style: "Question text ending with ? or :" followed by table with options
     para_table_questions = []
-    processed_paragraphs = set()  # Track which paragraphs were already processed
 
     elem_idx = 0
     while elem_idx < len(doc_elements):
