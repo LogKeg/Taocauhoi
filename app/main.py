@@ -5944,11 +5944,38 @@ def convert_word_to_excel(
             # These have "EN-VIE" in filename and specific patterns
             is_envie_format = file.filename and 'EN-VIE' in file.filename.upper()
 
+            # Check if this is a Word numbered list format (like Kangaroo Start R2)
+            # These have questions in numbered paragraphs with options in sub-level paragraphs
+            is_word_numbered_format = False
+            if not is_envie_format:
+                from docx.oxml.ns import qn as docx_qn
+                body = doc._element.body
+                num_level_0 = 0
+                num_level_1 = 0
+                for child in body:
+                    tag = child.tag.split('}')[-1]
+                    if tag == 'p':
+                        pPr = child.find(docx_qn('w:pPr'))
+                        if pPr is not None:
+                            numPr = pPr.find(docx_qn('w:numPr'))
+                            if numPr is not None:
+                                ilvl_elem = numPr.find(docx_qn('w:ilvl'))
+                                if ilvl_elem is not None:
+                                    ilvl = int(ilvl_elem.get(docx_qn('w:val')) or '0')
+                                    if ilvl == 0:
+                                        num_level_0 += 1
+                                    elif ilvl == 1:
+                                        num_level_1 += 1
+                # 1:1 ratio of questions to options indicates Word numbered format
+                if num_level_0 > 10 and num_level_0 == num_level_1:
+                    is_word_numbered_format = True
+
             if is_math_format:
                 questions = _parse_math_exam_questions(lines)
             elif is_english_level_format:
                 questions = _parse_english_exam_questions(doc)
-            elif is_envie_format:
+            elif is_envie_format or is_word_numbered_format:
+                # Use EN-VIE parser for both EN-VIE files and Word numbered list format
                 questions = _parse_envie_questions(doc)
             else:
                 questions = _parse_bilingual_questions(lines, table_options)
