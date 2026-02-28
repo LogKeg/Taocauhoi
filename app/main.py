@@ -5985,9 +5985,9 @@ def convert_word_to_excel(
         filename_lower = (file.filename or '').lower()
         if 'math' in filename_lower or 'toán' in filename_lower:
             detected_subject = 'math'
-        elif 'english' in filename_lower or 'tiếng anh' in filename_lower or 'en-vie' in filename_lower:
+        elif 'english' in filename_lower or 'tiếng anh' in filename_lower or 'en-vie' in filename_lower or 'kangaroo' in filename_lower or 'ikmc' in filename_lower or 'iklc' in filename_lower:
             detected_subject = 'english'
-        elif 'science' in filename_lower or 'khoa học' in filename_lower:
+        elif 'science' in filename_lower or 'khoa học' in filename_lower or 'asmo' in filename_lower:
             detected_subject = 'science'
         else:
             detected_subject = 'general'
