@@ -1459,7 +1459,13 @@
           title.textContent = 'Chi tiết câu hỏi';
           try {
             const res = await fetch(`/api/questions/${questionId}`);
+            if (!res.ok) {
+              console.error('API error:', res.status, res.statusText);
+              alert('Không thể tải câu hỏi. Vui lòng thử lại.');
+              return;
+            }
             const q = await res.json();
+            console.log('Loaded question:', q);  // Debug log
 
             idField.value = q.id;
             contentField.value = q.content || '';
@@ -1487,10 +1493,30 @@
             });
 
             // Set correct answer (API returns 'answer' field)
+            // Answer can be: "A"/"B"/"C"/"D", "1"/"2"/"3"/"4" (1-indexed), or "0"/"1"/"2"/"3" (0-indexed)
             const answerValue = q.answer || q.correct_answer;
-            if (answerValue !== null && answerValue !== undefined) {
-              const answerIdx = parseInt(answerValue);
-              if (!isNaN(answerIdx) && answerIdx >= 0 && answerIdx < correctRadios.length) {
+            if (answerValue !== null && answerValue !== undefined && answerValue !== '') {
+              let answerIdx = -1;
+              const answerStr = String(answerValue).trim().toUpperCase();
+
+              // Check if it's a letter (A, B, C, D)
+              if (/^[A-D]$/.test(answerStr)) {
+                answerIdx = answerStr.charCodeAt(0) - 'A'.charCodeAt(0);
+              } else {
+                // It's a number - could be 1-indexed or 0-indexed
+                const num = parseInt(answerStr);
+                if (!isNaN(num)) {
+                  // If num is 1-4, treat as 1-indexed (common in question banks)
+                  // If num is 0-3, treat as 0-indexed
+                  if (num >= 1 && num <= 4) {
+                    answerIdx = num - 1;  // Convert 1-indexed to 0-indexed
+                  } else if (num >= 0 && num <= 3) {
+                    answerIdx = num;  // Already 0-indexed
+                  }
+                }
+              }
+
+              if (answerIdx >= 0 && answerIdx < correctRadios.length) {
                 correctRadios[answerIdx].checked = true;
               }
             }
