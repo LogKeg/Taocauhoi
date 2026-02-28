@@ -5899,13 +5899,15 @@ def _parse_envie_questions(doc: Document) -> List[dict]:
 @app.post("/convert-word-to-excel")
 def convert_word_to_excel(
     file: UploadFile = Form(...),
-    use_latex: str = Form("0")
+    use_latex: str = Form("0"),
+    subject: str = Form("general")
 ) -> StreamingResponse:
     """Convert a Word file containing questions to Excel format.
 
     Args:
         file: The Word document to convert
         use_latex: "1" to convert math formulas to LaTeX, "0" for plain text
+        subject: Subject of the questions (english, math, science, general)
     """
     if not file.filename or not file.filename.lower().endswith('.docx'):
         raise HTTPException(status_code=400, detail="Chỉ hỗ trợ file .docx")
@@ -5981,16 +5983,8 @@ def convert_word_to_excel(
                 questions = _parse_bilingual_questions(lines, table_options)
 
         # Save questions to question bank
-        # Detect subject from filename
-        filename_lower = (file.filename or '').lower()
-        if 'math' in filename_lower or 'toán' in filename_lower:
-            detected_subject = 'math'
-        elif 'english' in filename_lower or 'tiếng anh' in filename_lower or 'en-vie' in filename_lower or 'kangaroo' in filename_lower or 'ikmc' in filename_lower or 'iklc' in filename_lower:
-            detected_subject = 'english'
-        elif 'science' in filename_lower or 'khoa học' in filename_lower or 'asmo' in filename_lower:
-            detected_subject = 'science'
-        else:
-            detected_subject = 'general'
+        # Use subject from user input (fallback to 'general' if not provided)
+        detected_subject = subject if subject in ('english', 'math', 'science', 'general') else 'general'
 
         _save_questions_to_bank(
             questions,
