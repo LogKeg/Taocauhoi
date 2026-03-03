@@ -587,6 +587,8 @@
             <div class="form-group">
               <label for="questionContent">Nội dung câu hỏi *</label>
               <textarea id="questionContent" rows="4" required></textarea>
+              <div id="questionPreview" class="math-preview" style="display:none; margin-top:8px; padding:10px; background:#f8f9fa; border-radius:4px; border:1px solid #e0e0e0;"></div>
+              <button type="button" id="togglePreview" class="btn-small" style="margin-top:4px;">Xem trước công thức</button>
             </div>
             <div class="form-group">
               <label>Các đáp án</label>
@@ -1002,11 +1004,12 @@
             output.innerHTML = createdQuestions.map((q, i) => `
               <div class="created-question">
                 <div class="q-number">Câu ${i + 1}</div>
-                <div class="q-content">${(q.content || '').replace(/\n/g, '<br>')}</div>
-                <div class="q-options">${(q.options || []).map((o, j) => `<span>${String.fromCharCode(65 + j)}) ${o}</span>`).join(' ')}</div>
+                <div class="q-content">${escapeHtml(q.content || '').replace(/\n/g, '<br>')}</div>
+                <div class="q-options">${(q.options || []).map((o, j) => `<span>${String.fromCharCode(65 + j)}) ${escapeHtml(o)}</span>`).join(' ')}</div>
                 <div class="q-answer">Đáp án: ${q.correct_answer || ''}</div>
               </div>
             `).join('');
+            renderMath(output);
             result.hidden = false;
             status.textContent = `Đã tạo ${createdQuestions.length} câu hỏi mới (${difficulty === 'same' ? 'tương đương' : difficulty === 'easier' ? 'dễ hơn' : 'khó hơn'})`;
 
@@ -1131,16 +1134,17 @@
             if (typeof q === 'string') {
               return `<div class="created-question">
                 <div class="q-number">Câu ${i + 1}</div>
-                <div class="q-content">${q.replace(/\n/g, '<br>')}</div>
+                <div class="q-content">${escapeHtml(q).replace(/\n/g, '<br>')}</div>
               </div>`;
             }
             return `<div class="created-question">
               <div class="q-number">Câu ${i + 1}</div>
-              <div class="q-content">${(q.content || '').replace(/\n/g, '<br>')}</div>
-              <div class="q-options">${(q.options || []).map((o, j) => `<span>${String.fromCharCode(65 + j)}) ${o}</span>`).join(' ')}</div>
+              <div class="q-content">${escapeHtml(q.content || '').replace(/\n/g, '<br>')}</div>
+              <div class="q-options">${(q.options || []).map((o, j) => `<span>${String.fromCharCode(65 + j)}) ${escapeHtml(o)}</span>`).join(' ')}</div>
               ${q.correct_answer ? `<div class="q-answer">Đáp án: ${q.correct_answer}</div>` : ''}
             </div>`;
           }).join('');
+          renderMath(body);
         }
 
         modal.hidden = false;
@@ -1535,7 +1539,7 @@
               <div class="bank-item-content">
                 <strong>${q.subject || 'N/A'}</strong> -
                 <span class="difficulty-${q.difficulty || 'medium'}">${q.difficulty || 'medium'}</span>
-                <p>${(q.content || '').substring(0, 150)}...</p>
+                <p>${escapeHtml((q.content || '').substring(0, 150))}...</p>
               </div>
               <div class="bank-item-actions">
                 <button class="edit-q" data-id="${q.id}">Sửa</button>
@@ -1543,6 +1547,7 @@
               </div>
             </div>
           `).join('') || '<p>Không có câu hỏi nào.</p>';
+          renderMath(list);
 
           // Attach delete handlers
           list.querySelectorAll('.delete-q').forEach(btn => {
@@ -1765,6 +1770,19 @@
       document.getElementById('questionCancelBtn').addEventListener('click', closeQuestionModal);
       document.getElementById('questionSaveBtn').addEventListener('click', saveQuestion);
       document.getElementById('addQuestionBtn').addEventListener('click', () => openQuestionModal());
+
+      // Math preview for question content
+      document.getElementById('togglePreview').addEventListener('click', () => {
+        const preview = document.getElementById('questionPreview');
+        const content = document.getElementById('questionContent').value;
+        if (preview.style.display === 'none') {
+          preview.innerHTML = escapeHtml(content).replace(/\n/g, '<br>');
+          renderMath(preview);
+          preview.style.display = 'block';
+        } else {
+          preview.style.display = 'none';
+        }
+      });
 
       // Close modal on overlay click
       questionModal.addEventListener('click', (e) => {
