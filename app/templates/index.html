@@ -8,6 +8,10 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/static/styles.css" />
+    <!-- KaTeX for math rendering -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
   </head>
   <body>
     <header class="hero">
@@ -24,6 +28,7 @@
         <button class="nav-item" data-tab="tab-topic">Tạo theo chủ đề (AI)</button>
         <button class="nav-item" data-tab="tab-convert">Word → Excel</button>
         <button class="nav-item" data-tab="tab-bank">Ngân hàng câu hỏi</button>
+        <button class="nav-item" data-tab="tab-import">Import dữ liệu</button>
         <button class="nav-item" data-tab="tab-history">Lịch sử sử dụng</button>
         <button class="nav-item" data-tab="tab-grading">Chấm bài (OMR)</button>
         <button class="nav-item" data-tab="tab-handwritten">Chấm bài (Viết tay)</button>
@@ -132,6 +137,12 @@
                 <label for="topicEngine">AI Engine</label>
                 <select id="topicEngine"></select>
               </div>
+              <div class="checkbox-group">
+                <label>
+                  <input type="checkbox" id="topicUseRag" checked />
+                  Tham khảo ngân hàng câu hỏi (RAG)
+                </label>
+              </div>
               <button id="topicGenerate" type="button">Tạo theo chủ đề</button>
             </div>
             <small>AI sẽ tự tạo câu hỏi theo môn, lớp và dạng câu hỏi bạn chọn.</small>
@@ -212,6 +223,80 @@
             </div>
             <div class="bank-list" id="bankList"></div>
             <div class="bank-pagination" id="bankPagination"></div>
+          </div>
+        </section>
+
+        <!-- Tab: Import dữ liệu -->
+        <section class="tab-panel" id="tab-import">
+          <div class="panel">
+            <h2>Import câu hỏi từ nguồn ngoài</h2>
+            <p>Lấy câu hỏi từ website hoặc upload file để bổ sung vào ngân hàng câu hỏi.</p>
+
+            <!-- Import từ URL -->
+            <div class="import-section">
+              <h3>Import từ URL</h3>
+              <div class="auto-grid">
+                <div style="grid-column: 1 / -1;">
+                  <label for="importUrls">URLs (mỗi URL một dòng)</label>
+                  <textarea id="importUrls" rows="4" placeholder="https://vietjack.com/de-thi/...&#10;https://hoc247.net/de-kiem-tra/..."></textarea>
+                </div>
+                <div>
+                  <label for="importSubject">Môn học</label>
+                  <select id="importSubject"></select>
+                </div>
+                <div>
+                  <label for="importDifficulty">Độ khó</label>
+                  <select id="importDifficulty">
+                    <option value="easy">Dễ</option>
+                    <option value="medium" selected>Trung bình</option>
+                    <option value="hard">Khó</option>
+                  </select>
+                </div>
+              </div>
+              <button id="importUrlBtn" type="button">Import từ URL</button>
+            </div>
+
+            <!-- Upload file -->
+            <div class="import-section" style="margin-top: 1.5rem; border-top: 1px solid #e5e7eb; padding-top: 1.5rem;">
+              <h3>Upload file</h3>
+              <p>Hỗ trợ định dạng: Word (.docx), PDF (.pdf), Text (.txt)</p>
+              <div class="auto-grid">
+                <div>
+                  <label for="importFile">Chọn file</label>
+                  <input type="file" id="importFile" accept=".docx,.pdf,.txt" />
+                </div>
+                <div>
+                  <label for="importFileSubject">Môn học</label>
+                  <select id="importFileSubject"></select>
+                </div>
+                <div>
+                  <label for="importFileDifficulty">Độ khó</label>
+                  <select id="importFileDifficulty">
+                    <option value="easy">Dễ</option>
+                    <option value="medium" selected>Trung bình</option>
+                    <option value="hard">Khó</option>
+                  </select>
+                </div>
+              </div>
+              <button id="importFileBtn" type="button">Upload & Import</button>
+            </div>
+
+            <!-- Suggested sources -->
+            <div class="import-section" style="margin-top: 1.5rem; border-top: 1px solid #e5e7eb; padding-top: 1.5rem;">
+              <h3>Nguồn gợi ý</h3>
+              <div id="suggestedSources" class="suggested-sources">
+                <p>Đang tải...</p>
+              </div>
+            </div>
+
+            <!-- Import status -->
+            <div class="gen-status" id="importStatus" style="margin-top: 1rem;"></div>
+
+            <!-- Import results -->
+            <div class="import-results" id="importResults" hidden>
+              <h3>Kết quả import</h3>
+              <div id="importResultsList"></div>
+            </div>
           </div>
         </section>
 
@@ -758,10 +843,63 @@
       function renderQuestions(questions, outputEl, statusEl, resultPanel) {
         currentQuestions = questions;
         outputEl.innerHTML = questions
-          .map((q, i) => `<li><strong>Câu ${i + 1}.</strong> ${q.replace(/\n/g, '<br>')}</li>`)
+          .map((q, i) => {
+            // Split question into lines
+            const lines = q.split('\n');
+            let html = `<li><strong>Câu ${i + 1}.</strong> `;
+
+            // First line is the question
+            html += escapeHtml(lines[0]);
+
+            // Remaining lines are options - render them nicely
+            if (lines.length > 1) {
+              html += '<div class="options" style="margin-left: 20px; margin-top: 5px;">';
+              for (let j = 1; j < lines.length; j++) {
+                const line = lines[j].trim();
+                if (line) {
+                  // Check if it's an option line (starts with A), B), C), D) or A. B. C. D.)
+                  if (/^[A-Da-d][\).\]]\s*/.test(line)) {
+                    html += `<div>${escapeHtml(line)}</div>`;
+                  } else {
+                    html += `<div>${escapeHtml(line)}</div>`;
+                  }
+                }
+              }
+              html += '</div>';
+            }
+            html += '</li>';
+            return html;
+          })
           .join('');
         // Always keep panel visible so user can see error messages
         resultPanel.hidden = false;
+        // Render math formulas with KaTeX
+        renderMath(outputEl);
+      }
+
+      // Escape HTML but preserve LaTeX delimiters
+      function escapeHtml(text) {
+        return text
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;');
+      }
+
+      // Render math in element using KaTeX
+      function renderMath(el) {
+        if (window.renderMathInElement && window.katex) {
+          // Use KaTeX auto-render
+          window.renderMathInElement(el, {
+            delimiters: [
+              {left: '$$', right: '$$', display: true},
+              {left: '$', right: '$', display: false},
+              {left: '\\(', right: '\\)', display: false},
+              {left: '\\[', right: '\\]', display: true}
+            ],
+            throwOnError: false,
+            errorColor: '#cc0000'
+          });
+        }
       }
 
       /* ---- Export ---- */
@@ -770,7 +908,8 @@
           btn.addEventListener('click', async () => {
             if (!currentQuestions.length) return;
             const formData = new FormData();
-            formData.append('samples', currentQuestions.join('\n'));
+            // Join questions with double newline to separate them properly
+            formData.append('samples', currentQuestions.join('\n\n'));
             formData.append('topic', 'toan_hoc');
             formData.append('custom_keywords', '');
             formData.append('paraphrase', false);
@@ -1221,6 +1360,7 @@
           formData.append('count', document.getElementById('topicCount').value || 10);
           formData.append('difficulty', document.getElementById('topicDifficulty').value);
           formData.append('ai_engine', document.getElementById('topicEngine').value || activeEngine);
+          formData.append('use_rag', document.getElementById('topicUseRag').checked);
           const res = await fetch('/generate-topic', { method: 'POST', body: formData });
           const data = await res.json();
           statusEl.textContent = data.message || '';
@@ -2393,6 +2533,122 @@
         }
       });
 
+      /* ---- Import Data Tab ---- */
+      async function loadSuggestedSources() {
+        try {
+          const res = await fetch('/api/crawler/suggested-sources');
+          const data = await res.json();
+          const container = document.getElementById('suggestedSources');
+          if (data.sources && data.sources.length) {
+            container.innerHTML = data.sources.map(s => `
+              <div class="source-card">
+                <strong>${s.name}</strong>
+                <p>${s.description}</p>
+                <a href="${s.url}" target="_blank">${s.url}</a>
+              </div>
+            `).join('');
+          } else {
+            container.innerHTML = '<p>Không có nguồn gợi ý.</p>';
+          }
+        } catch (err) {
+          document.getElementById('suggestedSources').innerHTML = '<p>Không thể tải nguồn gợi ý.</p>';
+        }
+      }
+
+      function initImportSubjects() {
+        const selects = ['importSubject', 'importFileSubject'];
+        selects.forEach(id => {
+          const sel = document.getElementById(id);
+          if (sel && subjectsData) {
+            sel.innerHTML = Object.entries(subjectsData)
+              .map(([k, v]) => `<option value="${k}">${v.label}</option>`)
+              .join('');
+          }
+        });
+      }
+
+      document.getElementById('importUrlBtn').addEventListener('click', async () => {
+        const statusEl = document.getElementById('importStatus');
+        const resultsEl = document.getElementById('importResults');
+        const listEl = document.getElementById('importResultsList');
+        const urls = document.getElementById('importUrls').value.trim();
+
+        if (!urls) {
+          statusEl.textContent = 'Vui lòng nhập ít nhất một URL.';
+          return;
+        }
+
+        statusEl.textContent = 'Đang crawl dữ liệu...';
+        resultsEl.hidden = true;
+
+        try {
+          const formData = new FormData();
+          formData.append('urls', urls);
+          formData.append('subject', document.getElementById('importSubject').value);
+          formData.append('difficulty', document.getElementById('importDifficulty').value);
+          formData.append('save_to_db', 'true');
+
+          const res = await fetch('/api/crawler/fetch-multiple', { method: 'POST', body: formData });
+          const data = await res.json();
+
+          if (data.success) {
+            statusEl.textContent = `Đã import ${data.saved_count}/${data.total_questions} câu hỏi vào ngân hàng.`;
+            if (data.results && data.results.length) {
+              listEl.innerHTML = data.results.map(r => `
+                <div class="import-result-item ${r.error ? 'error' : 'success'}">
+                  <strong>${r.source}</strong>: ${r.error || `${r.count} câu hỏi`}
+                </div>
+              `).join('');
+              resultsEl.hidden = false;
+            }
+            // Refresh bank
+            loadBankStats();
+            loadBankQuestions();
+          } else {
+            statusEl.textContent = data.error || 'Lỗi khi import.';
+          }
+        } catch (err) {
+          statusEl.textContent = 'Lỗi: ' + err.message;
+        }
+      });
+
+      document.getElementById('importFileBtn').addEventListener('click', async () => {
+        const statusEl = document.getElementById('importStatus');
+        const resultsEl = document.getElementById('importResults');
+        const listEl = document.getElementById('importResultsList');
+        const fileInput = document.getElementById('importFile');
+
+        if (!fileInput.files.length) {
+          statusEl.textContent = 'Vui lòng chọn file.';
+          return;
+        }
+
+        statusEl.textContent = 'Đang xử lý file...';
+        resultsEl.hidden = true;
+
+        try {
+          const formData = new FormData();
+          formData.append('file', fileInput.files[0]);
+          formData.append('subject', document.getElementById('importFileSubject').value);
+          formData.append('difficulty', document.getElementById('importFileDifficulty').value);
+          formData.append('save_to_db', 'true');
+
+          const res = await fetch('/api/crawler/upload', { method: 'POST', body: formData });
+          const data = await res.json();
+
+          if (data.success) {
+            statusEl.textContent = `Đã import ${data.saved_count}/${data.count} câu hỏi từ ${data.filename}.`;
+            // Refresh bank
+            loadBankStats();
+            loadBankQuestions();
+          } else {
+            statusEl.textContent = data.error || data.detail || 'Lỗi khi import.';
+          }
+        } catch (err) {
+          statusEl.textContent = 'Lỗi: ' + err.message;
+        }
+      });
+
       /* ---- Init ---- */
       loadSampleFolders();
       loadSubjects();
@@ -2401,8 +2657,11 @@
       loadSettings();
       loadBankStats();
       loadBankQuestions();
+      loadSuggestedSources();
       // Load history from server then render
       loadHistoryFromServer().then(() => renderHistory());
+      // Initialize import subjects after subjects are loaded
+      setTimeout(initImportSubjects, 500);
     </script>
   </body>
 </html>

@@ -25,6 +25,27 @@ def normalize_ai_lines(text: str) -> List[str]:
 def normalize_ai_blocks(text: str) -> List[str]:
     """Normalize AI response into question blocks (for MCQ with options)."""
     normalized = text.replace("\r\n", "\n").strip()
+
+    # Pre-process: clean up each line first to handle bad AI formatting
+    pre_cleaned_lines = []
+    for line in normalized.splitlines():
+        line = line.strip()
+        if not line:
+            pre_cleaned_lines.append("")
+            continue
+        # Remove leading numbers like "1. ", "2) ", "3- ", "4: ", "5 "
+        line = re.sub(r'^\d+[\.\)\-:\s]+', '', line).strip()
+        # Remove instruction prefixes
+        line = re.sub(
+            r'^(Choose the correct option|Select the correct answer|Hãy cho biết|Chọn đáp án đúng)\s*:\s*',
+            '',
+            line,
+            flags=re.IGNORECASE
+        )
+        pre_cleaned_lines.append(line)
+
+    # Rebuild text and split into blocks
+    normalized = "\n".join(pre_cleaned_lines)
     blocks = [b.strip() for b in re.split(r"\n\s*\n", normalized) if b.strip()]
 
     # First pass: merge blocks that are MCQ options or question labels
@@ -55,7 +76,26 @@ def normalize_ai_blocks(text: str) -> List[str]:
             lines.pop(0)
         if lines:
             lines[0] = strip_leading_numbering(lines[0])
-        result = "\n".join(lines).strip()
+
+        # Clean up option lines - remove extra numbering and instruction prefixes
+        cleaned_lines = []
+        for line in lines:
+            clean_line = line.strip()
+            # Remove leading number like "1. ", "2) ", "3- ", "4: "
+            clean_line = re.sub(r'^\d+[\.\)\-:\s]+', '', clean_line)
+            # Remove instruction prefixes like "Choose the correct option:", "Hãy cho biết:"
+            clean_line = re.sub(
+                r'^(Choose the correct option|Select the correct answer|Hãy cho biết|Chọn đáp án đúng)\s*:\s*',
+                '',
+                clean_line,
+                flags=re.IGNORECASE
+            )
+            # Skip empty lines or standalone instruction lines
+            if not clean_line or re.match(r'^(Choose|Select|Pick|Chọn)\s', clean_line, re.IGNORECASE):
+                continue
+            cleaned_lines.append(clean_line)
+
+        result = "\n".join(cleaned_lines).strip()
         if not result or re.match(r"^-{2,}$", result):
             continue
         # Skip intro/filler lines that aren't actual questions

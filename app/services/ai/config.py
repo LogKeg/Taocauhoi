@@ -41,7 +41,7 @@ GEMINI_MODEL = _saved.get("gemini_model") or os.getenv("GEMINI_MODEL", "gemini-2
 
 # Ollama settings
 OLLAMA_BASE = _saved.get("ollama_base") or os.getenv("OLLAMA_BASE", "http://localhost:11434")
-OLLAMA_MODEL = _saved.get("ollama_model") or os.getenv("OLLAMA_MODEL", "llama3.2:latest")
+OLLAMA_MODEL = _saved.get("ollama_model") or os.getenv("OLLAMA_MODEL", "qwen3.5:4b")
 
 
 def reload_settings():
@@ -60,4 +60,4 @@ def reload_settings():
     GEMINI_MODEL = _saved.get("gemini_model") or os.getenv("GEMINI_MODEL", "gemini-2.0-flash")
 
     OLLAMA_BASE = _saved.get("ollama_base") or os.getenv("OLLAMA_BASE", "http://localhost:11434")
-    OLLAMA_MODEL = _saved.get("ollama_model") or os.getenv("OLLAMA_MODEL", "llama3.2:latest")
+    OLLAMA_MODEL = _saved.get("ollama_model") or os.getenv("OLLAMA_MODEL", "qwen3.5:4b")

@@ -64,7 +64,8 @@ def build_topic_prompt(
     qtype: str,
     count: int,
     topic: str = "",
-    difficulty: str = "medium"
+    difficulty: str = "medium",
+    rag_examples: Optional[List[str]] = None,
 ) -> str:
     """Build AI prompt for generating questions by topic."""
     subject = SUBJECTS.get(subject_key, {"label": subject_key, "lang": "vi"})
@@ -105,6 +106,16 @@ def build_topic_prompt(
                 "A) Red\nB) Green\nC) Blue\nD) Yellow\n"
                 "\n---ANSWERS---\n1. B\n2. C\n"
             )
+
+        # Build RAG section for English
+        rag_section_en = ""
+        if rag_examples:
+            rag_section_en = (
+                "\n\nREFERENCE QUESTIONS (from question bank):\n\n"
+                + "\n\n".join(f"Example {i+1}:\n{q}" for i, q in enumerate(rag_examples))
+                + "\n\nCreate NEW questions similar in style to the examples above, DO NOT copy verbatim.\n"
+            )
+
         return (
             "You are an education content writer.\n"
             f"Create {count} {type_text} questions for {label} ({grade_text}{topic_text}).\n"
@@ -116,6 +127,7 @@ def build_topic_prompt(
             "- If fill-in-the-blank, use \"...\" for the blank.\n"
             "- After all questions, add a line \"---ANSWERS---\" then list the correct answer for each question (e.g. 1. B, 2. A, ...).\n"
             f"{example}"
+            f"{rag_section_en}"
         )
 
     grade_text = f"Lớp {grade}"
@@ -123,13 +135,51 @@ def build_topic_prompt(
     topic_text = f" về {topic_label}" if topic_label else ""
     diff_text = difficulty_map_vi.get(difficulty, "trung bình")
     mcq_rule = ""
+    mcq_example = ""
     if qtype == "mcq":
-        mcq_rule = "Mỗi câu có 4 đáp án A) B) C) D).\n"
+        mcq_rule = "Mỗi câu có 4 đáp án A) B) C) D) trên các dòng riêng biệt ngay sau câu hỏi.\n"
+        mcq_example = (
+            "\n\nVÍ DỤ FORMAT ĐÚNG:\n"
+            "Một đa thức bậc hai có dạng tổng quát là\n"
+            r"A) $ax^2 + bx + c$" "\n"
+            r"B) $ax^2 + b$" "\n"
+            r"C) $ax + bx$" "\n"
+            r"D) $ax + c$" "\n"
+            "\n"
+            r"Tìm nghiệm của phương trình $x^2 - 5x + 6 = 0$" "\n"
+            "A) x = 2\n"
+            "B) x = 3\n"
+            "C) x = 1 và x = 6\n"
+            "D) x = 2 và x = 3\n"
+            "\n---ĐÁP ÁN---\n1. A\n2. D\n"
+        )
     elif qtype == "blank":
         mcq_rule = "Dùng \"...\" cho chỗ trống.\n"
+
+    # Build RAG section if examples provided
+    rag_section = ""
+    if rag_examples:
+        rag_section = (
+            "\n\nCÂU HỎI THAM KHẢO (từ ngân hàng đề):\n\n"
+            + "\n\n".join(f"Ví dụ {i+1}:\n{q}" for i, q in enumerate(rag_examples))
+            + "\n\nHãy tạo câu hỏi MỚI tương tự phong cách các ví dụ trên, KHÔNG sao chép nguyên văn.\n"
+        )
+
+    # Math formula instruction
+    math_instruction = (
+        "- Nếu có công thức toán, viết dạng LaTeX trong dấu $...$ (inline) hoặc $$...$$ (block).\n"
+        r"  VD: $x^2$, $\frac{a}{b}$, $\sqrt{x}$, $\sum_{i=1}^{n}$, $\int_0^1 f(x)dx$" "\n"
+    )
+
     return (
         f"Tạo {count} câu hỏi {type_text} môn {label} {grade_text}{topic_text}, độ khó: {diff_text}.\n"
+        "QUY TẮC BẮT BUỘC:\n"
+        "- KHÔNG đánh số câu hỏi (KHÔNG viết 1., 2., Câu 1, Câu 2)\n"
+        "- KHÔNG viết 'Hãy cho biết:', 'Choose the correct option:'\n"
         f"{mcq_rule}"
-        "Mỗi câu cách nhau bằng một dòng trống.\n"
-        "Cuối cùng viết ---ĐÁP ÁN--- rồi liệt kê đáp án.\n"
+        f"{math_instruction}"
+        "- Mỗi câu hỏi cách nhau bằng một dòng trống\n"
+        "- Cuối cùng viết ---ĐÁP ÁN--- rồi liệt kê: 1. A, 2. B, 3. C\n"
+        f"{mcq_example}"
+        f"{rag_section}"
     )

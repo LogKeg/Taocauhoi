@@ -64,7 +64,7 @@ def split_questions(text: str) -> List[str]:
 
         # Keep multiple-choice options attached to the preceding question line
         merged_lines: List[str] = []
-        option_re = re.compile(r"^[A-H][).\\-:]\s+", re.IGNORECASE)
+        option_re = re.compile(r"^[A-H][).\-:]\s+", re.IGNORECASE)
         has_options = False
         for line in lines:
             if option_re.match(line) and merged_lines:
@@ -85,15 +85,15 @@ def split_questions(text: str) -> List[str]:
             questions.append("\n".join(lines).strip())
             continue
 
-        numbered_lines = [ln for ln in lines if re.match(r"^\d{1,3}[).\\-:]\s+", ln)]
+        numbered_lines = [ln for ln in lines if re.match(r"^\d{1,3}[).\-:]\s+", ln)]
         if numbered_lines:
             buffer: List[str] = []
             for line in lines:
-                if re.match(r"^\d{1,3}[).\\-:]\s+", line):
+                if re.match(r"^\d{1,3}[).\-:]\s+", line):
                     if buffer:
                         questions.append(" ".join(buffer).strip())
                         buffer = []
-                    line = re.sub(r"^\d{1,3}[).\\-:]\s+", "", line)
+                    line = re.sub(r"^\d{1,3}[).\-:]\s+", "", line)
                 buffer.append(line)
             if buffer:
                 questions.append(" ".join(buffer).strip())
