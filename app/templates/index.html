@@ -14,550 +14,667 @@
     <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
   </head>
   <body>
-    <header class="hero">
-      <div>
-        <h1>Tạo câu hỏi tự động</h1>
-        <p>Tạo câu hỏi tương tự từ mẫu, hoặc sinh câu hỏi theo chủ đề.</p>
-        <p class="build" id="buildInfo"></p>
-      </div>
-    </header>
+    <div class="app-container">
+      <!-- App Header -->
+      <header class="app-header">
+        <div class="logo">
+          <div class="logo-icon">Q</div>
+          <h1>Tạo đề online</h1>
+        </div>
+        <div class="header-actions">
+          <div class="header-status">
+            <span class="status-dot"></span>
+            <span>Sẵn sàng</span>
+          </div>
+          <span class="build" id="buildInfo"></span>
+        </div>
+      </header>
 
-    <div class="app-layout">
-      <nav class="sidebar">
-        <button class="nav-item active" data-tab="tab-create">Tạo đề từ đề mẫu</button>
-        <button class="nav-item" data-tab="tab-topic">Tạo theo chủ đề (AI)</button>
-        <button class="nav-item" data-tab="tab-convert">Word → Excel</button>
-        <button class="nav-item" data-tab="tab-bank">Ngân hàng câu hỏi</button>
-        <button class="nav-item" data-tab="tab-import">Import dữ liệu</button>
-        <button class="nav-item" data-tab="tab-history">Lịch sử sử dụng</button>
-        <button class="nav-item" data-tab="tab-grading">Chấm bài (OMR)</button>
-        <button class="nav-item" data-tab="tab-handwritten">Chấm bài (Viết tay)</button>
-        <button class="nav-item" data-tab="tab-settings">Cài đặt</button>
-        <button class="nav-item" data-tab="tab-blob" id="navBlob" hidden>Quản lý Blob</button>
-      </nav>
+      <!-- App Body: Sidebar + Main Content -->
+      <div class="app-body">
+        <nav class="sidebar">
+          <div class="sidebar-section">
+            <div class="sidebar-section-title">Tạo đề</div>
+            <button class="nav-item active" data-tab="tab-create">
+              <span class="icon">📄</span>Từ đề mẫu
+            </button>
+            <button class="nav-item" data-tab="tab-topic">
+              <span class="icon">🤖</span>Theo chủ đề (AI)
+            </button>
+          </div>
+          <div class="sidebar-section">
+            <div class="sidebar-section-title">Công cụ</div>
+            <button class="nav-item" data-tab="tab-convert">
+              <span class="icon">🔄</span>Word → Excel
+            </button>
+            <button class="nav-item" data-tab="tab-bank">
+              <span class="icon">📚</span>Ngân hàng câu hỏi
+            </button>
+            <button class="nav-item" data-tab="tab-import">
+              <span class="icon">📥</span>Import dữ liệu
+            </button>
+            <button class="nav-item" data-tab="tab-storage">
+              <span class="icon">📁</span>Kho lưu trữ
+            </button>
+          </div>
+          <div class="sidebar-section">
+            <div class="sidebar-section-title">Chấm bài</div>
+            <button class="nav-item" data-tab="tab-grading">
+              <span class="icon">✅</span>OMR Scanner
+            </button>
+            <button class="nav-item" data-tab="tab-handwritten">
+              <span class="icon">✍️</span>Viết tay
+            </button>
+          </div>
+          <div class="sidebar-section">
+            <div class="sidebar-section-title">Khác</div>
+            <button class="nav-item" data-tab="tab-history">
+              <span class="icon">🕒</span>Lịch sử
+            </button>
+            <button class="nav-item" data-tab="tab-settings">
+              <span class="icon">⚙️</span>Cài đặt
+            </button>
+            <button class="nav-item" data-tab="tab-blob" id="navBlob" hidden>
+              <span class="icon">☁️</span>Quản lý Blob
+            </button>
+          </div>
+        </nav>
 
-      <main class="content">
-        <!-- Tab: Tạo đề từ đề mẫu -->
-        <section class="tab-panel active" id="tab-create">
-          <div class="panel">
-            <h2>Tạo đề từ đề mẫu</h2>
-            <p>Upload file Word (.docx) chứa đề mẫu để tạo đề mới tương tự theo từng câu.</p>
-            <div class="upload-area">
-              <input type="file" id="createFile" accept=".docx" />
-              <button id="parseFileBtn" type="button">Phân tích đề</button>
-            </div>
-            <div class="parse-info" id="parseInfo" hidden>
-              <p><strong>Đề mẫu:</strong> <span id="parseFileName"></span> - <span id="parseQuestionCount">0</span> câu hỏi</p>
-            </div>
-            <div class="create-options">
-              <div class="auto-grid">
-                <div>
-                  <label for="createSubject">Môn học</label>
-                  <select id="createSubject">
-                    <option value="auto">Tự động nhận dạng</option>
-                    <option value="science">Khoa học / Science</option>
-                    <option value="math">Toán / Math</option>
-                    <option value="english">Tiếng Anh / English</option>
-                    <option value="history">Lịch sử / History</option>
-                    <option value="geography">Địa lý / Geography</option>
+        <main class="main-content">
+          <!-- Tab: Tạo đề từ đề mẫu -->
+          <section class="tab-panel active" id="tab-create">
+            <div class="content-scroll">
+              <div class="panel">
+                <h2>Tạo đề từ đề mẫu</h2>
+                <p>Upload file Word (.docx) chứa đề mẫu để tạo đề mới tương tự theo từng câu.</p>
+                <div class="upload-area">
+                  <input type="file" id="createFile" accept=".docx" />
+                  <button id="parseFileBtn" type="button">Phân tích đề</button>
+                </div>
+                <div class="parse-info" id="parseInfo" hidden>
+                  <p><strong>Đề mẫu:</strong> <span id="parseFileName"></span> - <span id="parseQuestionCount">0</span> câu hỏi</p>
+                </div>
+                <div class="create-options">
+                  <div class="auto-grid">
+                    <div>
+                      <label for="createSubject">Môn học</label>
+                      <select id="createSubject">
+                        <option value="auto">Tự động nhận dạng</option>
+                        <option value="science">Khoa học / Science</option>
+                        <option value="math">Toán / Math</option>
+                        <option value="english">Tiếng Anh / English</option>
+                        <option value="history">Lịch sử / History</option>
+                        <option value="geography">Địa lý / Geography</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label for="createDifficulty">Độ khó so với đề mẫu</label>
+                      <select id="createDifficulty">
+                        <option value="same">Tương đương</option>
+                        <option value="easier">Dễ hơn</option>
+                        <option value="harder">Khó hơn</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label for="createBilingual">Ngôn ngữ</label>
+                      <select id="createBilingual">
+                        <option value="auto">Tự động nhận dạng</option>
+                        <option value="bilingual">Song ngữ (EN-VIE)</option>
+                        <option value="english">Chỉ tiếng Anh</option>
+                        <option value="vietnamese">Chỉ tiếng Việt</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label for="createEngine">AI Engine</label>
+                      <select id="createEngine"></select>
+                    </div>
+                    <button id="createBtn" type="button">Tạo đề mới</button>
+                  </div>
+                </div>
+                <div class="gen-status" id="createStatus"></div>
+              </div>
+              <div class="panel result-panel" id="createResult" hidden>
+                <div class="output-header">
+                  <h2>Đề mới (<span id="createResultCount">0</span> câu)</h2>
+                  <div class="actions">
+                    <button id="createExportDocx">Xuất DOCX</button>
+                    <button id="createExportPdf">Xuất PDF</button>
+                    <button id="createSaveHistory">Lưu lịch sử</button>
+                  </div>
+                </div>
+                <div class="create-output" id="createOutput"></div>
+              </div>
+            </div><!-- end content-scroll -->
+          </section>
+
+          <section class="tab-panel" id="tab-topic">
+            <div class="content-scroll">
+              <div class="panel">
+                <h2>Tạo theo chủ đề (AI)</h2>
+                <div class="auto-grid">
+                  <div>
+                    <label for="topicSubject">Môn học</label>
+                    <select id="topicSubject"></select>
+                  </div>
+                  <div>
+                    <label for="topicTopic">Chủ đề</label>
+                    <select id="topicTopic"><option value="">-- Tất cả --</option></select>
+                  </div>
+                  <div>
+                    <label for="topicGrade">Lớp</label>
+                    <select id="topicGrade"></select>
+                  </div>
+                  <div>
+                    <label for="topicType">Dạng câu hỏi</label>
+                    <select id="topicType"></select>
+                  </div>
+                  <div>
+                    <label for="topicCount">Số câu</label>
+                    <input id="topicCount" type="number" min="1" max="50" value="10" />
+                  </div>
+                  <div>
+                    <label for="topicDifficulty">Độ khó</label>
+                    <select id="topicDifficulty">
+                      <option value="easy">Dễ</option>
+                      <option value="medium" selected>Trung bình</option>
+                      <option value="hard">Khó</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label for="topicEngine">AI Engine</label>
+                    <select id="topicEngine"></select>
+                  </div>
+                  <div class="checkbox-group">
+                    <label>
+                      <input type="checkbox" id="topicUseRag" checked />
+                      Tham khảo ngân hàng câu hỏi (RAG)
+                    </label>
+                  </div>
+                  <button id="topicGenerate" type="button">Tạo theo chủ đề</button>
+                </div>
+                <small>AI sẽ tự tạo câu hỏi theo môn, lớp và dạng câu hỏi bạn chọn.</small>
+              </div>
+              <div class="panel result-panel" id="topicResult" hidden>
+                <div class="output-header">
+                  <h2>Kết quả</h2>
+                  <div class="actions">
+                    <button data-export="txt">Xuất TXT</button>
+                    <button data-export="csv">Xuất CSV</button>
+                    <button data-export="docx">Xuất DOCX</button>
+                    <button data-export="pdf">Xuất PDF</button>
+                  </div>
+                </div>
+                <div class="gen-status" id="topicStatus"></div>
+                <ol class="output-list" id="topicOutput"></ol>
+                <div class="answers-section" id="topicAnswers" hidden>
+                  <button class="toggle-answers" id="toggleAnswers">Hiện đáp án</button>
+                  <div class="answers-content" id="answersContent" hidden></div>
+                </div>
+              </div>
+            </div><!-- end content-scroll -->
+          </section>
+
+          <!-- Tab: Word to Excel -->
+          <section class="tab-panel" id="tab-convert">
+            <div class="content-scroll">
+              <div class="panel">
+                <h2>Chuyển đổi Word sang Excel</h2>
+                <p>Upload file Word (.docx) chứa câu hỏi để xuất ra file Excel.</p>
+                <div class="upload-area">
+                  <input type="file" id="convertFile" accept=".docx" />
+                  <button id="convertBtn" type="button">Chuyển đổi</button>
+                </div>
+                <div class="convert-options" style="margin-top: 12px; text-align: left;">
+                  <div style="margin-bottom: 8px;">
+                    <label for="convertSubject" style="margin-right: 8px;">Môn học:</label>
+                    <select id="convertSubject" style="padding: 6px 12px; border-radius: 4px; border: 1px solid var(--border);">
+                      <option value="english">Tiếng Anh</option>
+                      <option value="math">Toán</option>
+                      <option value="science">Khoa học</option>
+                      <option value="general">Khác</option>
+                    </select>
+                  </div>
+                  <label style="display: inline-flex; align-items: center; gap: 8px; cursor: pointer;">
+                    <input type="checkbox" id="convertLatex" style="width: auto;" />
+                    <span>Xuất công thức dạng LaTeX</span>
+                  </label>
+                </div>
+                <div class="gen-status" id="convertStatus"></div>
+              </div>
+            </div><!-- end content-scroll -->
+          </section>
+
+          <!-- Tab: Question Bank -->
+          <section class="tab-panel" id="tab-bank">
+            <div class="content-scroll">
+              <div class="panel">
+                <h2>Ngân hàng câu hỏi</h2>
+                <div class="bank-filters">
+                  <select id="bankSubject">
+                    <option value="">Tất cả môn</option>
                   </select>
-                </div>
-                <div>
-                  <label for="createDifficulty">Độ khó so với đề mẫu</label>
-                  <select id="createDifficulty">
-                    <option value="same">Tương đương</option>
-                    <option value="easier">Dễ hơn</option>
-                    <option value="harder">Khó hơn</option>
-                  </select>
-                </div>
-                <div>
-                  <label for="createBilingual">Ngôn ngữ</label>
-                  <select id="createBilingual">
-                    <option value="auto">Tự động nhận dạng</option>
-                    <option value="bilingual">Song ngữ (EN-VIE)</option>
-                    <option value="english">Chỉ tiếng Anh</option>
-                    <option value="vietnamese">Chỉ tiếng Việt</option>
-                  </select>
-                </div>
-                <div>
-                  <label for="createEngine">AI Engine</label>
-                  <select id="createEngine"></select>
-                </div>
-                <button id="createBtn" type="button">Tạo đề mới</button>
-              </div>
-            </div>
-            <div class="gen-status" id="createStatus"></div>
-          </div>
-          <div class="panel result-panel" id="createResult" hidden>
-            <div class="output-header">
-              <h2>Đề mới (<span id="createResultCount">0</span> câu)</h2>
-              <div class="actions">
-                <button id="createExportDocx">Xuất DOCX</button>
-                <button id="createExportPdf">Xuất PDF</button>
-                <button id="createSaveHistory">Lưu lịch sử</button>
-              </div>
-            </div>
-            <div class="create-output" id="createOutput"></div>
-          </div>
-        </section>
-
-        <section class="tab-panel" id="tab-topic">
-          <div class="panel">
-            <h2>Tạo theo chủ đề (AI)</h2>
-            <div class="auto-grid">
-              <div>
-                <label for="topicSubject">Môn học</label>
-                <select id="topicSubject"></select>
-              </div>
-              <div>
-                <label for="topicTopic">Chủ đề</label>
-                <select id="topicTopic"><option value="">-- Tất cả --</option></select>
-              </div>
-              <div>
-                <label for="topicGrade">Lớp</label>
-                <select id="topicGrade"></select>
-              </div>
-              <div>
-                <label for="topicType">Dạng câu hỏi</label>
-                <select id="topicType"></select>
-              </div>
-              <div>
-                <label for="topicCount">Số câu</label>
-                <input id="topicCount" type="number" min="1" max="50" value="10" />
-              </div>
-              <div>
-                <label for="topicDifficulty">Độ khó</label>
-                <select id="topicDifficulty">
-                  <option value="easy">Dễ</option>
-                  <option value="medium" selected>Trung bình</option>
-                  <option value="hard">Khó</option>
-                </select>
-              </div>
-              <div>
-                <label for="topicEngine">AI Engine</label>
-                <select id="topicEngine"></select>
-              </div>
-              <div class="checkbox-group">
-                <label>
-                  <input type="checkbox" id="topicUseRag" checked />
-                  Tham khảo ngân hàng câu hỏi (RAG)
-                </label>
-              </div>
-              <button id="topicGenerate" type="button">Tạo theo chủ đề</button>
-            </div>
-            <small>AI sẽ tự tạo câu hỏi theo môn, lớp và dạng câu hỏi bạn chọn.</small>
-          </div>
-          <div class="panel result-panel" id="topicResult" hidden>
-            <div class="output-header">
-              <h2>Kết quả</h2>
-              <div class="actions">
-                <button data-export="txt">Xuất TXT</button>
-                <button data-export="csv">Xuất CSV</button>
-                <button data-export="docx">Xuất DOCX</button>
-                <button data-export="pdf">Xuất PDF</button>
-              </div>
-            </div>
-            <div class="gen-status" id="topicStatus"></div>
-            <ol class="output-list" id="topicOutput"></ol>
-            <div class="answers-section" id="topicAnswers" hidden>
-              <button class="toggle-answers" id="toggleAnswers">Hiện đáp án</button>
-              <div class="answers-content" id="answersContent" hidden></div>
-            </div>
-          </div>
-        </section>
-
-        <!-- Tab: Word to Excel -->
-        <section class="tab-panel" id="tab-convert">
-          <div class="panel">
-            <h2>Chuyển đổi Word sang Excel</h2>
-            <p>Upload file Word (.docx) chứa câu hỏi để xuất ra file Excel.</p>
-            <div class="upload-area">
-              <input type="file" id="convertFile" accept=".docx" />
-              <button id="convertBtn" type="button">Chuyển đổi</button>
-            </div>
-            <div class="convert-options" style="margin-top: 12px; text-align: left;">
-              <div style="margin-bottom: 8px;">
-                <label for="convertSubject" style="margin-right: 8px;">Môn học:</label>
-                <select id="convertSubject" style="padding: 6px 12px; border-radius: 4px; border: 1px solid var(--border);">
-                  <option value="english">Tiếng Anh</option>
-                  <option value="math">Toán</option>
-                  <option value="science">Khoa học</option>
-                  <option value="general">Khác</option>
-                </select>
-              </div>
-              <label style="display: inline-flex; align-items: center; gap: 8px; cursor: pointer;">
-                <input type="checkbox" id="convertLatex" style="width: auto;" />
-                <span>Xuất công thức dạng LaTeX</span>
-              </label>
-            </div>
-            <div class="gen-status" id="convertStatus"></div>
-          </div>
-        </section>
-
-        <!-- Tab: Question Bank -->
-        <section class="tab-panel" id="tab-bank">
-          <div class="panel">
-            <h2>Ngân hàng câu hỏi</h2>
-            <div class="bank-filters">
-              <select id="bankSubject">
-                <option value="">Tất cả môn</option>
-              </select>
-              <select id="bankDifficulty">
-                <option value="">Tất cả độ khó</option>
-                <option value="easy">Dễ</option>
-                <option value="medium">Trung bình</option>
-                <option value="hard">Khó</option>
-              </select>
-              <input type="text" id="bankSearch" placeholder="Tìm kiếm..." />
-              <button id="bankSearchBtn">Tìm</button>
-              <button id="bankRefreshBtn">Làm mới</button>
-            </div>
-            <div class="bank-stats" id="bankStats"></div>
-          </div>
-          <div class="panel">
-            <div class="output-header">
-              <h3>Danh sách câu hỏi (<span id="bankTotal">0</span>)</h3>
-              <div class="actions">
-                <button id="addQuestionBtn">+ Thêm câu hỏi</button>
-              </div>
-            </div>
-            <div class="bank-list" id="bankList"></div>
-            <div class="bank-pagination" id="bankPagination"></div>
-          </div>
-        </section>
-
-        <!-- Tab: Import dữ liệu -->
-        <section class="tab-panel" id="tab-import">
-          <div class="panel">
-            <h2>Import câu hỏi từ nguồn ngoài</h2>
-            <p>Lấy câu hỏi từ website hoặc upload file để bổ sung vào ngân hàng câu hỏi.</p>
-
-            <!-- Import từ URL -->
-            <div class="import-section">
-              <h3>Import từ URL</h3>
-              <div class="auto-grid">
-                <div style="grid-column: 1 / -1;">
-                  <label for="importUrls">URLs (mỗi URL một dòng)</label>
-                  <textarea id="importUrls" rows="4" placeholder="https://vietjack.com/de-thi/...&#10;https://hoc247.net/de-kiem-tra/..."></textarea>
-                </div>
-                <div>
-                  <label for="importSubject">Môn học</label>
-                  <select id="importSubject"></select>
-                </div>
-                <div>
-                  <label for="importDifficulty">Độ khó</label>
-                  <select id="importDifficulty">
+                  <select id="bankDifficulty">
+                    <option value="">Tất cả độ khó</option>
                     <option value="easy">Dễ</option>
-                    <option value="medium" selected>Trung bình</option>
+                    <option value="medium">Trung bình</option>
                     <option value="hard">Khó</option>
                   </select>
+                  <input type="text" id="bankSearch" placeholder="Tìm kiếm..." />
+                  <button id="bankSearchBtn">Tìm</button>
+                  <button id="bankRefreshBtn">Làm mới</button>
+                </div>
+                <div class="bank-stats" id="bankStats"></div>
+              </div>
+              <div class="panel">
+                <div class="output-header">
+                  <h3>Danh sách câu hỏi (<span id="bankTotal">0</span>)</h3>
+                  <div class="actions">
+                    <button id="addQuestionBtn">+ Thêm câu hỏi</button>
+                  </div>
+                </div>
+                <div class="bank-list" id="bankList"></div>
+                <div class="bank-pagination" id="bankPagination"></div>
+              </div>
+            </div><!-- end content-scroll -->
+          </section>
+
+          <!-- Tab: Import dữ liệu -->
+          <section class="tab-panel" id="tab-import">
+            <div class="content-scroll">
+              <div class="panel">
+                <h2>Import câu hỏi từ nguồn ngoài</h2>
+                <p>Lấy câu hỏi từ website hoặc upload file để bổ sung vào ngân hàng câu hỏi.</p>
+                <!-- Import từ URL -->
+                <div class="import-section">
+                  <h3>Import từ URL</h3>
+                  <div class="auto-grid">
+                    <div style="grid-column: 1 / -1;">
+                      <label for="importUrls">URLs (mỗi URL một dòng)</label>
+                      <textarea id="importUrls" rows="4" placeholder="https://vietjack.com/de-thi/...&#10;https://hoc247.net/de-kiem-tra/..."></textarea>
+                    </div>
+                    <div>
+                      <label for="importSubject">Môn học</label>
+                      <select id="importSubject"></select>
+                    </div>
+                    <div>
+                      <label for="importDifficulty">Độ khó</label>
+                      <select id="importDifficulty">
+                        <option value="easy">Dễ</option>
+                        <option value="medium" selected>Trung bình</option>
+                        <option value="hard">Khó</option>
+                      </select>
+                    </div>
+                  </div>
+                  <button id="importUrlBtn" type="button">Import từ URL</button>
+                </div>
+                <!-- Upload file -->
+                <div class="import-section" style="margin-top: 1.5rem; border-top: 1px solid #e5e7eb; padding-top: 1.5rem;">
+                  <h3>Upload file</h3>
+                  <p>Hỗ trợ định dạng: Word (.docx), PDF (.pdf), Text (.txt)</p>
+                  <div class="auto-grid">
+                    <div>
+                      <label for="importFile">Chọn file</label>
+                      <input type="file" id="importFile" accept=".docx,.pdf,.txt" />
+                    </div>
+                    <div>
+                      <label for="importFileSubject">Môn học</label>
+                      <select id="importFileSubject"></select>
+                    </div>
+                    <div>
+                      <label for="importFileDifficulty">Độ khó</label>
+                      <select id="importFileDifficulty">
+                        <option value="easy">Dễ</option>
+                        <option value="medium" selected>Trung bình</option>
+                        <option value="hard">Khó</option>
+                      </select>
+                    </div>
+                  </div>
+                  <button id="importFileBtn" type="button">Upload & Import</button>
+                </div>
+                <!-- Suggested sources -->
+                <div class="import-section" style="margin-top: 1.5rem; border-top: 1px solid #e5e7eb; padding-top: 1.5rem;">
+                  <h3>Nguồn gợi ý</h3>
+                  <div id="suggestedSources" class="suggested-sources">
+                    <p>Đang tải...</p>
+                  </div>
+                </div>
+                <!-- Import status -->
+                <div class="gen-status" id="importStatus" style="margin-top: 1rem;"></div>
+                <!-- Import results -->
+                <div class="import-results" id="importResults" hidden>
+                  <h3>Kết quả import</h3>
+                  <div id="importResultsList"></div>
                 </div>
               </div>
-              <button id="importUrlBtn" type="button">Import từ URL</button>
-            </div>
+            </div><!-- end content-scroll -->
+          </section>
 
-            <!-- Upload file -->
-            <div class="import-section" style="margin-top: 1.5rem; border-top: 1px solid #e5e7eb; padding-top: 1.5rem;">
-              <h3>Upload file</h3>
-              <p>Hỗ trợ định dạng: Word (.docx), PDF (.pdf), Text (.txt)</p>
-              <div class="auto-grid">
-                <div>
-                  <label for="importFile">Chọn file</label>
-                  <input type="file" id="importFile" accept=".docx,.pdf,.txt" />
-                </div>
-                <div>
-                  <label for="importFileSubject">Môn học</label>
-                  <select id="importFileSubject"></select>
-                </div>
-                <div>
-                  <label for="importFileDifficulty">Độ khó</label>
-                  <select id="importFileDifficulty">
-                    <option value="easy">Dễ</option>
-                    <option value="medium" selected>Trung bình</option>
-                    <option value="hard">Khó</option>
-                  </select>
+          <!-- Tab: Kho lưu trữ local -->
+          <section class="tab-panel" id="tab-storage">
+            <div class="content-scroll">
+              <div class="panel">
+                <h2>Kho lưu trữ</h2>
+                <p>Quản lý file đề mẫu, tài liệu theo môn học và lớp.</p>
+
+                <!-- Stats -->
+                <div class="storage-stats" id="storageStats">
+                  <div class="stat-item">
+                    <span class="stat-label">Tổng file:</span>
+                    <span class="stat-value" id="statTotalFiles">0</span>
+                  </div>
+                  <div class="stat-item">
+                    <span class="stat-label">Dung lượng:</span>
+                    <span class="stat-value" id="statTotalSize">0 B</span>
+                  </div>
                 </div>
               </div>
-              <button id="importFileBtn" type="button">Upload & Import</button>
-            </div>
 
-            <!-- Suggested sources -->
-            <div class="import-section" style="margin-top: 1.5rem; border-top: 1px solid #e5e7eb; padding-top: 1.5rem;">
-              <h3>Nguồn gợi ý</h3>
-              <div id="suggestedSources" class="suggested-sources">
-                <p>Đang tải...</p>
-              </div>
-            </div>
-
-            <!-- Import status -->
-            <div class="gen-status" id="importStatus" style="margin-top: 1rem;"></div>
-
-            <!-- Import results -->
-            <div class="import-results" id="importResults" hidden>
-              <h3>Kết quả import</h3>
-              <div id="importResultsList"></div>
-            </div>
-          </div>
-        </section>
-
-        <!-- Tab: Lịch sử sử dụng -->
-        <section class="tab-panel" id="tab-history">
-          <div class="panel">
-            <h2>Lịch sử sử dụng</h2>
-            <div class="history-actions">
-              <button id="historyRefreshBtn">Làm mới</button>
-              <button id="historyClearBtn">Xóa tất cả</button>
-            </div>
-            <div class="gen-status" id="historyStatus"></div>
-          </div>
-          <div class="panel">
-            <div class="history-list" id="historyList">
-              <p>Chưa có lịch sử.</p>
-            </div>
-          </div>
-        </section>
-
-        <!-- Tab: Chấm bài trắc nghiệm -->
-        <section class="tab-panel" id="tab-grading">
-          <div class="panel">
-            <h2>Chấm bài trắc nghiệm</h2>
-            <p>Upload ảnh phiếu trả lời đã scan/chụp để chấm điểm tự động.</p>
-
-            <div class="auto-grid" style="margin-bottom: 1rem;">
-              <div>
-                <label for="gradingContest">Kỳ thi</label>
-                <select id="gradingContest">
-                  <option value="KANGAROO">Kangaroo</option>
-                  <option value="ASMO">ASMO</option>
-                  <option value="SEAMO">SEAMO</option>
-                </select>
-              </div>
-              <div>
-                <label for="gradingSubject">Môn thi</label>
-                <select id="gradingSubject">
-                  <!-- Options will be populated by JavaScript based on contest -->
-                </select>
-              </div>
-              <div>
-                <label for="gradingLevel">Cấp độ</label>
-                <select id="gradingLevel">
-                  <!-- Options will be populated by JavaScript based on contest and subject -->
-                </select>
-              </div>
-            </div>
-            <!-- Hidden field to store the combined template value -->
-            <input type="hidden" id="gradingTemplate" value="KANGAROO_SCIENCE_BENJAMIN">
-
-            <div class="grading-section">
-              <h3>Bước 1: Nhập đáp án đúng</h3>
-              <div class="answer-input-tabs">
-                <button type="button" class="answer-tab active" data-mode="manual">Nhập thủ công</button>
-                <button type="button" class="answer-tab" data-mode="excel">Upload file (Excel/PDF)</button>
+              <!-- Upload Form -->
+              <div class="panel">
+                <h3>Upload file</h3>
+                <form id="storageUploadForm" class="auto-grid">
+                  <div>
+                    <label for="storageSubject">Môn học</label>
+                    <select id="storageSubject" required></select>
+                  </div>
+                  <div>
+                    <label for="storageGrade">Lớp</label>
+                    <select id="storageGrade" required></select>
+                  </div>
+                  <div style="grid-column: span 2;">
+                    <label for="storageFile">Chọn file</label>
+                    <input type="file" id="storageFile" accept=".docx,.doc,.pdf,.xlsx,.xls,.txt" required>
+                    <small style="color: #666;">Hỗ trợ: .docx, .doc, .pdf, .xlsx, .xls, .txt</small>
+                  </div>
+                  <div style="grid-column: span 2;">
+                    <label for="storageDesc">Mô tả (tùy chọn)</label>
+                    <input type="text" id="storageDesc" placeholder="Mô tả ngắn về file...">
+                  </div>
+                  <div>
+                    <button type="submit" id="storageUploadBtn">📤 Upload</button>
+                  </div>
+                </form>
+                <div class="gen-status" id="storageUploadStatus" style="margin-top: 1rem;"></div>
               </div>
 
-              <div id="manualAnswerInput">
-                <p style="margin: 0.5rem 0; color: var(--muted);">Chọn đáp án đúng cho từng câu (A-E):</p>
-                <div class="answer-grid" id="answerGrid"></div>
+              <!-- File Browser -->
+              <div class="panel">
+                <h3>Danh sách file</h3>
+                <div class="storage-filters" style="margin-bottom: 1rem;">
+                  <div class="auto-grid">
+                    <div>
+                      <label for="storageFilterSubject">Lọc theo môn</label>
+                      <select id="storageFilterSubject">
+                        <option value="">Tất cả môn</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label for="storageFilterGrade">Lọc theo lớp</label>
+                      <select id="storageFilterGrade">
+                        <option value="">Tất cả lớp</option>
+                      </select>
+                    </div>
+                    <div>
+                      <button type="button" id="storageRefreshBtn">🔄 Làm mới</button>
+                    </div>
+                  </div>
+                </div>
+                <div id="storageFileList" class="storage-file-list">
+                  <p>Đang tải...</p>
+                </div>
               </div>
+            </div><!-- end content-scroll -->
+          </section>
 
-              <div id="excelAnswerInput" hidden>
-                <p style="margin: 0.5rem 0; color: var(--muted);">Upload file Excel, Word hoặc PDF chứa đáp án</p>
-                <input type="file" id="answerExcelFile" accept=".xlsx,.xls,.pdf,.docx,.doc" />
-                <span id="answerFileStatus" style="margin-left: 0.5rem;"></span>
+          <!-- Tab: Lịch sử sử dụng -->
+          <section class="tab-panel" id="tab-history">
+            <div class="content-scroll">
+              <div class="panel">
+                <h2>Lịch sử sử dụng</h2>
+                <div class="history-actions">
+                  <button id="historyRefreshBtn">Làm mới</button>
+                  <button id="historyClearBtn">Xóa tất cả</button>
+                </div>
+                <div class="gen-status" id="historyStatus"></div>
               </div>
-            </div>
-
-            <div class="grading-section" style="margin-top: 1.5rem;">
-              <h3>Bước 2: Upload phiếu trả lời</h3>
-              <p style="margin: 0.5rem 0; color: var(--muted);">Hỗ trợ ảnh (JPG, PNG) hoặc PDF (mỗi trang = 1 phiếu)</p>
-              <div class="upload-area">
-                <input type="file" id="sheetImages" accept="image/*,.pdf" multiple />
-                <span id="sheetCount" style="margin-left: 0.5rem;">0 file đã chọn</span>
+              <div class="panel">
+                <div class="history-list" id="historyList">
+                  <p>Chưa có lịch sử.</p>
+                </div>
               </div>
-            </div>
+            </div><!-- end content-scroll -->
+          </section>
 
-            <div style="margin-top: 1.5rem;">
-              <button id="gradeBtn" type="button" class="primary-btn">Chấm bài</button>
-            </div>
-            <div class="gen-status" id="gradingStatus"></div>
-          </div>
-
-          <div class="panel result-panel" id="gradingResult" hidden>
-            <div class="output-header">
-              <h2>Kết quả chấm bài</h2>
-              <div class="actions">
-                <button id="exportGradingExcel">Xuất Excel</button>
+          <!-- Tab: Chấm bài trắc nghiệm -->
+          <section class="tab-panel" id="tab-grading">
+            <div class="content-scroll">
+              <div class="panel">
+                <h2>Chấm bài trắc nghiệm</h2>
+                <p>Upload ảnh phiếu trả lời đã scan/chụp để chấm điểm tự động.</p>
+                <div class="auto-grid" style="margin-bottom: 1rem;">
+                  <div>
+                    <label for="gradingContest">Kỳ thi</label>
+                    <select id="gradingContest">
+                      <option value="KANGAROO">Kangaroo</option>
+                      <option value="ASMO">ASMO</option>
+                      <option value="SEAMO">SEAMO</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label for="gradingSubject">Môn thi</label>
+                    <select id="gradingSubject"></select>
+                  </div>
+                  <div>
+                    <label for="gradingLevel">Cấp độ</label>
+                    <select id="gradingLevel"></select>
+                  </div>
+                </div>
+                <input type="hidden" id="gradingTemplate" value="KANGAROO_SCIENCE_BENJAMIN">
+                <div class="grading-section">
+                  <h3>Bước 1: Nhập đáp án đúng</h3>
+                  <div class="answer-input-tabs">
+                    <button type="button" class="answer-tab active" data-mode="manual">Nhập thủ công</button>
+                    <button type="button" class="answer-tab" data-mode="excel">Upload file (Excel/PDF)</button>
+                  </div>
+                  <div id="manualAnswerInput">
+                    <p style="margin: 0.5rem 0; color: var(--muted);">Chọn đáp án đúng cho từng câu (A-E):</p>
+                    <div class="answer-grid" id="answerGrid"></div>
+                  </div>
+                  <div id="excelAnswerInput" hidden>
+                    <p style="margin: 0.5rem 0; color: var(--muted);">Upload file Excel, Word hoặc PDF chứa đáp án</p>
+                    <input type="file" id="answerExcelFile" accept=".xlsx,.xls,.pdf,.docx,.doc" />
+                    <span id="answerFileStatus" style="margin-left: 0.5rem;"></span>
+                  </div>
+                </div>
+                <div class="grading-section" style="margin-top: 1.5rem;">
+                  <h3>Bước 2: Upload phiếu trả lời</h3>
+                  <p style="margin: 0.5rem 0; color: var(--muted);">Hỗ trợ ảnh (JPG, PNG) hoặc PDF (mỗi trang = 1 phiếu)</p>
+                  <div class="upload-area">
+                    <input type="file" id="sheetImages" accept="image/*,.pdf" multiple />
+                    <span id="sheetCount" style="margin-left: 0.5rem;">0 file đã chọn</span>
+                  </div>
+                </div>
+                <div style="margin-top: 1.5rem;">
+                  <button id="gradeBtn" type="button" class="primary-btn">Chấm bài</button>
+                </div>
+                <div class="gen-status" id="gradingStatus"></div>
               </div>
-            </div>
-            <div class="grading-summary" id="gradingSummary"></div>
-            <div class="grading-table-container">
-              <table class="grading-table" id="gradingTable">
-                <thead>
-                  <tr>
-                    <th>STT</th>
-                    <th>Họ và tên</th>
-                    <th>Lớp</th>
-                    <th>SBD</th>
-                    <th>Trường</th>
-                    <th>Điểm</th>
-                    <th>Đúng</th>
-                    <th>Sai</th>
-                    <th>Bỏ trống</th>
-                    <th>Chi tiết</th>
-                  </tr>
-                </thead>
-                <tbody></tbody>
-              </table>
-            </div>
-          </div>
-        </section>
-
-        <!-- Tab: Chấm bài viết tay -->
-        <section class="tab-panel" id="tab-handwritten">
-          <div class="panel">
-            <h2>Chấm bài viết tay</h2>
-            <p>Upload ảnh phiếu trả lời có đáp án viết tay (A, B, C, D, E) để chấm điểm tự động.</p>
-
-            <div class="auto-grid" style="margin-bottom: 1rem;">
-              <div>
-                <label for="hwNumQuestions">Số câu hỏi</label>
-                <input type="number" id="hwNumQuestions" value="30" min="1" max="100" />
+              <div class="panel result-panel" id="gradingResult" hidden>
+                <div class="output-header">
+                  <h2>Kết quả chấm bài</h2>
+                  <div class="actions">
+                    <button id="exportGradingExcel">Xuất Excel</button>
+                  </div>
+                </div>
+                <div class="grading-summary" id="gradingSummary"></div>
+                <div class="grading-table-container">
+                  <table class="grading-table" id="gradingTable">
+                    <thead>
+                      <tr>
+                        <th>STT</th>
+                        <th>Họ và tên</th>
+                        <th>Lớp</th>
+                        <th>SBD</th>
+                        <th>Trường</th>
+                        <th>Điểm</th>
+                        <th>Đúng</th>
+                        <th>Sai</th>
+                        <th>Bỏ trống</th>
+                        <th>Chi tiết</th>
+                      </tr>
+                    </thead>
+                    <tbody></tbody>
+                  </table>
+                </div>
               </div>
-              <div>
-                <label for="hwValidAnswers">Đáp án hợp lệ</label>
-                <input type="text" id="hwValidAnswers" value="A,B,C,D,E" placeholder="A,B,C,D,E" />
-              </div>
-            </div>
+            </div><!-- end content-scroll -->
+          </section>
 
-            <div class="auto-grid" style="margin-bottom: 1rem;">
-              <div>
-                <label for="hwScoringCorrect">Điểm đúng</label>
-                <input type="number" id="hwScoringCorrect" value="1" step="0.25" />
+          <!-- Tab: Chấm bài viết tay -->
+          <section class="tab-panel" id="tab-handwritten">
+            <div class="content-scroll">
+              <div class="panel">
+                <h2>Chấm bài viết tay</h2>
+                <p>Upload ảnh phiếu trả lời có đáp án viết tay (A, B, C, D, E) để chấm điểm tự động.</p>
+                <div class="auto-grid" style="margin-bottom: 1rem;">
+                  <div>
+                    <label for="hwNumQuestions">Số câu hỏi</label>
+                    <input type="number" id="hwNumQuestions" value="30" min="1" max="100" />
+                  </div>
+                  <div>
+                    <label for="hwValidAnswers">Đáp án hợp lệ</label>
+                    <input type="text" id="hwValidAnswers" value="A,B,C,D,E" placeholder="A,B,C,D,E" />
+                  </div>
+                </div>
+                <div class="auto-grid" style="margin-bottom: 1rem;">
+                  <div>
+                    <label for="hwScoringCorrect">Điểm đúng</label>
+                    <input type="number" id="hwScoringCorrect" value="1" step="0.25" />
+                  </div>
+                  <div>
+                    <label for="hwScoringWrong">Điểm sai</label>
+                    <input type="number" id="hwScoringWrong" value="0" step="0.25" />
+                  </div>
+                  <div>
+                    <label for="hwScoringBlank">Điểm bỏ trống</label>
+                    <input type="number" id="hwScoringBlank" value="0" step="0.25" />
+                  </div>
+                </div>
+                <div class="grading-section">
+                  <h3>Bước 1: Nhập đáp án đúng</h3>
+                  <div class="answer-input-tabs">
+                    <button type="button" class="hw-answer-tab active" data-mode="manual">Nhập thủ công</button>
+                    <button type="button" class="hw-answer-tab" data-mode="text">Nhập dạng text</button>
+                  </div>
+                  <div id="hwManualAnswerInput">
+                    <p style="margin: 0.5rem 0; color: var(--muted);">Chọn đáp án đúng cho từng câu:</p>
+                    <div class="answer-grid" id="hwAnswerGrid"></div>
+                  </div>
+                  <div id="hwTextAnswerInput" hidden>
+                    <p style="margin: 0.5rem 0; color: var(--muted);">Nhập đáp án cách nhau bằng dấu phẩy (VD: A,B,C,D,A,B,...)</p>
+                    <textarea id="hwAnswerText" rows="3" placeholder="A,B,C,D,E,A,B,C,D,E,..."></textarea>
+                  </div>
+                </div>
+                <div class="grading-section" style="margin-top: 1.5rem;">
+                  <h3>Bước 2: Upload phiếu trả lời</h3>
+                  <p style="margin: 0.5rem 0; color: var(--muted);">Upload ảnh chứa đáp án viết tay của học sinh</p>
+                  <div class="upload-area">
+                    <input type="file" id="hwSheetImages" accept="image/*" multiple />
+                    <span id="hwSheetCount" style="margin-left: 0.5rem;">0 file đã chọn</span>
+                  </div>
+                </div>
+                <div style="margin-top: 1.5rem;">
+                  <button id="hwGradeBtn" type="button" class="primary-btn">Chấm bài</button>
+                </div>
+                <div class="gen-status" id="hwGradingStatus"></div>
               </div>
-              <div>
-                <label for="hwScoringWrong">Điểm sai</label>
-                <input type="number" id="hwScoringWrong" value="0" step="0.25" />
+              <div class="panel result-panel" id="hwGradingResult" hidden>
+                <div class="output-header">
+                  <h2>Kết quả chấm bài viết tay</h2>
+                  <div class="actions">
+                    <button id="hwExportExcel">Xuất Excel</button>
+                  </div>
+                </div>
+                <div class="grading-summary" id="hwGradingSummary"></div>
+                <div class="grading-table-container">
+                  <table class="grading-table" id="hwGradingTable">
+                    <thead>
+                      <tr>
+                        <th>STT</th>
+                        <th>Tên file</th>
+                        <th>Điểm</th>
+                        <th>Đúng</th>
+                        <th>Sai</th>
+                        <th>Bỏ trống</th>
+                        <th>Chi tiết</th>
+                      </tr>
+                    </thead>
+                    <tbody></tbody>
+                  </table>
+                </div>
               </div>
-              <div>
-                <label for="hwScoringBlank">Điểm bỏ trống</label>
-                <input type="number" id="hwScoringBlank" value="0" step="0.25" />
-              </div>
-            </div>
+            </div><!-- end content-scroll -->
+          </section>
 
-            <div class="grading-section">
-              <h3>Bước 1: Nhập đáp án đúng</h3>
-              <div class="answer-input-tabs">
-                <button type="button" class="hw-answer-tab active" data-mode="manual">Nhập thủ công</button>
-                <button type="button" class="hw-answer-tab" data-mode="text">Nhập dạng text</button>
+          <section class="tab-panel" id="tab-settings">
+            <div class="content-scroll">
+              <div class="panel">
+                <h2>Cài đặt AI</h2>
+                <div class="settings-grid">
+                  <fieldset class="settings-group">
+                    <legend>OpenAI</legend>
+                    <label for="setOpenaiKey">API Key</label>
+                    <input id="setOpenaiKey" type="password" placeholder="sk-..." autocomplete="off" />
+                    <label for="setOpenaiModel">Model</label>
+                    <input id="setOpenaiModel" type="text" placeholder="gpt-4o-mini" />
+                    <label for="setOpenaiBase">API Base URL</label>
+                    <input id="setOpenaiBase" type="text" placeholder="https://api.openai.com/v1" />
+                  </fieldset>
+                  <fieldset class="settings-group">
+                    <legend>Google Gemini</legend>
+                    <label for="setGeminiKey">API Key</label>
+                    <input id="setGeminiKey" type="password" placeholder="AIza..." autocomplete="off" />
+                    <label for="setGeminiModel">Model</label>
+                    <input id="setGeminiModel" type="text" placeholder="gemini-2.0-flash" />
+                  </fieldset>
+                  <fieldset class="settings-group">
+                    <legend>Ollama (local)</legend>
+                    <label for="setOllamaBase">Base URL</label>
+                    <input id="setOllamaBase" type="text" placeholder="http://localhost:11434" />
+                    <label for="setOllamaModel">Model</label>
+                    <input id="setOllamaModel" type="text" placeholder="llama3.2" />
+                  </fieldset>
+                </div>
+                <div class="settings-actions">
+                  <button id="saveSettings" type="button">Lưu cài đặt</button>
+                  <span id="settingsStatus" class="gen-status"></span>
+                </div>
+                <div class="engine-status" id="engineStatus"></div>
               </div>
+            </div><!-- end content-scroll -->
+          </section>
 
-              <div id="hwManualAnswerInput">
-                <p style="margin: 0.5rem 0; color: var(--muted);">Chọn đáp án đúng cho từng câu:</p>
-                <div class="answer-grid" id="hwAnswerGrid"></div>
+          <section class="tab-panel" id="tab-blob">
+            <div class="content-scroll">
+              <div class="panel" id="blobManager" hidden>
+                <div class="output-header">
+                  <h2>Quản lý đề mẫu (Blob)</h2>
+                  <div class="actions">
+                    <button id="refreshBlob">Làm mới</button>
+                    <button id="exportBlobCsv">Xuất CSV</button>
+                  </div>
+                </div>
+                <div class="blob-meta">
+                  <span id="blobCount">0 file</span>
+                  <span id="blobSize">0 KB</span>
+                </div>
+                <div class="blob-list" id="blobList"></div>
               </div>
-
-              <div id="hwTextAnswerInput" hidden>
-                <p style="margin: 0.5rem 0; color: var(--muted);">Nhập đáp án cách nhau bằng dấu phẩy (VD: A,B,C,D,A,B,...)</p>
-                <textarea id="hwAnswerText" rows="3" placeholder="A,B,C,D,E,A,B,C,D,E,..."></textarea>
-              </div>
-            </div>
-
-            <div class="grading-section" style="margin-top: 1.5rem;">
-              <h3>Bước 2: Upload phiếu trả lời</h3>
-              <p style="margin: 0.5rem 0; color: var(--muted);">Upload ảnh chứa đáp án viết tay của học sinh</p>
-              <div class="upload-area">
-                <input type="file" id="hwSheetImages" accept="image/*" multiple />
-                <span id="hwSheetCount" style="margin-left: 0.5rem;">0 file đã chọn</span>
-              </div>
-            </div>
-
-            <div style="margin-top: 1.5rem;">
-              <button id="hwGradeBtn" type="button" class="primary-btn">Chấm bài</button>
-            </div>
-            <div class="gen-status" id="hwGradingStatus"></div>
-          </div>
-
-          <div class="panel result-panel" id="hwGradingResult" hidden>
-            <div class="output-header">
-              <h2>Kết quả chấm bài viết tay</h2>
-              <div class="actions">
-                <button id="hwExportExcel">Xuất Excel</button>
-              </div>
-            </div>
-            <div class="grading-summary" id="hwGradingSummary"></div>
-            <div class="grading-table-container">
-              <table class="grading-table" id="hwGradingTable">
-                <thead>
-                  <tr>
-                    <th>STT</th>
-                    <th>Tên file</th>
-                    <th>Điểm</th>
-                    <th>Đúng</th>
-                    <th>Sai</th>
-                    <th>Bỏ trống</th>
-                    <th>Chi tiết</th>
-                  </tr>
-                </thead>
-                <tbody></tbody>
-              </table>
-            </div>
-          </div>
-        </section>
-
-        <section class="tab-panel" id="tab-settings">
-          <div class="panel">
-            <h2>Cài đặt AI</h2>
-            <div class="settings-grid">
-              <fieldset class="settings-group">
-                <legend>OpenAI</legend>
-                <label for="setOpenaiKey">API Key</label>
-                <input id="setOpenaiKey" type="password" placeholder="sk-..." autocomplete="off" />
-                <label for="setOpenaiModel">Model</label>
-                <input id="setOpenaiModel" type="text" placeholder="gpt-4o-mini" />
-                <label for="setOpenaiBase">API Base URL</label>
-                <input id="setOpenaiBase" type="text" placeholder="https://api.openai.com/v1" />
-              </fieldset>
-              <fieldset class="settings-group">
-                <legend>Google Gemini</legend>
-                <label for="setGeminiKey">API Key</label>
-                <input id="setGeminiKey" type="password" placeholder="AIza..." autocomplete="off" />
-                <label for="setGeminiModel">Model</label>
-                <input id="setGeminiModel" type="text" placeholder="gemini-2.0-flash" />
-              </fieldset>
-              <fieldset class="settings-group">
-                <legend>Ollama (local)</legend>
-                <label for="setOllamaBase">Base URL</label>
-                <input id="setOllamaBase" type="text" placeholder="http://localhost:11434" />
-                <label for="setOllamaModel">Model</label>
-                <input id="setOllamaModel" type="text" placeholder="llama3.2" />
-              </fieldset>
-            </div>
-            <div class="settings-actions">
-              <button id="saveSettings" type="button">Lưu cài đặt</button>
-              <span id="settingsStatus" class="gen-status"></span>
-            </div>
-            <div class="engine-status" id="engineStatus"></div>
-          </div>
-        </section>
-
-        <section class="tab-panel" id="tab-blob">
-          <div class="panel" id="blobManager" hidden>
-            <div class="output-header">
-              <h2>Quản lý đề mẫu (Blob)</h2>
-              <div class="actions">
-                <button id="refreshBlob">Làm mới</button>
-                <button id="exportBlobCsv">Xuất CSV</button>
-              </div>
-            </div>
-            <div class="blob-meta">
-              <span id="blobCount">0 file</span>
-              <span id="blobSize">0 KB</span>
-            </div>
-            <div class="blob-list" id="blobList"></div>
-          </div>
-        </section>
-      </main>
-    </div>
+            </div><!-- end content-scroll -->
+          </section>
+        </main>
+      </div><!-- end app-body -->
+    </div><!-- end app-container -->
 
     <!-- Modal xem chi tiết lịch sử -->
     <div class="modal-overlay" id="historyModal" hidden>
@@ -2667,6 +2784,196 @@
         }
       });
 
+      /* ---- Storage Functions ---- */
+      let storageSubjects = [];
+      let storageGrades = [];
+
+      async function loadStorageOptions() {
+        try {
+          const [subjRes, gradeRes] = await Promise.all([
+            fetch('/api/storage/subjects'),
+            fetch('/api/storage/grades')
+          ]);
+          storageSubjects = await subjRes.json();
+          storageGrades = await gradeRes.json();
+
+          // Populate upload form selects
+          const subjSelect = document.getElementById('storageSubject');
+          const gradeSelect = document.getElementById('storageGrade');
+          subjSelect.innerHTML = storageSubjects.map(s =>
+            `<option value="${s.key}">${s.label}</option>`
+          ).join('');
+          gradeSelect.innerHTML = storageGrades.map(g =>
+            `<option value="${g.key}">${g.label}</option>`
+          ).join('');
+
+          // Populate filter selects
+          const filterSubj = document.getElementById('storageFilterSubject');
+          const filterGrade = document.getElementById('storageFilterGrade');
+          filterSubj.innerHTML = '<option value="">Tất cả môn</option>' +
+            storageSubjects.map(s => `<option value="${s.key}">${s.label}</option>`).join('');
+          filterGrade.innerHTML = '<option value="">Tất cả lớp</option>' +
+            storageGrades.map(g => `<option value="${g.key}">${g.label}</option>`).join('');
+        } catch (err) {
+          console.error('Failed to load storage options:', err);
+        }
+      }
+
+      async function loadStorageStats() {
+        try {
+          const res = await fetch('/api/storage/stats');
+          const stats = await res.json();
+          document.getElementById('statTotalFiles').textContent = stats.total_files;
+          document.getElementById('statTotalSize').textContent = stats.total_size_formatted;
+        } catch (err) {
+          console.error('Failed to load storage stats:', err);
+        }
+      }
+
+      async function loadStorageFiles() {
+        const listEl = document.getElementById('storageFileList');
+        const subject = document.getElementById('storageFilterSubject').value;
+        const grade = document.getElementById('storageFilterGrade').value;
+
+        try {
+          let url = '/api/storage/files';
+          const params = new URLSearchParams();
+          if (subject) params.append('subject', subject);
+          if (grade) params.append('grade', grade);
+          if (params.toString()) url += '?' + params.toString();
+
+          const res = await fetch(url);
+          const data = await res.json();
+
+          if (data.files.length === 0) {
+            listEl.innerHTML = `
+              <div class="storage-empty">
+                <div class="icon">📁</div>
+                <p>Chưa có file nào. Upload file đầu tiên!</p>
+              </div>`;
+            return;
+          }
+
+          // Group by subject then grade
+          const grouped = {};
+          for (const f of data.files) {
+            const key = `${f.subject}|${f.grade}`;
+            if (!grouped[key]) {
+              grouped[key] = {
+                subject: f.subject,
+                subjectLabel: f.subject_label,
+                grade: f.grade,
+                gradeLabel: f.grade_label,
+                files: []
+              };
+            }
+            grouped[key].files.push(f);
+          }
+
+          let html = '';
+          for (const g of Object.values(grouped)) {
+            html += `
+              <div class="storage-group">
+                <div class="storage-group-header">
+                  📚 ${g.subjectLabel} - ${g.gradeLabel}
+                  <span class="badge">${g.files.length} file</span>
+                </div>
+                ${g.files.map(f => `
+                  <div class="storage-file-item" data-subject="${f.subject}" data-grade="${f.grade}" data-filename="${f.filename}">
+                    <div class="storage-file-info">
+                      <div class="storage-file-name">${f.filename}</div>
+                      <div class="storage-file-meta">
+                        <span>📏 ${f.size_formatted}</span>
+                        <span>📅 ${new Date(f.modified_at).toLocaleDateString('vi-VN')}</span>
+                      </div>
+                    </div>
+                    <div class="storage-file-actions">
+                      <button class="btn-download" onclick="downloadStorageFile('${f.subject}', '${f.grade}', '${f.filename}')">⬇️ Tải</button>
+                      <button class="btn-delete" onclick="deleteStorageFile('${f.subject}', '${f.grade}', '${f.filename}')">🗑️ Xóa</button>
+                    </div>
+                  </div>
+                `).join('')}
+              </div>
+            `;
+          }
+          listEl.innerHTML = html;
+        } catch (err) {
+          listEl.innerHTML = `<p style="color: var(--danger);">Lỗi: ${err.message}</p>`;
+        }
+      }
+
+      function downloadStorageFile(subject, grade, filename) {
+        window.open(`/api/storage/download/${subject}/${grade}/${encodeURIComponent(filename)}`, '_blank');
+      }
+
+      async function deleteStorageFile(subject, grade, filename) {
+        if (!confirm(`Bạn có chắc muốn xóa file "${filename}"?`)) return;
+
+        try {
+          const res = await fetch(`/api/storage/files/${subject}/${grade}/${encodeURIComponent(filename)}`, {
+            method: 'DELETE'
+          });
+          const data = await res.json();
+          if (data.success) {
+            loadStorageFiles();
+            loadStorageStats();
+          } else {
+            alert(data.detail || 'Lỗi khi xóa file');
+          }
+        } catch (err) {
+          alert('Lỗi: ' + err.message);
+        }
+      }
+
+      // Upload form handler
+      document.getElementById('storageUploadForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const statusEl = document.getElementById('storageUploadStatus');
+        const fileInput = document.getElementById('storageFile');
+
+        if (!fileInput.files.length) {
+          statusEl.textContent = 'Vui lòng chọn file.';
+          return;
+        }
+
+        statusEl.textContent = 'Đang upload...';
+        statusEl.style.color = 'var(--ink)';
+
+        const formData = new FormData();
+        formData.append('file', fileInput.files[0]);
+        formData.append('subject', document.getElementById('storageSubject').value);
+        formData.append('grade', document.getElementById('storageGrade').value);
+        formData.append('description', document.getElementById('storageDesc').value);
+
+        try {
+          const res = await fetch('/api/storage/upload', { method: 'POST', body: formData });
+          const data = await res.json();
+
+          if (data.success) {
+            statusEl.textContent = `✅ Đã upload: ${data.file.filename}`;
+            statusEl.style.color = 'var(--success)';
+            fileInput.value = '';
+            document.getElementById('storageDesc').value = '';
+            loadStorageFiles();
+            loadStorageStats();
+          } else {
+            statusEl.textContent = data.detail || 'Lỗi khi upload.';
+            statusEl.style.color = 'var(--danger)';
+          }
+        } catch (err) {
+          statusEl.textContent = 'Lỗi: ' + err.message;
+          statusEl.style.color = 'var(--danger)';
+        }
+      });
+
+      // Filter handlers
+      document.getElementById('storageFilterSubject').addEventListener('change', loadStorageFiles);
+      document.getElementById('storageFilterGrade').addEventListener('change', loadStorageFiles);
+      document.getElementById('storageRefreshBtn').addEventListener('click', () => {
+        loadStorageStats();
+        loadStorageFiles();
+      });
+
       /* ---- Init ---- */
       loadSampleFolders();
       loadSubjects();
@@ -2680,6 +2987,181 @@
       loadHistoryFromServer().then(() => renderHistory());
       // Initialize import subjects after subjects are loaded
       setTimeout(initImportSubjects, 500);
+      // Initialize storage
+      loadStorageOptions().then(() => {
+        loadStorageStats();
+        loadStorageFiles();
+      });
+
+      /* ---- AI Chat Assistant ---- */
+      let chatHistory = [];
+      let chatOpen = false;
+
+      // Expose to window for inline onclick handlers (module scope issue)
+      window.toggleChat = function() {
+        const panel = document.getElementById('chatPanel');
+        const bubble = document.getElementById('chatBubble');
+        chatOpen = !chatOpen;
+        panel.classList.toggle('open', chatOpen);
+        bubble.classList.toggle('active', chatOpen);
+        if (chatOpen) {
+          document.getElementById('chatInput').focus();
+        }
+      }
+
+      function addChatMessage(role, content) {
+        const messagesEl = document.getElementById('chatMessages');
+        const msgDiv = document.createElement('div');
+        msgDiv.className = `chat-message ${role}`;
+
+        // Simple markdown-like formatting (preserve LaTeX delimiters)
+        let html = content
+          .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+          .replace(/`([^`]+)`/g, '<code>$1</code>')
+          .replace(/\n/g, '<br>');
+
+        msgDiv.innerHTML = `
+          <div class="chat-avatar">${role === 'user' ? '👤' : '🤖'}</div>
+          <div class="chat-content">${html}</div>
+        `;
+        messagesEl.appendChild(msgDiv);
+
+        // Render math formulas with KaTeX
+        const contentEl = msgDiv.querySelector('.chat-content');
+        if (contentEl) {
+          renderMath(contentEl);
+        }
+
+        messagesEl.scrollTop = messagesEl.scrollHeight;
+      }
+
+      let isSendingChat = false; // Prevent double sending
+      window.sendChatMessage = async function() {
+        if (isSendingChat) return; // Already sending
+
+        const input = document.getElementById('chatInput');
+        const message = input.value.trim();
+        if (!message) return;
+
+        isSendingChat = true; // Lock
+
+        // Add user message to UI
+        addChatMessage('user', message);
+        input.value = '';
+
+        const typingEl = document.getElementById('chatTyping');
+
+        try {
+          // Always use ollama for chat assistant
+          const engine = 'ollama';
+
+          // Use AbortController for timeout (5 minutes for slow models)
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 300000);
+
+          // Show typing indicator after small delay (avoid flicker for fast responses)
+          const typingTimeout = setTimeout(() => { typingEl.hidden = false; }, 500);
+
+          // Send history (without current message) - backend will add current message
+          const res = await fetch('/api/ai/chat', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              message: message,
+              history: chatHistory.slice(-6), // Last 6 messages for context
+              ai_engine: engine
+            }),
+            signal: controller.signal
+          });
+          clearTimeout(timeoutId);
+          clearTimeout(typingTimeout); // Cancel typing indicator if response came quickly
+
+          const data = await res.json();
+
+          if (data.ok) {
+            // Only add to history after successful response
+            chatHistory.push({ role: 'user', content: message });
+            chatHistory.push({ role: 'assistant', content: data.reply });
+            addChatMessage('assistant', data.reply);
+          } else {
+            addChatMessage('assistant', `❌ Lỗi: ${data.error}`);
+          }
+        } catch (err) {
+          if (err.name === 'AbortError') {
+            addChatMessage('assistant', `⏱️ Timeout - AI đang xử lý quá lâu. Vui lòng thử lại với tin nhắn ngắn hơn.`);
+          } else {
+            addChatMessage('assistant', `❌ Lỗi kết nối: ${err.message}`);
+          }
+        } finally {
+          // Always hide typing indicator and unlock
+          document.getElementById('chatTyping').hidden = true;
+          isSendingChat = false;
+        }
+      }
+
+      window.clearChatHistory = function() {
+        chatHistory = [];
+        document.getElementById('chatMessages').innerHTML = `
+          <div class="chat-welcome">
+            <div class="chat-welcome-icon">🤖</div>
+            <h3>Xin chào!</h3>
+            <p>Tôi là trợ lý AI, sẵn sàng hỗ trợ bạn:</p>
+            <ul>
+              <li>Tạo câu hỏi và đề thi</li>
+              <li>Giải thích khái niệm</li>
+              <li>Phân tích độ khó</li>
+              <li>Gợi ý cải thiện</li>
+            </ul>
+          </div>
+        `;
+      }
+
+    </script>
+
+    <!-- AI Chat Assistant Floating UI -->
+    <div id="chatBubble" class="chat-bubble" title="Trợ lý AI" onclick="toggleChat()">
+      <span class="chat-bubble-icon">🤖</span>
+      <span class="chat-bubble-badge" id="chatBadge" hidden>1</span>
+    </div>
+
+    <div id="chatPanel" class="chat-panel">
+      <div class="chat-header">
+        <div class="chat-header-title">
+          <span class="chat-header-icon">🤖</span>
+          <span>Trợ lý AI</span>
+        </div>
+        <div class="chat-header-actions">
+          <button class="chat-header-btn" title="Xóa lịch sử" onclick="clearChatHistory()">🗑️</button>
+          <button class="chat-header-btn" title="Đóng" onclick="toggleChat()">✕</button>
+        </div>
+      </div>
+      <div class="chat-messages" id="chatMessages">
+        <div class="chat-welcome">
+          <div class="chat-welcome-icon">🤖</div>
+          <h3>Xin chào!</h3>
+          <p>Tôi là trợ lý AI, sẵn sàng hỗ trợ bạn:</p>
+          <ul>
+            <li>Tạo câu hỏi và đề thi</li>
+            <li>Giải thích khái niệm</li>
+            <li>Phân tích độ khó</li>
+            <li>Gợi ý cải thiện</li>
+          </ul>
+        </div>
+      </div>
+      <div class="chat-typing" id="chatTyping" hidden>
+        <span class="typing-dot"></span>
+        <span class="typing-dot"></span>
+        <span class="typing-dot"></span>
+        <span>Đang trả lời...</span>
+      </div>
+      <div class="chat-input-area">
+        <textarea id="chatInput" placeholder="Nhập tin nhắn..." rows="1" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendChatMessage();}"></textarea>
+        <button class="chat-send-btn" onclick="sendChatMessage()">➤</button>
+      </div>
+    </div>
+
+    <script>
+      // Chat is ready - no additional init needed since we use inline handlers
     </script>
   </body>
 </html>
