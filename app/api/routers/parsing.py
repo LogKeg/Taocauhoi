@@ -459,6 +459,9 @@ def convert_word_to_excel(
             question_type='mcq' if questions and questions[0].get('options') else 'blank',
         )
 
+        # Sort questions by number if available
+        questions.sort(key=lambda q: q.get('number') or float('inf'))
+
         # Create Excel workbook
         wb = openpyxl.Workbook()
         ws = wb.active
@@ -476,16 +479,14 @@ def convert_word_to_excel(
             bottom=Side(style='thin')
         )
 
-        # Determine max options
-        max_options = 5
-        for q in questions:
-            opts = q.get('options', [])
-            if len(opts) > max_options:
-                max_options = len(opts)
-
-        headers = ["#", "Question", "Answer"]
-        for i in range(max_options):
-            headers.append(f"Option {chr(65+i)}")
+        # Standard format: Question Type, Question, Option 1-5, Correct Answer,
+        # Default Marks, Default Time To Solve, Difficulty Level, Hint, Solution
+        headers = [
+            "Question Type", "Question",
+            "Option 1", "Option 2", "Option 3", "Option 4", "Option 5",
+            "Correct Answer", "Default Marks", "Default Time To Solve",
+            "Difficulty Level", "Hint", "Solution",
+        ]
 
         for col, header in enumerate(headers, 1):
             cell = ws.cell(row=1, column=col, value=header)
@@ -499,42 +500,76 @@ def convert_word_to_excel(
             options = q.get('options', [])
             answer = q.get('answer', '')
 
-            # Row number
-            ws.cell(row=row_idx, column=1, value=row_idx - 1).alignment = center_align
+            # Determine question type: MSA = trắc nghiệm, SAQ = tự luận
+            q_type = "MSA" if options else "SAQ"
 
-            # Question text
+            # A: Question Type
+            cell = ws.cell(row=row_idx, column=1, value=q_type)
+            cell.alignment = center_align
+            cell.border = thin_border
+
+            # B: Question
             cell = ws.cell(row=row_idx, column=2, value=question_text)
             cell.alignment = left_align
             cell.border = thin_border
 
-            # Answer
-            answer_cell = ws.cell(row=row_idx, column=3, value=answer)
-            answer_cell.alignment = center_align
-            answer_cell.border = thin_border
-
-            # Options
-            for opt_idx, opt in enumerate(options):
-                cell = ws.cell(row=row_idx, column=4 + opt_idx, value=opt)
+            # C-G: Option 1-5
+            for opt_idx in range(5):
+                cell = ws.cell(row=row_idx, column=3 + opt_idx,
+                               value=options[opt_idx] if opt_idx < len(options) else None)
                 cell.alignment = left_align
                 cell.border = thin_border
 
-                # Highlight correct answer
-                if answer and isinstance(answer, str):
+                # Highlight correct answer option
+                if opt_idx < len(options) and answer and isinstance(answer, str):
                     answer_upper = answer.upper().strip()
                     opt_letter = chr(65 + opt_idx)
                     if (answer_upper == opt_letter or
-                        answer_upper == opt.strip() or
+                        answer_upper == options[opt_idx].strip() or
                         (len(answer_upper) == 1 and ord(answer_upper) - ord('A') == opt_idx)):
                         cell.fill = highlight_fill
 
-        # Adjust column widths
-        ws.column_dimensions["A"].width = 5
-        ws.column_dimensions["B"].width = 60
-        ws.column_dimensions["C"].width = 10
+            # H: Correct Answer
+            cell = ws.cell(row=row_idx, column=8, value=answer if answer else None)
+            cell.alignment = center_align
+            cell.border = thin_border
 
-        for i in range(max_options):
-            col_letter = chr(68 + i)  # D, E, F, ...
-            ws.column_dimensions[col_letter].width = 25
+            # I: Default Marks
+            cell = ws.cell(row=row_idx, column=9, value=None)
+            cell.border = thin_border
+
+            # J: Default Time To Solve
+            cell = ws.cell(row=row_idx, column=10, value=30)
+            cell.alignment = center_align
+            cell.border = thin_border
+
+            # K: Difficulty Level
+            cell = ws.cell(row=row_idx, column=11, value="EASY")
+            cell.alignment = center_align
+            cell.border = thin_border
+
+            # L: Hint
+            cell = ws.cell(row=row_idx, column=12, value=None)
+            cell.border = thin_border
+
+            # M: Solution
+            cell = ws.cell(row=row_idx, column=13, value=None)
+            cell.border = thin_border
+
+        # Adjust column widths
+        ws.column_dimensions["A"].width = 15   # Question Type
+        ws.column_dimensions["B"].width = 60   # Question
+        ws.column_dimensions["C"].width = 25   # Option 1
+        ws.column_dimensions["D"].width = 25   # Option 2
+        ws.column_dimensions["E"].width = 25   # Option 3
+        ws.column_dimensions["F"].width = 25   # Option 4
+        ws.column_dimensions["G"].width = 25   # Option 5
+        ws.column_dimensions["H"].width = 15   # Correct Answer
+        ws.column_dimensions["I"].width = 14   # Default Marks
+        ws.column_dimensions["J"].width = 20   # Default Time To Solve
+        ws.column_dimensions["K"].width = 16   # Difficulty Level
+        ws.column_dimensions["L"].width = 20   # Hint
+        ws.column_dimensions["M"].width = 20   # Solution
 
         output = io.BytesIO()
         wb.save(output)
@@ -780,13 +815,24 @@ Tạo ĐÚNG {len(batch)} câu hỏi mới. Chỉ trả về JSON array."""
     if is_bilingual and all_generated:
         all_generated = _translate_to_bilingual(all_generated, funcs['call_ai'], ai_engine)
 
+    # Save generated questions to question bank
+    valid_questions = [q for q in all_generated if q.get('question', '') != 'Lỗi tạo câu hỏi']
+    if valid_questions:
+        saved = _save_questions_to_bank(
+            valid_questions,
+            subject=detected_subject,
+            source=f"ai-generated:{file.filename}",
+            question_type="mcq",
+        )
+
     return {
         "ok": True,
         "filename": file.filename,
         "original_count": len(sample_questions),
         "generated_count": len(all_generated),
         "questions": all_generated,
-        "detected_subject": detected_subject
+        "detected_subject": detected_subject,
+        "saved_to_bank": saved if valid_questions else 0,
     }
 
 

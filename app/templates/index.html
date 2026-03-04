@@ -460,17 +460,28 @@
                     <select id="currImportSubject">
                       <option value="">Tất cả môn</option>
                       <option value="toan">Toán học</option>
+                      <option value="van">Tiếng Việt / Ngữ văn</option>
+                      <option value="anh">Tiếng Anh</option>
+                      <option value="khtn">Khoa học Tự nhiên</option>
                       <option value="ly">Vật lý</option>
                       <option value="hoa">Hóa học</option>
                       <option value="sinh">Sinh học</option>
-                      <option value="van">Ngữ văn</option>
-                      <option value="anh">Tiếng Anh</option>
+                      <option value="su_dia">Lịch sử & Địa lý</option>
                     </select>
                   </div>
                   <div>
                     <label for="currImportGrade">Lớp</label>
                     <select id="currImportGrade">
                       <option value="">Tất cả lớp</option>
+                      <option value="1">Lớp 1</option>
+                      <option value="2">Lớp 2</option>
+                      <option value="3">Lớp 3</option>
+                      <option value="4">Lớp 4</option>
+                      <option value="5">Lớp 5</option>
+                      <option value="6">Lớp 6</option>
+                      <option value="7">Lớp 7</option>
+                      <option value="8">Lớp 8</option>
+                      <option value="9">Lớp 9</option>
                       <option value="10">Lớp 10</option>
                       <option value="11">Lớp 11</option>
                       <option value="12">Lớp 12</option>
@@ -495,17 +506,28 @@
                     <select id="currFilterSubject">
                       <option value="">Tất cả môn</option>
                       <option value="toan">Toán học</option>
+                      <option value="van">Tiếng Việt / Ngữ văn</option>
+                      <option value="anh">Tiếng Anh</option>
+                      <option value="khtn">Khoa học Tự nhiên</option>
                       <option value="ly">Vật lý</option>
                       <option value="hoa">Hóa học</option>
                       <option value="sinh">Sinh học</option>
-                      <option value="van">Ngữ văn</option>
-                      <option value="anh">Tiếng Anh</option>
+                      <option value="su_dia">Lịch sử & Địa lý</option>
                     </select>
                   </div>
                   <div>
                     <label for="currFilterGrade">Lớp</label>
                     <select id="currFilterGrade">
                       <option value="">Tất cả lớp</option>
+                      <option value="1">Lớp 1</option>
+                      <option value="2">Lớp 2</option>
+                      <option value="3">Lớp 3</option>
+                      <option value="4">Lớp 4</option>
+                      <option value="5">Lớp 5</option>
+                      <option value="6">Lớp 6</option>
+                      <option value="7">Lớp 7</option>
+                      <option value="8">Lớp 8</option>
+                      <option value="9">Lớp 9</option>
                       <option value="10">Lớp 10</option>
                       <option value="11">Lớp 11</option>
                       <option value="12">Lớp 12</option>
@@ -3325,6 +3347,8 @@
         // Add user message to UI
         addChatMessage('user', message);
         input.value = '';
+        input.blur(); // Force IME to finalize
+        setTimeout(() => { input.value = ''; input.focus(); }, 10); // Clear again after IME
 
         const typingEl = document.getElementById('chatTyping');
 
@@ -3432,7 +3456,7 @@
         <span>Đang trả lời...</span>
       </div>
       <div class="chat-input-area">
-        <textarea id="chatInput" placeholder="Nhập tin nhắn..." rows="1" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendChatMessage();}"></textarea>
+        <textarea id="chatInput" placeholder="Nhập tin nhắn..." rows="1" onkeydown="if(event.key==='Enter'&&!event.shiftKey&&!event.isComposing){event.preventDefault();sendChatMessage();}"></textarea>
         <button class="chat-send-btn" onclick="sendChatMessage()">➤</button>
       </div>
     </div>

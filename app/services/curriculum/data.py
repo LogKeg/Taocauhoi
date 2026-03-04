@@ -315,26 +315,53 @@ SAMPLE_CURRICULUM_DATA = {
 }
 
 
+def _merge_curriculum_sources() -> dict:
+    """Merge all curriculum data sources into one dict."""
+    from .data_k12 import CURRICULUM_1_TO_9
+
+    merged = {}
+
+    # Add grades 1-9 data first
+    for subj, subj_data in CURRICULUM_1_TO_9.items():
+        merged[subj] = {
+            "name": subj_data["name"],
+            "grades": dict(subj_data.get("grades", {})),
+        }
+
+    # Merge grades 10-12 data (SAMPLE_CURRICULUM_DATA)
+    for subj, subj_data in SAMPLE_CURRICULUM_DATA.items():
+        if subj in merged:
+            merged[subj]["grades"].update(subj_data.get("grades", {}))
+        else:
+            merged[subj] = {
+                "name": subj_data["name"],
+                "grades": dict(subj_data.get("grades", {})),
+            }
+
+    return merged
+
+
 def get_sample_curriculum(subject: str = None, grade: int = None) -> list:
     """
     Convert sample curriculum data to list of dict for database import.
 
     Args:
-        subject: Subject key (toan, ly, hoa, etc.)
-        grade: Grade level (10, 11, 12)
+        subject: Subject key (toan, ly, hoa, sinh, van, anh, khtn, su_dia, etc.)
+        grade: Grade level (1-12)
 
     Returns:
         List of curriculum items ready for database insertion
     """
+    all_data = _merge_curriculum_sources()
     items = []
 
-    subjects_to_process = [subject] if subject else SAMPLE_CURRICULUM_DATA.keys()
+    subjects_to_process = [subject] if subject else all_data.keys()
 
     for subj in subjects_to_process:
-        if subj not in SAMPLE_CURRICULUM_DATA:
+        if subj not in all_data:
             continue
 
-        subj_data = SAMPLE_CURRICULUM_DATA[subj]
+        subj_data = all_data[subj]
         grades_to_process = [grade] if grade else subj_data.get("grades", {}).keys()
 
         for g in grades_to_process:

@@ -770,28 +770,100 @@ def _parse_envie_questions(doc: Document) -> List[dict]:
                         return parts if parts else [cell_text]
                     return [cell_text]
 
+                # Collect rows, then check if table contains embedded questions
+                # (e.g., options for Q38 in row 0, then Q39 + options in rows 1-2)
+                table_rows_data = []  # List of lists: each row -> list of (cell_text, is_highlighted)
                 for tr in rows:
+                    row_cells = []
                     for tc in tr.findall('.//' + docx_qn('w:tc')):
                         t_elements = tc.findall('.//' + docx_qn('w:t'))
                         cell_text = ''.join([t.text or '' for t in t_elements]).strip()
+                        cell_is_highlighted = False
                         if cell_text:
-                            # Check for highlight/shading (yellow = correct answer) BEFORE splitting
-                            cell_is_highlighted = False
                             shd_elements = tc.findall('.//' + docx_qn('w:shd'))
                             for shd in shd_elements:
                                 fill = shd.get(docx_qn('w:fill'))
-                                # FFFF00 = yellow (correct answer)
                                 if fill and fill.upper() == 'FFFF00':
                                     cell_is_highlighted = True
                                     break
+                        row_cells.append((cell_text, cell_is_highlighted))
+                    table_rows_data.append(row_cells)
 
-                            # Split cell into multiple options if needed
+                # Detect embedded questions: a cell contains "Question text" + "Option A text"
+                # concatenated (e.g., "Who discovered gravity?Albert Einstein.")
+                # Heuristic: first cell of a row has text ending with '?' or '.' followed by more text
+                # and other cells in that row + next rows look like B), C), D), E) options
+                embedded_questions = []  # List of (question_text, options, row_start_idx)
+                embedded_row_indices = set()
+
+                for ri, row_cells in enumerate(table_rows_data):
+                    if ri in embedded_row_indices:
+                        continue
+                    if not row_cells or not row_cells[0][0]:
+                        continue
+                    first_cell = row_cells[0][0]
+                    # Check if first cell contains question+optionA pattern
+                    # e.g., "Who discovered gravity?Albert Einstein."
+                    q_opt_match = re.match(r'^(.+\?)\s*([A-Z].+)$', first_cell, re.DOTALL)
+                    if not q_opt_match:
+                        continue
+                    q_text = q_opt_match.group(1).strip()
+                    opt_a_text = q_opt_match.group(2).strip()
+                    # Verify other cells have B), C), etc.
+                    other_cells_text = [c[0] for c in row_cells[1:] if c[0]]
+                    has_bc_markers = any(re.match(r'^[B-E]\)', ct) for ct in other_cells_text)
+                    if not has_bc_markers and len(other_cells_text) < 1:
+                        continue
+                    # This row has an embedded question - collect its options
+                    emb_opts = [opt_a_text]
+                    emb_highlighted = 0
+                    if row_cells[0][1]:  # first cell highlighted
+                        emb_highlighted = 1
+                    opt_num = 1
+                    for ci in range(1, len(row_cells)):
+                        ct, ch = row_cells[ci]
+                        if ct:
+                            cell_options = split_cell_options(ct)
+                            for co in cell_options:
+                                clean_co = re.sub(r'^[A-Ea-e]\s*[.)]\s*', '', co).strip()
+                                if clean_co:
+                                    opt_num += 1
+                                    emb_opts.append(clean_co)
+                                    if ch:
+                                        emb_highlighted = opt_num
+                    embedded_row_indices.add(ri)
+                    # Check next rows for continuation (D), E))
+                    for ri2 in range(ri + 1, len(table_rows_data)):
+                        next_row_cells = table_rows_data[ri2]
+                        next_texts = [c[0] for c in next_row_cells if c[0]]
+                        if next_texts and all(re.match(r'^[A-E]\)', t) or not t for t in next_texts):
+                            for ct, ch in next_row_cells:
+                                if ct:
+                                    cell_options = split_cell_options(ct)
+                                    for co in cell_options:
+                                        clean_co = re.sub(r'^[A-Ea-e]\s*[.)]\s*', '', co).strip()
+                                        if clean_co:
+                                            opt_num += 1
+                                            emb_opts.append(clean_co)
+                                            if ch:
+                                                emb_highlighted = opt_num
+                            embedded_row_indices.add(ri2)
+                        else:
+                            break
+                    if len(emb_opts) >= 2:
+                        embedded_questions.append((q_text, emb_opts, emb_highlighted, ri))
+
+                # Process non-embedded rows as regular options
+                for ri, row_cells in enumerate(table_rows_data):
+                    if ri in embedded_row_indices:
+                        continue
+                    for cell_text, cell_is_highlighted in row_cells:
+                        if cell_text:
                             cell_options = split_cell_options(cell_text)
                             for cell_opt in cell_options:
                                 opt_counter += 1
                                 options.append(cell_opt)
 
-                                # Check if this is a Cloze option (starts with number like "15.A)")
                                 cloze_match = re.match(r'^(\d+)\.\s*[A-E]\)', cell_opt)
                                 if cloze_match:
                                     current_cloze_num = int(cloze_match.group(1))
@@ -799,13 +871,10 @@ def _parse_envie_questions(doc: Document) -> List[dict]:
                                 elif re.match(r'^[B-E]\)', cell_opt) and current_cloze_num:
                                     opt_idx_in_cloze += 1
 
-                                # Track highlighted option
                                 if cell_is_highlighted:
                                     if current_cloze_num:
-                                        # Cloze table - track per question
                                         highlighted_map[current_cloze_num] = opt_idx_in_cloze
                                     else:
-                                        # Single-question table
                                         highlighted_idx = opt_counter
 
                 if options:
@@ -813,7 +882,23 @@ def _parse_envie_questions(doc: Document) -> List[dict]:
                         'type': 'table',
                         'options': options,
                         'highlighted': highlighted_idx,
-                        'cloze_highlights': highlighted_map  # For Cloze tables
+                        'cloze_highlights': highlighted_map
+                    })
+
+                # Append embedded questions as separate paragraph+table pairs
+                for q_text, emb_opts, emb_hl, _ in embedded_questions:
+                    elements.append({
+                        'type': 'paragraph',
+                        'text': q_text,
+                        'highlighted_option': 0,
+                        'num_level': None,
+                        'num_value': None
+                    })
+                    elements.append({
+                        'type': 'table',
+                        'options': emb_opts,
+                        'highlighted': emb_hl,
+                        'cloze_highlights': {}
                     })
 
         return elements
@@ -2576,6 +2661,18 @@ def _parse_envie_questions(doc: Document) -> List[dict]:
         questions = other_questions[:insert_idx] + cloze_questions + other_questions[insert_idx:]
     else:
         questions = other_questions
+
+    # Deduplicate questions (same question text)
+    seen_texts = set()
+    unique_questions = []
+    for q in questions:
+        qt = q.get('question', '').strip()
+        if qt and qt not in seen_texts:
+            seen_texts.add(qt)
+            unique_questions.append(q)
+        elif not qt:
+            unique_questions.append(q)
+    questions = unique_questions
 
     # Clean up _doc_pos from final output
     for q in questions:
