@@ -1333,11 +1333,13 @@ ol.output-list li {
   gap: 8px;
 }
 
-.created-question .q-options span {
+.created-question .q-options span,
+.created-question .q-options .q-opt {
   background: var(--bg-main);
   padding: 6px 14px;
   border-radius: 8px;
   font-size: 13px;
+  line-height: 1.5;
 }
 
 .created-question .q-answer {
@@ -1680,6 +1682,59 @@ ol.output-list li {
   border-radius: 12px;
   font-size: 12px;
   font-weight: 500;
+}
+
+/* ============================================================================
+   CURRICULUM
+   ============================================================================ */
+
+.curriculum-tree {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.curriculum-chapter {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.curriculum-chapter summary {
+  padding: 12px 16px;
+  cursor: pointer;
+  background: var(--surface);
+  transition: background 0.2s;
+}
+
+.curriculum-chapter summary:hover {
+  background: var(--accent-subtle);
+}
+
+.curriculum-chapter[open] summary {
+  border-bottom: 1px solid var(--border);
+}
+
+.curriculum-chapter ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.curriculum-chapter li {
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--border);
+  line-height: 1.5;
+}
+
+.curriculum-chapter li:last-child {
+  border-bottom: none;
+}
+
+.curriculum-chapter li small {
+  display: block;
+  margin-top: 4px;
 }
 
 /* ============================================================================

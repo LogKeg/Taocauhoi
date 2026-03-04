@@ -11,6 +11,7 @@ from .grading import router as grading_router
 from .parsing import router as parsing_router
 from .crawler import router as crawler_router
 from .storage import router as storage_router
+from .curriculum import router as curriculum_router
 
 __all__ = [
     "settings_router",
@@ -23,4 +24,5 @@ __all__ = [
     "parsing_router",
     "crawler_router",
     "storage_router",
+    "curriculum_router",
 ]

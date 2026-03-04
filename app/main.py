@@ -109,6 +109,7 @@ from app.api.routers import (
     parsing_router,
     crawler_router,
     storage_router,
+    curriculum_router,
 )
 
 
@@ -233,6 +234,7 @@ app.include_router(grading_router)
 app.include_router(parsing_router)
 app.include_router(crawler_router)
 app.include_router(storage_router)
+app.include_router(curriculum_router)
 
 
 @app.get("/")

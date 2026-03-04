@@ -24,6 +24,245 @@ from app.parsers.docx import (
 router = APIRouter(tags=["parsing"])
 
 
+def _clean_option_label(opt: str) -> str:
+    """Remove leading option labels like 'A)', 'A.', 'Option A:' from option text."""
+    return re.sub(r'^(?:Option\s+)?[A-E][).:]\s*', '', opt.strip())
+
+
+def _extract_questions_from_json(text: str) -> list:
+    """Extract question objects from AI response that may contain multiple JSON arrays."""
+    # 1. Try parsing as single JSON array (greedy match)
+    json_match = re.search(r'\[[\s\S]*\]', text)
+    if json_match:
+        try:
+            result = json.loads(json_match.group())
+            if isinstance(result, list):
+                # Clean option labels
+                for q in result:
+                    if 'options' in q:
+                        q['options'] = [_clean_option_label(o) for o in q['options']]
+                return result
+        except json.JSONDecodeError:
+            pass
+
+    # 2. Find individual JSON objects with 'question' key
+    questions = []
+    for m in re.finditer(r'\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}', text):
+        try:
+            obj = json.loads(m.group())
+            if 'question' in obj:
+                if 'options' in obj:
+                    obj['options'] = [_clean_option_label(o) for o in obj['options']]
+                questions.append(obj)
+        except (json.JSONDecodeError, ValueError):
+            pass
+    return questions
+
+
+def _is_bilingual_question(text: str) -> bool:
+    """Check if a question text is bilingual (contains both English and Vietnamese)."""
+    if not text:
+        return False
+    # Check for common bilingual separators
+    if ' / ' in text or ' - ' in text:
+        parts = re.split(r'\s*/\s*|\s*-\s*', text, maxsplit=1)
+        if len(parts) >= 2:
+            # Check if one part has Vietnamese characters and other has English
+            has_viet = any('\u00c0' <= c <= '\u1ef9' for c in text)
+            has_english = bool(re.search(r'[a-zA-Z]{3,}', text))
+            return has_viet and has_english
+    return False
+
+
+def _has_vietnamese(text: str) -> bool:
+    """Check if text contains Vietnamese characters."""
+    return any('\u00c0' <= c <= '\u1ef9' for c in text)
+
+
+def _has_english(text: str) -> bool:
+    """Check if text contains English words."""
+    return bool(re.search(r'[a-zA-Z]{3,}', text))
+
+
+def _detect_exam_info(questions: list) -> tuple:
+    """Detect subject and language from parsed questions.
+
+    Returns:
+        tuple: (detected_subject, detected_language)
+    """
+    if not questions:
+        return ("general", "unknown")
+
+    # Combine text from first 10 questions for analysis
+    all_text = ""
+    for q in questions[:10]:
+        all_text += q.get('question', '') + " " + " ".join(q.get('options', []))
+    all_text_lower = all_text.lower()
+
+    # Detect subject
+    detected_subject = "general"
+    subject_keywords = {
+        "science": ['science', 'khoa học', 'biology', 'sinh học', 'chemistry', 'hóa học',
+                    'physics', 'vật lý', 'organism', 'cell', 'atom', 'molecule', 'energy'],
+        "math": ['math', 'toán', 'calculate', 'tính', 'equation', 'phương trình',
+                 'number', 'số', 'algebra', 'geometry', 'hình học'],
+        "history": ['history', 'lịch sử', 'war', 'chiến tranh', 'dynasty', 'triều đại',
+                    'king', 'vua', 'emperor', 'revolution', 'cách mạng'],
+        "geography": ['geography', 'địa lý', 'country', 'quốc gia', 'continent', 'châu lục',
+                      'river', 'sông', 'mountain', 'núi', 'capital', 'thủ đô'],
+        "english": ['grammar', 'ngữ pháp', 'vocabulary', 'từ vựng', 'tense', 'thì',
+                    'adjective', 'tính từ', 'verb', 'động từ', 'noun', 'danh từ'],
+    }
+
+    max_score = 0
+    for subject, keywords in subject_keywords.items():
+        score = sum(1 for kw in keywords if kw in all_text_lower)
+        if score > max_score:
+            max_score = score
+            detected_subject = subject
+
+    # Detect language
+    has_viet = _has_vietnamese(all_text)
+    has_eng = _has_english(all_text)
+    has_bilingual_separator = ' / ' in all_text
+
+    if has_bilingual_separator and has_viet and has_eng:
+        detected_language = "bilingual"
+    elif has_viet and has_eng:
+        detected_language = "mixed"
+    elif has_viet:
+        detected_language = "vietnamese"
+    elif has_eng:
+        detected_language = "english"
+    else:
+        detected_language = "unknown"
+
+    return (detected_subject, detected_language)
+
+
+def _translate_to_bilingual(questions: list, call_ai_func, ai_engine: str) -> list:
+    """Translate English questions to bilingual format (English / Vietnamese)."""
+    result = []
+
+    # Process in small batches of 3 for better translation accuracy
+    TRANS_BATCH = 3
+    for i in range(0, len(questions), TRANS_BATCH):
+        batch = questions[i:i + TRANS_BATCH]
+
+        # Build numbered translation prompt for better alignment
+        items_to_translate = []
+        for q in batch:
+            items_to_translate.append(q.get('question', ''))
+            for opt in q.get('options', []):
+                items_to_translate.append(opt)
+
+        prompt = f"Dịch {len(items_to_translate)} dòng sau sang tiếng Việt. CHỈ trả về bản dịch, giữ nguyên đánh số, KHÔNG thêm lời giới thiệu.\n\n"
+        for idx, item in enumerate(items_to_translate, 1):
+            prompt += f"{idx}. {item}\n"
+
+        try:
+            response, error = call_ai_func(prompt, ai_engine)
+            if not error and response:
+                # Remove thinking tags if present
+                response = re.sub(r'<think>[\s\S]*?</think>', '', response).strip()
+                # Build dict keyed by line number for reliable alignment
+                trans_dict = {}
+                for line in response.strip().split('\n'):
+                    line = line.strip()
+                    if not line:
+                        continue
+                    # Only accept lines starting with a number
+                    m = re.match(r'^(\d+)[.):\s]+(.+)', line)
+                    if m:
+                        num = int(m.group(1))
+                        trans_dict[num] = m.group(2).strip()
+
+                # Convert to ordered list
+                translations = []
+                for idx in range(1, len(items_to_translate) + 1):
+                    translations.append(trans_dict.get(idx, ''))
+
+                idx = 0
+                for q in batch:
+                    eng_question = q.get('question', '')
+                    eng_options = q.get('options', [])
+                    answer = q.get('answer', 'A')
+
+                    # Get Vietnamese translation for question
+                    viet_question = translations[idx] if idx < len(translations) else eng_question
+                    idx += 1
+                    # Clean any leftover label prefix
+                    viet_question = re.sub(r'^(?:Option\s+)?[A-E][).:]\s*', '', viet_question)
+
+                    # Get Vietnamese translations for options
+                    bilingual_options = []
+                    for opt in eng_options:
+                        viet_opt = translations[idx] if idx < len(translations) else opt
+                        idx += 1
+                        # Clean up any A), B) prefix from translation
+                        viet_opt = re.sub(r'^(?:Option\s+)?[A-E][).:]\s*', '', viet_opt)
+                        bilingual_options.append(f"{opt} / {viet_opt}")
+
+                    result.append({
+                        'question': f"{eng_question}\n{viet_question}",
+                        'options': bilingual_options,
+                        'answer': answer,
+                    })
+                continue
+        except Exception:
+            pass
+
+        # Fallback: keep original if translation fails
+        result.extend(batch)
+
+    return result
+
+
+def _ensure_bilingual_format(questions: list) -> list:
+    """Post-process to ensure questions are in bilingual format."""
+    result = []
+    for q in questions:
+        question_text = q.get('question', '')
+        options = q.get('options', [])
+        answer = q.get('answer', 'A')
+
+        # Check if question already has both languages
+        has_slash = ' / ' in question_text
+        has_viet = _has_vietnamese(question_text)
+        has_eng = _has_english(question_text)
+
+        # If question is only in one language, try to detect and note it
+        if not has_slash or not (has_viet and has_eng):
+            # If only English, add Vietnamese placeholder
+            if has_eng and not has_viet:
+                question_text = question_text + " / [Cần dịch sang tiếng Việt]"
+            # If only Vietnamese, add English placeholder
+            elif has_viet and not has_eng:
+                question_text = "[Need English translation] / " + question_text
+
+        # Process options similarly
+        processed_options = []
+        for opt in options:
+            opt_has_slash = ' / ' in opt
+            opt_has_viet = _has_vietnamese(opt)
+            opt_has_eng = _has_english(opt)
+
+            if not opt_has_slash or not (opt_has_viet and opt_has_eng):
+                if opt_has_eng and not opt_has_viet:
+                    opt = opt + " / [Cần dịch]"
+                elif opt_has_viet and not opt_has_eng:
+                    opt = "[Translation] / " + opt
+            processed_options.append(opt)
+
+        result.append({
+            'question': question_text,
+            'options': processed_options,
+            'answer': answer
+        })
+
+    return result
+
+
 def _save_questions_to_bank(
     questions: List[dict],
     subject: str = "general",
@@ -94,12 +333,16 @@ async def parse_exam_file(file: UploadFile):
     # Try cell-based parser first (for ASMO Science format)
     questions = funcs['parse_cell_based_questions'](doc)
     if questions:
+        # Detect subject and language
+        detected_subject, detected_language = _detect_exam_info(questions)
         return {
             "ok": True,
             "filename": file.filename,
             "total_lines": len(questions),
             "questions": questions,
             "count": len(questions),
+            "detected_subject": detected_subject,
+            "detected_language": detected_language,
         }
 
     # Extract lines from document
@@ -122,12 +365,17 @@ async def parse_exam_file(file: UploadFile):
     else:
         questions = funcs['parse_bilingual_questions'](lines, table_options)
 
+    # Detect subject and language
+    detected_subject, detected_language = _detect_exam_info(questions)
+
     return {
         "ok": True,
         "filename": file.filename,
         "total_lines": len(lines),
         "questions": questions,
         "count": len(questions),
+        "detected_subject": detected_subject,
+        "detected_language": detected_language,
     }
 
 
@@ -406,10 +654,6 @@ async def generate_similar_exam(
 
     settings = funcs['load_ai_settings']()
 
-    # Process in batches
-    BATCH_SIZE = 5
-    all_generated = []
-
     subject_names = {
         "science": "Science/Khoa học",
         "math": "Math/Toán học",
@@ -441,30 +685,61 @@ async def generate_similar_exam(
     else:
         detected_subject = subject
 
+    # Detect if questions are bilingual
+    is_bilingual = bilingual in ("yes", "bilingual") or (bilingual == "auto" and any(
+        _is_bilingual_question(q.get('question', ''))
+        for q in sample_questions[:5]
+    ))
+
+    # Process in batches
+    BATCH_SIZE = 5
+    all_generated = []
+
     for batch_start in range(0, len(sample_questions), BATCH_SIZE):
         batch = sample_questions[batch_start:batch_start + BATCH_SIZE]
         batch_num = batch_start // BATCH_SIZE + 1
 
         # Build prompt for batch
-        batch_prompt = f"""Bạn là chuyên gia tạo đề thi môn {subject_names.get(detected_subject, 'General')}.
+        if is_bilingual:
+            # Step 1: Create English questions first
+            batch_prompt = f"""Create {len(batch)} {subject_names.get(detected_subject, 'science')} multiple choice questions in ENGLISH ONLY.
+
+Requirements:
+- Create NEW questions similar in style and topic to the samples below
+- Difficulty: {difficulty_text}
+- Each question has 5 options (A through E)
+- Return a SINGLE JSON array with ALL {len(batch)} questions
+
+SAMPLES:
+"""
+        else:
+            batch_prompt = f"""Bạn là chuyên gia tạo đề thi môn {subject_names.get(detected_subject, 'General')}.
 
 Yêu cầu:
 - Tạo câu hỏi MỚI HOÀN TOÀN cho từng câu hỏi mẫu bên dưới
 - Câu hỏi mới phải {difficulty_text}
-- Nếu câu hỏi gốc song ngữ (Anh-Việt), câu hỏi mới PHẢI song ngữ
 - KHÔNG được copy nguyên văn câu hỏi gốc
 - Giữ nguyên số lượng đáp án và format
-
 """
         for i, q in enumerate(batch, 1):
             q_text = q.get('question', '')
             opts = q.get('options', [])
-            batch_prompt += f"\n--- Câu mẫu {batch_start + i} ---\n{q_text}\n"
+            # For bilingual, show only English part of sample
+            if is_bilingual and ' / ' in q_text:
+                q_text = q_text.split(' / ')[0]
+            batch_prompt += f"\n--- Sample {batch_start + i} ---\n{q_text}\n"
             if opts:
                 for j, opt in enumerate(opts):
-                    batch_prompt += f"{chr(65+j)}) {opt}\n"
+                    opt_text = opt.split(' / ')[0] if is_bilingual and ' / ' in opt else opt
+                    batch_prompt += f"{chr(65+j)}) {opt_text}\n"
 
-        batch_prompt += f"""
+        if is_bilingual:
+            batch_prompt += f"""
+
+IMPORTANT: Return ONLY a single JSON array with exactly {len(batch)} question objects. No extra text.
+Format: [{{"question": "...", "options": ["A text", "B text", "C text", "D text", "E text"], "answer": "C"}}]"""
+        else:
+            batch_prompt += f"""
 
 Trả về JSON array với format:
 [
@@ -474,13 +749,18 @@ Trả về JSON array với format:
 Tạo ĐÚNG {len(batch)} câu hỏi mới. Chỉ trả về JSON array."""
 
         try:
-            response, error = funcs['call_ai'](batch_prompt, ai_engine)
-            if not error and response:
-                json_match = re.search(r'\[[\s\S]*\]', response)
-                if json_match:
-                    batch_generated = json.loads(json_match.group())
-                    all_generated.extend(batch_generated)
-                    continue
+            # Try up to 2 times to get enough questions
+            batch_generated = []
+            for attempt in range(2):
+                response, error = funcs['call_ai'](batch_prompt, ai_engine)
+                if not error and response:
+                    response = re.sub(r'<think>[\s\S]*?</think>', '', response).strip()
+                    batch_generated = _extract_questions_from_json(response)
+                if len(batch_generated) >= len(batch):
+                    break
+            if batch_generated:
+                all_generated.extend(batch_generated[:len(batch)])
+                continue
             # Add placeholder for failed batch
             for _ in batch:
                 all_generated.append({
@@ -489,13 +769,16 @@ Tạo ĐÚNG {len(batch)} câu hỏi mới. Chỉ trả về JSON array."""
                     "answer": ""
                 })
         except Exception:
-            # Add placeholder for failed batch
             for _ in batch:
                 all_generated.append({
                     "question": "Lỗi tạo câu hỏi",
                     "options": [],
                     "answer": ""
                 })
+
+    # Step 2: If bilingual, translate to Vietnamese
+    if is_bilingual and all_generated:
+        all_generated = _translate_to_bilingual(all_generated, funcs['call_ai'], ai_engine)
 
     return {
         "ok": True,

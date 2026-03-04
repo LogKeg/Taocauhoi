@@ -226,6 +226,36 @@ class ChatRequest(BaseModel):
     message: str
     history: Optional[List[ChatMessage]] = []
     ai_engine: str = "ollama"
+    subject: Optional[str] = None  # Subject for curriculum context
+    grade: Optional[int] = None  # Grade for curriculum context
+
+
+def _get_curriculum_context(subject: str, grade: int) -> str:
+    """Get curriculum context for AI chat."""
+    from app.database import SessionLocal, CurriculumCRUD
+
+    db = SessionLocal()
+    try:
+        items = CurriculumCRUD.get_by_subject_grade(db, subject, grade)
+        if not items:
+            return ""
+
+        # Format curriculum for context
+        content_parts = [f"\n\nKHUNG CHƯƠNG TRÌNH - {subject.upper()} LỚP {grade}:"]
+        current_chapter = ""
+
+        for item in items[:20]:  # Limit to avoid too long context
+            if item.chapter and item.chapter != current_chapter:
+                current_chapter = item.chapter
+                content_parts.append(f"\n{current_chapter}")
+            if item.topic:
+                content_parts.append(f"  - {item.topic}")
+            if item.lesson:
+                content_parts.append(f"    + {item.lesson}")
+
+        return "\n".join(content_parts)
+    finally:
+        db.close()
 
 
 @router.post("/chat")
@@ -258,6 +288,13 @@ CÔNG THỨC TOÁN HỌC - LUÔN dùng LaTeX:
 - Inline: $công thức$ (ví dụ: $x^2 + 2x + 1$)
 - Block: $$công thức$$ (ví dụ: $$\\frac{a}{b}$$)
 - Ví dụ: viết "$f'(x) = 3x^2$" thay vì "f'(x) = 3x^2\""""
+
+    # Add curriculum context if subject and grade provided
+    if data.subject and data.grade:
+        curriculum_context = _get_curriculum_context(data.subject, data.grade)
+        if curriculum_context:
+            system_prompt += curriculum_context
+            system_prompt += "\n\nHãy tham khảo khung chương trình trên khi tạo câu hỏi hoặc giải đáp."
 
     # Build conversation history
     messages = [{"role": "system", "content": system_prompt}]

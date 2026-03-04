@@ -56,6 +56,9 @@
             <button class="nav-item" data-tab="tab-storage">
               <span class="icon">📁</span>Kho lưu trữ
             </button>
+            <button class="nav-item" data-tab="tab-curriculum">
+              <span class="icon">📖</span>Khung chương trình
+            </button>
           </div>
           <div class="sidebar-section">
             <div class="sidebar-section-title">Chấm bài</div>
@@ -92,7 +95,9 @@
                   <button id="parseFileBtn" type="button">Phân tích đề</button>
                 </div>
                 <div class="parse-info" id="parseInfo" hidden>
-                  <p><strong>Đề mẫu:</strong> <span id="parseFileName"></span> - <span id="parseQuestionCount">0</span> câu hỏi</p>
+                  <div id="parseInfoContent">
+                    <p><strong>Đề mẫu:</strong> <span id="parseFileName"></span> - <span id="parseQuestionCount">0</span> câu hỏi</p>
+                  </div>
                 </div>
                 <div class="create-options">
                   <div class="auto-grid">
@@ -421,6 +426,97 @@
                 </div>
                 <div id="storageFileList" class="storage-file-list">
                   <p>Đang tải...</p>
+                </div>
+              </div>
+            </div><!-- end content-scroll -->
+          </section>
+
+          <!-- Tab: Khung chương trình -->
+          <section class="tab-panel" id="tab-curriculum">
+            <div class="content-scroll">
+              <div class="panel">
+                <h2>Khung chương trình GDPT 2018</h2>
+                <p>Tham khảo khung chương trình của Bộ GD&ĐT để tạo đề phù hợp.</p>
+
+                <!-- Stats -->
+                <div class="storage-stats" id="curriculumStats">
+                  <div class="stat-item">
+                    <span class="stat-label">Tổng mục:</span>
+                    <span class="stat-value" id="currStatTotal">0</span>
+                  </div>
+                  <div class="stat-item">
+                    <span class="stat-label">Số môn:</span>
+                    <span class="stat-value" id="currStatSubjects">0</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Import Sample Data -->
+              <div class="panel">
+                <h3>Nhập dữ liệu mẫu</h3>
+                <form id="curriculumImportForm" class="auto-grid">
+                  <div>
+                    <label for="currImportSubject">Môn học</label>
+                    <select id="currImportSubject">
+                      <option value="">Tất cả môn</option>
+                      <option value="toan">Toán học</option>
+                      <option value="ly">Vật lý</option>
+                      <option value="hoa">Hóa học</option>
+                      <option value="sinh">Sinh học</option>
+                      <option value="van">Ngữ văn</option>
+                      <option value="anh">Tiếng Anh</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label for="currImportGrade">Lớp</label>
+                    <select id="currImportGrade">
+                      <option value="">Tất cả lớp</option>
+                      <option value="10">Lớp 10</option>
+                      <option value="11">Lớp 11</option>
+                      <option value="12">Lớp 12</option>
+                    </select>
+                  </div>
+                  <div>
+                    <button type="submit" id="currImportBtn">📥 Nhập dữ liệu mẫu</button>
+                  </div>
+                  <div>
+                    <button type="button" id="currClearBtn">🗑️ Xóa dữ liệu</button>
+                  </div>
+                </form>
+                <div class="gen-status" id="currImportStatus" style="margin-top: 1rem;"></div>
+              </div>
+
+              <!-- Browse Curriculum -->
+              <div class="panel">
+                <h3>Duyệt khung chương trình</h3>
+                <div class="auto-grid">
+                  <div>
+                    <label for="currFilterSubject">Môn học</label>
+                    <select id="currFilterSubject">
+                      <option value="">Tất cả môn</option>
+                      <option value="toan">Toán học</option>
+                      <option value="ly">Vật lý</option>
+                      <option value="hoa">Hóa học</option>
+                      <option value="sinh">Sinh học</option>
+                      <option value="van">Ngữ văn</option>
+                      <option value="anh">Tiếng Anh</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label for="currFilterGrade">Lớp</label>
+                    <select id="currFilterGrade">
+                      <option value="">Tất cả lớp</option>
+                      <option value="10">Lớp 10</option>
+                      <option value="11">Lớp 11</option>
+                      <option value="12">Lớp 12</option>
+                    </select>
+                  </div>
+                  <div>
+                    <button type="button" id="currRefreshBtn">🔄 Làm mới</button>
+                  </div>
+                </div>
+                <div id="curriculumList" style="margin-top: 1rem;">
+                  <p>Chọn môn và lớp để xem khung chương trình.</p>
                 </div>
               </div>
             </div><!-- end content-scroll -->
@@ -1078,8 +1174,40 @@
             parsedSampleQuestions = data.questions || [];
             document.getElementById('parseFileName').textContent = data.filename;
             document.getElementById('parseQuestionCount').textContent = parsedSampleQuestions.length;
+
+            // Show detected subject and language
+            const subjectNames = {
+              'science': 'Khoa học',
+              'math': 'Toán học',
+              'history': 'Lịch sử',
+              'geography': 'Địa lý',
+              'english': 'Tiếng Anh',
+              'general': 'Tổng hợp'
+            };
+            const languageNames = {
+              'bilingual': 'Song ngữ (Anh-Việt)',
+              'mixed': 'Hỗn hợp Anh-Việt',
+              'vietnamese': 'Tiếng Việt',
+              'english': 'Tiếng Anh',
+              'unknown': 'Không xác định'
+            };
+            const detectedSubject = subjectNames[data.detected_subject] || data.detected_subject || 'Không xác định';
+            const detectedLanguage = languageNames[data.detected_language] || data.detected_language || 'Không xác định';
+
+            // Update UI with detected info
+            let infoHtml = `<strong>File:</strong> ${data.filename}<br>`;
+            infoHtml += `<strong>Số câu hỏi:</strong> ${parsedSampleQuestions.length}<br>`;
+            infoHtml += `<strong>Môn học:</strong> ${detectedSubject}<br>`;
+            infoHtml += `<strong>Ngôn ngữ:</strong> ${detectedLanguage}`;
+            document.getElementById('parseInfoContent').innerHTML = infoHtml;
+
             parseInfo.hidden = false;
-            status.textContent = `Đã phân tích: ${parsedSampleQuestions.length} câu hỏi`;
+            status.textContent = `Đã phân tích: ${parsedSampleQuestions.length} câu hỏi (${detectedSubject}, ${detectedLanguage})`;
+
+            // Auto-select bilingual option if detected
+            if (data.detected_language === 'bilingual' || data.detected_language === 'mixed') {
+              document.getElementById('createBilingual').value = 'bilingual';
+            }
           } else {
             status.textContent = 'Lỗi: ' + (data.error || 'Không thể phân tích đề');
           }
@@ -1116,14 +1244,14 @@
           const data = await res.json();
 
           if (data.ok) {
-            createdQuestions = data.generated_questions || [];
+            createdQuestions = data.questions || data.generated_questions || [];
             countEl.textContent = createdQuestions.length;
             output.innerHTML = createdQuestions.map((q, i) => `
               <div class="created-question">
                 <div class="q-number">Câu ${i + 1}</div>
-                <div class="q-content">${escapeHtml(q.content || '').replace(/\n/g, '<br>')}</div>
-                <div class="q-options">${(q.options || []).map((o, j) => `<span>${String.fromCharCode(65 + j)}) ${escapeHtml(o)}</span>`).join(' ')}</div>
-                <div class="q-answer">Đáp án: ${q.correct_answer || ''}</div>
+                <div class="q-content">${escapeHtml(q.question || q.content || '').replace(/\n/g, '<br>')}</div>
+                <div class="q-options">${(q.options || []).map((o, j) => `<div class="q-opt">${String.fromCharCode(65 + j)}) ${escapeHtml(o).replace(/\n/g, '<br>')}</div>`).join('')}</div>
+                <div class="q-answer">Đáp án: ${q.answer || q.correct_answer || ''}</div>
               </div>
             `).join('');
             renderMath(output);
@@ -2974,6 +3102,153 @@
         loadStorageFiles();
       });
 
+      /* ---- Curriculum Functions ---- */
+      async function loadCurriculumStats() {
+        try {
+          const res = await fetch('/api/curriculum/stats');
+          const data = await res.json();
+          if (data.ok) {
+            const stats = data.stats;
+            let total = 0;
+            let subjectCount = 0;
+            for (const subj in stats) {
+              total += stats[subj].total || 0;
+              subjectCount++;
+            }
+            document.getElementById('currStatTotal').textContent = total;
+            document.getElementById('currStatSubjects').textContent = subjectCount;
+          }
+        } catch (err) {
+          console.error('Error loading curriculum stats:', err);
+        }
+      }
+
+      async function loadCurriculumList() {
+        const subject = document.getElementById('currFilterSubject').value;
+        const grade = document.getElementById('currFilterGrade').value;
+        const listEl = document.getElementById('curriculumList');
+
+        if (!subject && !grade) {
+          listEl.innerHTML = '<p>Chọn môn và lớp để xem khung chương trình.</p>';
+          return;
+        }
+
+        listEl.innerHTML = '<p>Đang tải...</p>';
+
+        try {
+          const params = new URLSearchParams();
+          if (subject) params.append('subject', subject);
+          if (grade) params.append('grade', grade);
+          params.append('limit', '200');
+
+          const res = await fetch(`/api/curriculum/?${params}`);
+          const data = await res.json();
+
+          if (data.ok && data.items.length > 0) {
+            // Group by chapter
+            const byChapter = {};
+            data.items.forEach(item => {
+              const ch = item.chapter || 'Không phân loại';
+              if (!byChapter[ch]) byChapter[ch] = [];
+              byChapter[ch].push(item);
+            });
+
+            let html = '<div class="curriculum-tree">';
+            for (const chapter in byChapter) {
+              html += `<details class="curriculum-chapter">
+                <summary><strong>${chapter}</strong></summary>
+                <ul>`;
+              byChapter[chapter].forEach(item => {
+                html += `<li>
+                  <strong>${item.topic || ''}</strong>
+                  ${item.lesson ? ` - ${item.lesson}` : ''}
+                  ${item.knowledge ? `<br><small style="color:#666;">Kiến thức: ${item.knowledge}</small>` : ''}
+                  ${item.skills ? `<br><small style="color:#666;">Kỹ năng: ${item.skills}</small>` : ''}
+                  ${item.periods ? `<br><small style="color:#888;">${item.periods} tiết</small>` : ''}
+                </li>`;
+              });
+              html += '</ul></details>';
+            }
+            html += '</div>';
+            listEl.innerHTML = html;
+          } else {
+            listEl.innerHTML = '<p>Chưa có dữ liệu. Hãy nhập dữ liệu mẫu trước.</p>';
+          }
+        } catch (err) {
+          listEl.innerHTML = '<p style="color:red;">Lỗi: ' + err.message + '</p>';
+        }
+      }
+
+      // Curriculum Import Form
+      document.getElementById('curriculumImportForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const statusEl = document.getElementById('currImportStatus');
+        const subject = document.getElementById('currImportSubject').value;
+        const grade = document.getElementById('currImportGrade').value;
+
+        statusEl.textContent = 'Đang nhập dữ liệu...';
+        statusEl.style.color = 'var(--ink)';
+
+        try {
+          const params = new URLSearchParams();
+          if (subject) params.append('subject', subject);
+          if (grade) params.append('grade', grade);
+
+          const res = await fetch(`/api/curriculum/import-sample?${params}`, { method: 'POST' });
+          const data = await res.json();
+
+          if (data.ok) {
+            statusEl.textContent = `✅ Đã nhập ${data.count} mục`;
+            statusEl.style.color = 'var(--success)';
+            loadCurriculumStats();
+            loadCurriculumList();
+          } else {
+            statusEl.textContent = data.error || 'Lỗi khi nhập dữ liệu';
+            statusEl.style.color = 'var(--danger)';
+          }
+        } catch (err) {
+          statusEl.textContent = 'Lỗi: ' + err.message;
+          statusEl.style.color = 'var(--danger)';
+        }
+      });
+
+      // Clear curriculum data
+      document.getElementById('currClearBtn').addEventListener('click', async () => {
+        if (!confirm('Xóa tất cả dữ liệu khung chương trình?')) return;
+
+        const statusEl = document.getElementById('currImportStatus');
+        const subject = document.getElementById('currImportSubject').value;
+
+        try {
+          const params = new URLSearchParams();
+          if (subject) params.append('subject', subject);
+
+          const res = await fetch(`/api/curriculum/clear?${params}`, { method: 'DELETE' });
+          const data = await res.json();
+
+          if (data.ok) {
+            statusEl.textContent = data.message;
+            statusEl.style.color = 'var(--success)';
+            loadCurriculumStats();
+            loadCurriculumList();
+          } else {
+            statusEl.textContent = data.error || 'Lỗi khi xóa';
+            statusEl.style.color = 'var(--danger)';
+          }
+        } catch (err) {
+          statusEl.textContent = 'Lỗi: ' + err.message;
+          statusEl.style.color = 'var(--danger)';
+        }
+      });
+
+      // Curriculum filter handlers
+      document.getElementById('currFilterSubject').addEventListener('change', loadCurriculumList);
+      document.getElementById('currFilterGrade').addEventListener('change', loadCurriculumList);
+      document.getElementById('currRefreshBtn').addEventListener('click', () => {
+        loadCurriculumStats();
+        loadCurriculumList();
+      });
+
       /* ---- Init ---- */
       loadSampleFolders();
       loadSubjects();
@@ -2992,6 +3267,8 @@
         loadStorageStats();
         loadStorageFiles();
       });
+      // Initialize curriculum
+      loadCurriculumStats();
 
       /* ---- AI Chat Assistant ---- */
       let chatHistory = [];
