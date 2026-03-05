@@ -665,8 +665,20 @@ def _parse_envie_questions(doc: Document) -> List[dict]:
             tag = child.tag.split('}')[-1]
 
             if tag == 'p':  # Paragraph
-                t_elements = child.findall('.//' + docx_qn('w:t'))
-                text = ''.join([t.text or '' for t in t_elements]).strip()
+                # Build text with line breaks preserved (w:br → \n)
+                text_parts = []
+                for run_elem in child.findall('.//' + docx_qn('w:r')):
+                    for sub in run_elem:
+                        sub_tag = sub.tag.split('}')[-1]
+                        if sub_tag == 't':
+                            text_parts.append(sub.text or '')
+                        elif sub_tag == 'br':
+                            text_parts.append('\n')
+                text = ''.join(text_parts).strip()
+                if not text:
+                    # Fallback to w:t only
+                    t_elements = child.findall('.//' + docx_qn('w:t'))
+                    text = ''.join([t.text or '' for t in t_elements]).strip()
                 if text:
                     # Check for highlighted text in paragraph (for inline options)
                     # Find which option (by position) has yellow highlight
@@ -732,13 +744,28 @@ def _parse_envie_questions(doc: Document) -> List[dict]:
                                     sub_key = (numId, 1)
                                     numbering_counters[sub_key] = 0
 
-                    elements.append({
-                        'type': 'paragraph',
-                        'text': text,
-                        'highlighted_option': highlighted_opt_idx,
-                        'num_level': num_level,  # None = no numbering, 0 = question, 1 = option
-                        'num_value': num_value   # The number (1, 2, 3, ...)
-                    })
+                    # Split paragraphs containing \n with option patterns
+                    if '\n' in text and re.search(r'\n[A-E]\.?\s*\S', text):
+                        for sub_line in text.split('\n'):
+                            sub_line = sub_line.strip()
+                            if sub_line:
+                                elements.append({
+                                    'type': 'paragraph',
+                                    'text': sub_line,
+                                    'highlighted_option': highlighted_opt_idx,
+                                    'num_level': num_level,
+                                    'num_value': num_value
+                                })
+                    else:
+                        # Remove any remaining \n from text
+                        text = text.replace('\n', ' ').strip()
+                        elements.append({
+                            'type': 'paragraph',
+                            'text': text,
+                            'highlighted_option': highlighted_opt_idx,
+                            'num_level': num_level,  # None = no numbering, 0 = question, 1 = option
+                            'num_value': num_value   # The number (1, 2, 3, ...)
+                        })
 
             elif tag == 'tbl':  # Table
                 # Extract options from table cells
@@ -854,15 +881,33 @@ def _parse_envie_questions(doc: Document) -> List[dict]:
                         embedded_questions.append((q_text, emb_opts, emb_highlighted, ri))
 
                 # Process non-embedded rows as regular options
+                # Track embedded questions found in cells (e.g., "A) Table tennis.34. Pick out the odd one.")
+                row_groups = []  # List of (options_list, highlighted_idx, highlighted_map, embedded_q_text)
+                current_group_options = []
+                current_group_highlighted = 0
+                current_group_hl_map = {}
+                current_group_opt_counter = 0
+
                 for ri, row_cells in enumerate(table_rows_data):
                     if ri in embedded_row_indices:
                         continue
+                    embedded_q_in_row = None
                     for cell_text, cell_is_highlighted in row_cells:
                         if cell_text:
+                            # Check for embedded question number in cell
+                            # Pattern: "A) Table tennis.34. Pick out the odd one."
+                            # Split into option part and embedded question part
+                            emb_q_match = re.search(r'(?<=\.)\s*(\d+\.\s+.+)$', cell_text)
+                            if emb_q_match and re.match(r'^[A-E]\)', cell_text):
+                                # Found embedded question - split the cell
+                                option_part = cell_text[:emb_q_match.start()].strip()
+                                embedded_q_in_row = emb_q_match.group(1).strip()
+                                cell_text = option_part
+
                             cell_options = split_cell_options(cell_text)
                             for cell_opt in cell_options:
-                                opt_counter += 1
-                                options.append(cell_opt)
+                                current_group_opt_counter += 1
+                                current_group_options.append(cell_opt)
 
                                 cloze_match = re.match(r'^(\d+)\.\s*[A-E]\)', cell_opt)
                                 if cloze_match:
@@ -873,17 +918,62 @@ def _parse_envie_questions(doc: Document) -> List[dict]:
 
                                 if cell_is_highlighted:
                                     if current_cloze_num:
-                                        highlighted_map[current_cloze_num] = opt_idx_in_cloze
+                                        current_group_hl_map[current_cloze_num] = opt_idx_in_cloze
                                     else:
-                                        highlighted_idx = opt_counter
+                                        current_group_highlighted = current_group_opt_counter
 
-                if options:
-                    elements.append({
-                        'type': 'table',
-                        'options': options,
-                        'highlighted': highlighted_idx,
-                        'cloze_highlights': highlighted_map
-                    })
+                    # If this row had an embedded question, save current group and start new one
+                    if embedded_q_in_row:
+                        row_groups.append((
+                            current_group_options[:],
+                            current_group_highlighted,
+                            current_group_hl_map.copy(),
+                            embedded_q_in_row
+                        ))
+                        current_group_options = []
+                        current_group_highlighted = 0
+                        current_group_hl_map = {}
+                        current_group_opt_counter = 0
+
+                # Save last group
+                if current_group_options:
+                    row_groups.append((current_group_options, current_group_highlighted, current_group_hl_map, None))
+
+                # Count total cells across all rows (including empty ones)
+                total_cell_count = sum(len(row) for row in table_rows_data)
+
+                # Emit table elements with embedded question paragraphs between them
+                if not row_groups:
+                    # No row groups — emit table with whatever options we have
+                    # Even if options is empty, emit if there are cells (image-based options)
+                    if options or total_cell_count >= 3:
+                        elements.append({
+                            'type': 'table',
+                            'options': options,
+                            'highlighted': highlighted_idx,
+                            'cloze_highlights': highlighted_map,
+                            'cell_count': total_cell_count
+                        })
+                else:
+                    for grp_opts, grp_hl, grp_hl_map, grp_emb_q in row_groups:
+                        if grp_opts:
+                            elements.append({
+                                'type': 'table',
+                                'options': grp_opts,
+                                'highlighted': grp_hl,
+                                'cloze_highlights': grp_hl_map,
+                                'cell_count': total_cell_count
+                            })
+                        if grp_emb_q:
+                            # Remove leading question number for clean question text
+                            q_text_clean = re.sub(r'^\d+\.\s*', '', grp_emb_q)
+                            elements.append({
+                                'type': 'paragraph',
+                                'text': q_text_clean,
+                                'highlighted_option': 0,
+                                'num_level': None,
+                                'num_value': None
+                            })
 
                 # Append embedded questions as separate paragraph+table pairs
                 for q_text, emb_opts, emb_hl, _ in embedded_questions:
@@ -905,6 +995,54 @@ def _parse_envie_questions(doc: Document) -> List[dict]:
 
     doc_elements = get_document_elements()
 
+    # Merge bilingual EN+VN paragraph pairs for science exams (IKSC format)
+    # Pattern: EN paragraph (numbered, no VN chars) followed by VN paragraph (has VN chars)
+    # followed by option lines (A./B./C.) → merge EN+VN into one bilingual paragraph
+    def _has_vietnamese_chars(text):
+        return any(ord(c) > 127 for c in text[:200])
+
+    # Check if this looks like a bilingual science document
+    # Detect by bilingual options (e.g., "A. Refraction / Khúc xạ") or EN+VN question pairs
+    bilingual_option_count = sum(
+        1 for elem in doc_elements[:60]
+        if elem['type'] == 'paragraph' and re.match(r'^[A-E][.)]\s*.+\s*/\s*.+', elem['text'])
+    )
+    bilingual_pair_count = 0
+    for idx_e in range(len(doc_elements) - 1):
+        e1 = doc_elements[idx_e]
+        e2 = doc_elements[idx_e + 1]
+        if (e1['type'] == 'paragraph' and e2['type'] == 'paragraph'
+                and re.match(r'^\d+\.\s*', e1['text'])
+                and not _has_vietnamese_chars(e1['text'])
+                and _has_vietnamese_chars(e2['text'])
+                and not re.match(r'^[A-E][.)]\s*', e2['text'])):
+            bilingual_pair_count += 1
+            if bilingual_pair_count >= 3:
+                break
+    is_bilingual_doc = bilingual_option_count >= 3 or bilingual_pair_count >= 3
+    if is_bilingual_doc:
+        merged_elements = []
+        i = 0
+        while i < len(doc_elements):
+            elem = doc_elements[i]
+            if (elem['type'] == 'paragraph'
+                    and not _has_vietnamese_chars(elem['text'])
+                    and re.match(r'^\d+\.\s*', elem['text'])
+                    and i + 1 < len(doc_elements)
+                    and doc_elements[i + 1]['type'] == 'paragraph'
+                    and _has_vietnamese_chars(doc_elements[i + 1]['text'])):
+                # Merge EN + VN into one bilingual paragraph
+                en_text = re.sub(r'^\d+\.\s*', '', elem['text']).strip()
+                vn_text = doc_elements[i + 1]['text']
+                merged_elem = dict(doc_elements[i + 1])
+                merged_elem['text'] = en_text + '\n' + vn_text
+                merged_elements.append(merged_elem)
+                i += 2
+            else:
+                merged_elements.append(elem)
+                i += 1
+        doc_elements = merged_elements
+
     # Build a map of option paragraph text -> highlighted option index
     # This helps when processing inline options in paragraphs
     para_highlight_map = {}
@@ -920,7 +1058,37 @@ def _parse_envie_questions(doc: Document) -> List[dict]:
             doc_elem_texts.append((idx, normalized_text))
 
     # Also keep traditional paragraph extraction for backward compatibility
-    paragraphs = [p.text.strip() for p in doc.paragraphs]
+    # Split paragraphs containing \n with option patterns (e.g., "A.Moss\nB. Wheat\nC. Corn")
+    paragraphs = []
+    for p in doc.paragraphs:
+        text = p.text.strip()
+        if '\n' in text and re.search(r'\n[A-E]\.?\s*\S', text):
+            for sub_line in text.split('\n'):
+                sub_line = sub_line.strip()
+                if sub_line:
+                    paragraphs.append(sub_line)
+        else:
+            paragraphs.append(text)
+
+    # Merge bilingual EN+VN paragraph pairs in paragraphs list too
+    if is_bilingual_doc:
+        merged_paras = []
+        i = 0
+        while i < len(paragraphs):
+            text = paragraphs[i]
+            if (not _has_vietnamese_chars(text)
+                    and re.match(r'^\d+\.\s*', text)
+                    and i + 1 < len(paragraphs)
+                    and _has_vietnamese_chars(paragraphs[i + 1])
+                    and not re.match(r'^[A-E][.)]\s*', paragraphs[i + 1])):
+                en_text = re.sub(r'^\d+\.\s*', '', text).strip()
+                vn_text = paragraphs[i + 1]
+                merged_paras.append(en_text + '\n' + vn_text)
+                i += 2
+            else:
+                merged_paras.append(text)
+                i += 1
+        paragraphs = merged_paras
 
     # Create a mapping from paragraphs index to doc_elements index
     # This ensures consistent ordering when sorting by _doc_pos
@@ -1018,6 +1186,20 @@ def _parse_envie_questions(doc: Document) -> List[dict]:
                     if '\n' in opt_text:
                         opt_text = opt_text.split('\n')[0].strip()
                     opts.append(opt_text)
+        # Format: "A. optA\tB. optB\tC. optC..." (dot-separated, tab/space delimited)
+        elif re.match(r'^A\.\s*\S', line):
+            markers = list(re.finditer(r'([A-E])\.\s*', line))
+            for idx, m in enumerate(markers):
+                start = m.end()
+                if idx + 1 < len(markers):
+                    end = markers[idx + 1].start()
+                else:
+                    end = len(line)
+                opt_text = line[start:end].strip().rstrip('\t ')
+                if opt_text:
+                    if '\n' in opt_text:
+                        opt_text = opt_text.split('\n')[0].strip()
+                    opts.append(opt_text)
         return opts
 
     def get_answer_from_option_line(opt_line: str) -> str:
@@ -1072,6 +1254,9 @@ def _parse_envie_questions(doc: Document) -> List[dict]:
         # Continuation line: "C) opt D) opt" or "D) opt E) opt"
         if re.match(r'^[C-E]\s*\)', line, re.IGNORECASE):
             return True
+        # Options with A. B. format (e.g., "A. Stork" or "A.It occurs")
+        if re.match(r'^A\.\s*\S', line):
+            return True
         return False
 
     def has_fill_blank(text: str) -> bool:
@@ -1090,6 +1275,16 @@ def _parse_envie_questions(doc: Document) -> List[dict]:
         if has_fill_blank(text):
             return False
         lower = text.lower()
+        # Filter out artifact/watermark names (level names from competition exams)
+        artifact_names = {'benjamin', 'ecolier', 'preecolier', 'student', 'junior', 'cadet', 'wallaby',
+                          'pre-ecolier', 'pre ecolier', 'kadett', 'koala'}
+        stripped = text.strip().lower()
+        if stripped in artifact_names:
+            return True
+        # Also match repeated artifact like "StudentStudent" or "JuniorJunior"
+        for name in artifact_names:
+            if stripped == name * 2 or stripped == name + name:
+                return True
         patterns = [
             'for each question',
             'read the following',
@@ -1104,6 +1299,7 @@ def _parse_envie_questions(doc: Document) -> List[dict]:
             'for each sentence',
             'for each group',
             'choose the right answer to define',
+            'read the text',
         ]
         return any(p in lower for p in patterns)
 
@@ -1112,6 +1308,10 @@ def _parse_envie_questions(doc: Document) -> List[dict]:
 
     # Track which paragraphs were already processed
     processed_paragraphs = set()
+
+    # Track dialogue sections (e.g., Q11-15 with 3 response options each)
+    in_dialogue_section = False
+    dialogue_max_opts = 3
 
     # ============ WORD NUMBERING PASS: Handle Word List Paragraph format ============
     # For files like "Kangaroo Start R2 demo.docx" where:
@@ -1232,14 +1432,27 @@ def _parse_envie_questions(doc: Document) -> List[dict]:
             # Check if this looks like a question
             # Patterns: ends with ? or :, has fill-blank (___), ends with quote
             has_fill_blank_marker = '___' in text or '______' in text
+            # Also check if followed by table (synthetic paragraph from table splitting)
+            next_is_table = (
+                elem_idx + 1 < len(doc_elements) and
+                doc_elements[elem_idx + 1]['type'] == 'table'
+            )
+            ends_with_ellipsis = text.endswith('...') or text.endswith('…')
+            # Lower min length for texts ending with ... or followed by table
+            min_len = 10 if (next_is_table or ends_with_ellipsis) else 15
+            # Check for ? inside text followed by parenthetical, e.g., "...bao nhiêu? (g = 10 m/s²)"
+            has_question_mark_inside = bool(re.search(r'\?\s*\([^)]+\)\s*$', text))
             is_question_text = (
-                len(text) > 15 and
+                len(text) > min_len and
                 not is_instruction_line(text) and
                 (
                     text.endswith(':') or
                     text.endswith('?') or
                     text.endswith('"') or  # Dialogue/quote questions
-                    has_fill_blank_marker  # Fill-in-blank questions
+                    has_fill_blank_marker or  # Fill-in-blank questions
+                    ends_with_ellipsis or  # Questions ending with "..."
+                    has_question_mark_inside or  # "...? (params)" format
+                    (text.endswith('.') and next_is_table)  # Table-split questions like "Pick out the odd one."
                 )
             )
 
@@ -1249,7 +1462,8 @@ def _parse_envie_questions(doc: Document) -> List[dict]:
                     next_elem = doc_elements[elem_idx + 1]
 
                     # Case 1: Options in table
-                    if next_elem['type'] == 'table' and len(next_elem['options']) >= 2:
+                    table_cell_count = next_elem.get('cell_count', 0) if next_elem['type'] == 'table' else 0
+                    if next_elem['type'] == 'table' and (len(next_elem['options']) >= 2 or table_cell_count >= 3):
                         options = next_elem['options']
 
                         # Check for Cloze passage tables (options start with number like "15.A)", "16.A)")
@@ -1329,6 +1543,14 @@ def _parse_envie_questions(doc: Document) -> List[dict]:
                         # Clean option prefixes (A., B., C., D., E. or A), B), etc.)
                         cleaned_options = clean_options_list(options)
 
+                        # If table has cells but few text options, fill with placeholders
+                        if len(cleaned_options) < 3 and table_cell_count >= 3:
+                            # Determine expected option count from cell layout
+                            expected_opts = min(table_cell_count, 5)
+                            while len(cleaned_options) < expected_opts:
+                                letter = chr(ord('A') + len(cleaned_options))
+                                cleaned_options.append(f'[{letter}]')
+
                         q_dict = {
                             'question': text,
                             'options': cleaned_options,
@@ -1344,7 +1566,7 @@ def _parse_envie_questions(doc: Document) -> List[dict]:
                         continue
 
                     # Case 2: Options in paragraphs (A., B., C., D. as separate paragraphs)
-                    elif next_elem['type'] == 'paragraph' and re.match(r'^A\.\s+', next_elem['text']):
+                    elif next_elem['type'] == 'paragraph' and re.match(r'^A\.\s*\S', next_elem['text']):
                         # Collect paragraph options
                         para_options = []
                         opt_idx = elem_idx + 1
@@ -1352,7 +1574,7 @@ def _parse_envie_questions(doc: Document) -> List[dict]:
                             opt_elem = doc_elements[opt_idx]
                             if opt_elem['type'] != 'paragraph':
                                 break
-                            opt_match = re.match(r'^([A-E])\.\s+(.+)$', opt_elem['text'])
+                            opt_match = re.match(r'^([A-E])\.\s*(.+)$', opt_elem['text'])
                             if opt_match:
                                 para_options.append(opt_match.group(2))
                                 processed_paragraphs.add(opt_elem['text'])
@@ -1663,6 +1885,19 @@ def _parse_envie_questions(doc: Document) -> List[dict]:
         # BUT: If instruction line is followed by option line, treat it as a question
         # EXCEPT: If instruction mentions question range like "(21-30)", always skip
         if is_instruction_line(line):
+            # Detect dialogue section: "For each question (11-15), read and choose"
+            # Dialogue questions have exactly 3 response options
+            lower_line = line.lower()
+            if re.search(r'\(\d+-\d+\)', line):
+                # Reset dialogue section flag by default for any new section
+                in_dialogue_section = False
+                if 'read and choose' in lower_line or 'choose the best answer' in lower_line:
+                    range_match = re.search(r'\((\d+)-(\d+)\)', line)
+                    if range_match:
+                        r_start, r_end = int(range_match.group(1)), int(range_match.group(2))
+                        if r_end - r_start == 4:  # 5 questions like (11-15)
+                            in_dialogue_section = True
+                            dialogue_max_opts = 3
             # Always skip if it's a section instruction with question range
             if re.search(r'\(\d+-\d+\)', line):
                 i += 1
@@ -1687,14 +1922,59 @@ def _parse_envie_questions(doc: Document) -> List[dict]:
                 i += 1
                 continue
 
-        # Case 0b: Standalone question number "1." or "2." etc.
-        # Followed by 3 option paragraphs (normal format)
-        q_num_match = re.match(r'^(\d+)\.$', line)
+        # Case 0b: Standalone question number "1." or "2." or just "1", "2" etc.
+        # Ecolier format: number → question text → merged options (A+B on one line, C+D on next)
+        # EN-VIE format: number → 3 plain option paragraphs
+        q_num_match = re.match(r'^(\d+)\.?$', line)
         if q_num_match:
             q_num = q_num_match.group(1)
             if q_num not in seen_q_numbers:
                 seen_q_numbers.add(q_num)
-                # Collect next 3 non-empty paragraphs as options
+                # Look ahead: next non-empty line could be question text (Ecolier) or option (EN-VIE)
+                j = i + 1
+                # Find next non-empty paragraph
+                while j < len(paragraphs) and not paragraphs[j].strip():
+                    j += 1
+
+                if j < len(paragraphs):
+                    next_text = paragraphs[j].strip()
+
+                    # Ecolier pattern: question text on next line, then merged options
+                    # Check if the line AFTER the question text has merged options
+                    if next_text and not is_option_line_envie(next_text) and not re.match(r'^\d+\.?$', next_text):
+                        # This looks like a question text, check what follows
+                        k = j + 1
+                        while k < len(paragraphs) and not paragraphs[k].strip():
+                            k += 1
+                        if k < len(paragraphs) and is_option_line_envie(paragraphs[k].strip()):
+                            # Ecolier format: number → question → merged options
+                            question_text = next_text
+                            opts = extract_options_envie(paragraphs[k].strip())
+                            m = k + 1
+                            # Check for continuation lines (C) D) on next line)
+                            while m < len(paragraphs) and len(opts) < 5:
+                                cont_line = paragraphs[m].strip()
+                                if not cont_line:
+                                    m += 1
+                                    continue
+                                if re.match(r'^[C-E]\s*\)', cont_line, re.IGNORECASE):
+                                    more_opts = extract_options_envie(cont_line)
+                                    if more_opts:
+                                        opts.extend(more_opts)
+                                        m += 1
+                                        continue
+                                break
+                            if opts:
+                                questions.append({
+                                    'question': question_text,
+                                    'options': opts[:5],
+                                    'number': int(q_num),
+                                    '_doc_pos': para_idx_to_doc_idx.get(i, i)
+                                })
+                                i = m
+                                continue
+
+                # Fallback: EN-VIE format - collect next 3 non-empty paragraphs as options
                 opts = []
                 j = i + 1
                 while j < len(paragraphs) and len(opts) < 3:
@@ -1703,7 +1983,7 @@ def _parse_envie_questions(doc: Document) -> List[dict]:
                         j += 1
                         continue
                     # Stop if we hit another question number or option line
-                    if re.match(r'^\d+\.$', opt_line) or is_option_line_envie(opt_line):
+                    if re.match(r'^\d+\.?$', opt_line) or is_option_line_envie(opt_line):
                         break
                     if is_instruction_line(opt_line):
                         j += 1
@@ -1715,7 +1995,8 @@ def _parse_envie_questions(doc: Document) -> List[dict]:
                     questions.append({
                         'question': f'Question {q_num} (reading comprehension)',
                         'options': opts,
-                        '_doc_pos': para_idx_to_doc_idx.get(i, i)  # Track document position
+                        'number': int(q_num),
+                        '_doc_pos': para_idx_to_doc_idx.get(i, i)
                     })
                     i = j
                     continue
@@ -1842,12 +2123,14 @@ def _parse_envie_questions(doc: Document) -> List[dict]:
                     i = j
                     continue
 
-            # Otherwise collect next 3-4 paragraphs as options (no markers)
+            # Otherwise collect next 3-5 paragraphs as options (no markers)
             # Common in Q1-5 sections with reading comprehension
-            # Red Kangaroo has 4 options (A-D), other levels may have 3
+            # Benjamin has 5 options (A-E), other levels may have 3-4
+            # In dialogue sections, limit to 3 options to avoid eating next question
+            max_opts = dialogue_max_opts if in_dialogue_section else 5
             opts = []
             j = i + 1
-            while j < len(paragraphs) and len(opts) < 4:
+            while j < len(paragraphs) and len(opts) < max_opts:
                 opt_line = paragraphs[j].strip()
                 if not opt_line:
                     j += 1
@@ -1855,18 +2138,24 @@ def _parse_envie_questions(doc: Document) -> List[dict]:
                 # Stop if we hit another question or option line
                 if opt_line.endswith('?') or is_option_line_envie(opt_line) or has_fill_blank(opt_line):
                     break
+                # Stop if line ends with comma (likely start of next question, not an option)
+                if opt_line.endswith(','):
+                    break
                 # Skip instruction lines
                 if is_instruction_line(opt_line):
                     j += 1
                     continue
+                # Stop if line is too long (likely a passage, not an option)
+                if len(opt_line) > 200:
+                    break
                 # This looks like an option
                 opts.append(opt_line)
                 j += 1
 
-            if len(opts) >= 3:  # EN-VIE has 3-4 options per reading comprehension question
+            if len(opts) >= 3:  # Reading comprehension has 3-5 options
                 questions.append({
                     'question': line,
-                    'options': opts[:4],  # Take at most 4 options
+                    'options': opts[:max_opts],
                     '_doc_pos': para_idx_to_doc_idx.get(i, i)  # Track document position
                 })
                 i = j
@@ -1909,11 +2198,6 @@ def _parse_envie_questions(doc: Document) -> List[dict]:
                                     first_opts.extend(cont_opts)
                                     j += 1
                                     continue
-                            # Check if it's a single option without marker (E option)
-                            elif not re.search(r'[A-D]\s*\)', np) and len(np) < 50:
-                                first_opts.append(np)
-                                j += 1
-                                continue
                             break
                         if len(first_opts) >= 3:
                             all_opts = first_opts
@@ -1962,7 +2246,31 @@ def _parse_envie_questions(doc: Document) -> List[dict]:
         # Skip numbered cloze format "22. A) ..."
         if len(line) > 30 and not line.endswith('?') and not has_fill_blank(line) and not re.match(r'^(\d+)\.\s*A\s*\)', line):
             if next_line and is_option_line_envie(next_line):
-                # Extract options from option line
+                # Check if options are on separate paragraphs (A., B., C., D., E.)
+                if re.match(r'^[A]\.\s*\S', next_line) and not re.search(r'B\s*[.)]\s*\S', next_line):
+                    # Collect A., B., C., D., E. from separate paragraphs
+                    para_opts = []
+                    j = next_idx
+                    while j < len(paragraphs) and len(para_opts) < 5:
+                        opt_line = paragraphs[j].strip()
+                        if not opt_line:
+                            j += 1
+                            continue
+                        opt_m = re.match(r'^([A-E])\.\s*(.+)$', opt_line)
+                        if opt_m:
+                            para_opts.append(opt_m.group(2).strip())
+                            j += 1
+                        else:
+                            break
+                    if len(para_opts) >= 3:
+                        questions.append({
+                            'question': line,
+                            'options': para_opts[:5],
+                            '_doc_pos': para_idx_to_doc_idx.get(i, i)
+                        })
+                        i = j
+                        continue
+                # Extract options from option line (inline format)
                 opts = extract_options_envie(next_line)
                 j = next_idx + 1
                 # Check for continuation lines (D), E) on next line)
@@ -2416,45 +2724,8 @@ def _parse_envie_questions(doc: Document) -> List[dict]:
                                 })
                             break
 
-            # Check if row has only options (D, E) - belongs to previous question
-            # Skip for now as it's handled above
-
-            # Joey format: Row with "A) option" in cells + embedded question number
-            # e.g., "A) Table tennis.\n34. Pick out the odd one." in first cell
-            # Options B-E in other cells
-            if cells and re.match(r'^A\s*\)', cells[0]):
-                first_cell = cells[0]
-                # Check if first cell has embedded question
-                lines = first_cell.split('\n')
-                opt_a_text = None
-                embedded_q = None
-                for ln in lines:
-                    ln = ln.strip()
-                    if re.match(r'^A\s*\)', ln):
-                        # Extract option A text
-                        opt_a_match = re.match(r'^A\s*\)\s*(.+?)\.?$', ln)
-                        if opt_a_match:
-                            opt_a_text = opt_a_match.group(1).strip()
-                    elif re.match(r'^\d+\.', ln):
-                        # This is embedded question for next row
-                        embedded_q = re.sub(r'^\d+\.\s*', '', ln).strip()
-
-                if opt_a_text:
-                    opts = [opt_a_text]
-                    # Get B-E options from other cells
-                    for cell_text in cells[1:]:
-                        opt_match = re.match(r'^([B-E])\s*\)\s*(.+?)\.?$', cell_text.strip())
-                        if opt_match:
-                            opts.append(opt_match.group(2).strip())
-
-                    if len(opts) >= 3:
-                        # This is options for a question (need to find question from context)
-                        # Store for later matching or use placeholder
-                        questions.append({
-                            'question': 'Table question (options in table row)',
-                            'options': opts[:5],
-                            '_doc_pos': 9000  # Tables come later in document
-                        })
+            # Note: Joey format (A) option cells with embedded question numbers)
+            # is now handled by get_document_elements() table splitting
 
     # Parse cloze questions from textboxes and paragraphs
     # Textboxes may contain: "21. A) sparked B) spotted C) split D) squandered"
@@ -2679,6 +2950,120 @@ def _parse_envie_questions(doc: Document) -> List[dict]:
         q.pop('_doc_pos', None)
 
     return questions
+
+
+def _dedup_bilingual_science(questions: List[dict]) -> List[dict]:
+    """Post-process bilingual science exam questions (IKSC format).
+
+    These documents have each question in both English and Vietnamese.
+    This function removes English duplicates and cleans bilingual options.
+    """
+    def _has_vietnamese(text):
+        return any(ord(c) > 127 for c in text)
+
+    def _is_section_header(text):
+        t = text.strip()
+        return bool(re.match(r'^\d+\s*[–\-]\s*Point\s+Questions?$', t, re.IGNORECASE))
+
+    # Step 1: Remove section headers and merge EN+VN pairs into bilingual questions
+    cleaned = []
+    i = 0
+    while i < len(questions):
+        q = questions[i]
+        qtext = q.get('question', '').strip()
+
+        # Skip section headers
+        if _is_section_header(qtext):
+            i += 1
+            continue
+
+        # If pure English question, check if next question is Vietnamese version
+        if not _has_vietnamese(qtext):
+            if i + 1 < len(questions):
+                next_q = questions[i + 1]
+                next_text = next_q.get('question', '').strip()
+                if _has_vietnamese(next_text):
+                    # Merge EN + VN into bilingual question
+                    merged_q = dict(next_q)
+                    merged_q['question'] = qtext + '\n' + next_text
+                    # Use whichever has more options; merge bilingual opts if both have same count
+                    en_opts = q.get('options', [])
+                    vn_opts = next_q.get('options', [])
+                    if len(en_opts) >= len(vn_opts) and len(en_opts) >= 3:
+                        # EN has options — merge with VN if same count
+                        if len(en_opts) == len(vn_opts):
+                            merged_opts = []
+                            for en_o, vn_o in zip(en_opts, vn_opts):
+                                if _has_vietnamese(vn_o) and not _has_vietnamese(en_o):
+                                    merged_opts.append(en_o + ' / ' + vn_o)
+                                else:
+                                    merged_opts.append(en_o)
+                            merged_q['options'] = merged_opts
+                        else:
+                            merged_q['options'] = en_opts
+                    # else: keep VN options from next_q
+                    cleaned.append(merged_q)
+                    i += 2
+                    continue
+            # Standalone English with few options — skip
+            if len(q.get('options', [])) < 5:
+                i += 1
+                continue
+
+        cleaned.append(q)
+        i += 1
+
+    # Step 2: Remove near-duplicate questions (same content from different sources)
+    # When texts match after cleaning, merge: keep clean text + best options
+    def _has_garbled_prefix(text):
+        """Check if text starts with garbled diagram labels like K1K2K3."""
+        m = re.match(r'^[A-Z0-9]{4,}', text)
+        return bool(m)
+
+    deduped = []
+    skip_indices = set()
+    for idx, q in enumerate(cleaned):
+        if idx in skip_indices:
+            continue
+        qtext = q.get('question', '').strip()
+        opts = q.get('options', [])
+        opts_count = len(opts)
+        # Clean garbled diagram labels like K1K2K3 for comparison
+        def _clean_garbled(text):
+            return re.sub(r'(?:[A-Z]\d){2,}', '', text)
+        qtext_clean = _clean_garbled(qtext)
+        merged = False
+        for idx2 in range(idx + 1, min(idx + 5, len(cleaned))):
+            if idx2 in skip_indices:
+                continue
+            q2 = cleaned[idx2]
+            q2text = q2.get('question', '').strip()
+            q2_opts = q2.get('options', [])
+            q2text_clean = _clean_garbled(q2text)
+            # Check if one text contains the other (near-duplicate)
+            if len(qtext_clean) > 10 and len(q2text_clean) > 10:
+                if (qtext_clean in q2text_clean or q2text_clean in qtext_clean
+                        or qtext in q2text or q2text in qtext):
+                    # Merge: prefer clean text, take more options
+                    has_garbled1 = qtext_clean != qtext
+                    has_garbled2 = q2text_clean != q2text
+                    best_text = q2text if has_garbled1 and not has_garbled2 else qtext if not has_garbled1 else qtext_clean
+                    best_opts = opts if opts_count >= len(q2_opts) else q2_opts
+                    merged_q = dict(q)
+                    merged_q['question'] = best_text
+                    merged_q['options'] = best_opts
+                    deduped.append(merged_q)
+                    skip_indices.add(idx2)
+                    merged = True
+                    break
+        if not merged:
+            deduped.append(q)
+    cleaned = deduped
+
+    # Step 3: Keep bilingual options as-is (EN / VN format)
+    # No stripping — options like "Refraction / Khúc xạ" stay bilingual
+
+    return cleaned
 
 
 

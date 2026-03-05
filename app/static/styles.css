@@ -1302,57 +1302,6 @@ ol.output-list li {
 }
 
 /* Created Question (backward compat) */
-.created-question {
-  background: var(--bg-panel);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 16px;
-  margin-bottom: 12px;
-}
-
-.created-question .q-number {
-  display: inline-block;
-  background: linear-gradient(135deg, var(--accent) 0%, var(--gradient-end) 100%);
-  color: white;
-  padding: 4px 12px;
-  border-radius: 20px;
-  font-size: 12px;
-  font-weight: 600;
-  margin-bottom: 10px;
-}
-
-.created-question .q-content {
-  font-size: 15px;
-  line-height: 1.6;
-  margin-bottom: 12px;
-}
-
-.created-question .q-options {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.created-question .q-options span,
-.created-question .q-options .q-opt {
-  background: var(--bg-main);
-  padding: 6px 14px;
-  border-radius: 8px;
-  font-size: 13px;
-  line-height: 1.5;
-}
-
-.created-question .q-answer {
-  margin-top: 12px;
-  display: inline-block;
-  background: linear-gradient(135deg, var(--success) 0%, var(--success-dark) 100%);
-  color: white;
-  padding: 4px 12px;
-  border-radius: 20px;
-  font-size: 12px;
-  font-weight: 600;
-}
-
 /* Result Panel */
 .result-panel {
   max-height: 60vh;
@@ -1412,6 +1361,177 @@ ol.output-list li {
   align-items: center;
   flex-wrap: wrap;
   gap: 12px;
+}
+
+/* Question cards */
+.created-question {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px 16px;
+  margin-bottom: 12px;
+  background: var(--bg-panel);
+}
+.created-question .q-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+.created-question .q-number {
+  display: inline-block;
+  background: linear-gradient(135deg, var(--accent) 0%, var(--gradient-end) 100%);
+  color: white;
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+}
+.created-question .q-actions {
+  display: flex;
+  gap: 6px;
+}
+
+/* Read-only display */
+.created-question .q-display .q-content {
+  font-size: 15px;
+  line-height: 1.6;
+  margin-bottom: 10px;
+}
+.created-question .q-display .q-options {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+.created-question .q-display .q-opt {
+  background: var(--bg-main);
+  padding: 6px 14px;
+  border-radius: 8px;
+  font-size: 14px;
+  line-height: 1.5;
+}
+.created-question .q-display .q-opt .q-opt-label {
+  font-weight: 600;
+  color: var(--accent);
+}
+.created-question .q-display .q-answer {
+  display: inline-block;
+  background: linear-gradient(135deg, var(--success) 0%, var(--success-dark) 100%);
+  color: white;
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+/* Edit mode */
+.created-question .q-edit .edit-q-text {
+  width: 100%;
+  min-height: 48px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 8px;
+  font-size: 14px;
+  font-family: inherit;
+  resize: vertical;
+  background: var(--bg-panel);
+  box-sizing: border-box;
+}
+.created-question .q-edit .q-options-edit {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 8px;
+}
+.created-question .q-edit .q-opt-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.created-question .q-edit .q-opt-label {
+  font-weight: 600;
+  min-width: 20px;
+  color: #64748b;
+}
+.created-question .q-edit .edit-q-opt {
+  flex: 1;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 6px 8px;
+  font-size: 13px;
+  font-family: inherit;
+  background: var(--bg-panel);
+}
+.created-question .q-edit .q-answer-row {
+  margin-top: 8px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+}
+.created-question .q-edit .edit-q-answer {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 4px 8px;
+  width: 80px;
+  font-family: inherit;
+  background: var(--bg-panel);
+}
+
+/* Edit button */
+.edit-q-btn {
+  padding: 4px 12px;
+  font-size: 12px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--bg-main);
+  color: #334155;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.edit-q-btn:hover {
+  background: var(--border);
+}
+
+/* Add to bank button */
+.add-to-bank-btn {
+  padding: 4px 12px;
+  font-size: 12px;
+  border-radius: 6px;
+  border: 1px solid var(--accent);
+  background: transparent;
+  color: var(--accent);
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+.add-to-bank-btn:hover:not(:disabled) {
+  background: var(--accent);
+  color: #fff;
+}
+.add-to-bank-btn:disabled {
+  border-color: var(--success);
+  color: var(--success);
+  cursor: default;
+  opacity: 0.8;
+}
+.add-all-bank-btn {
+  padding: 6px 14px;
+  font-size: 13px;
+  border-radius: 6px;
+  border: 1px solid var(--success);
+  background: var(--success);
+  color: #fff;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+.add-all-bank-btn:hover:not(:disabled) {
+  opacity: 0.9;
+}
+.add-all-bank-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
 }
 
 /* History Actions */
@@ -1704,7 +1824,7 @@ ol.output-list li {
 .curriculum-chapter summary {
   padding: 12px 16px;
   cursor: pointer;
-  background: var(--surface);
+  background: var(--bg-panel);
   transition: background 0.2s;
 }
 

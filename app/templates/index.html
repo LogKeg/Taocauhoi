@@ -142,6 +142,7 @@
                 <div class="output-header">
                   <h2>Đề mới (<span id="createResultCount">0</span> câu)</h2>
                   <div class="actions">
+                    <button class="add-all-bank-btn">Thêm tất cả vào ngân hàng</button>
                     <button id="createExportDocx">Xuất DOCX</button>
                     <button id="createExportPdf">Xuất PDF</button>
                     <button id="createSaveHistory">Lưu lịch sử</button>
@@ -203,6 +204,7 @@
                 <div class="output-header">
                   <h2>Kết quả</h2>
                   <div class="actions">
+                    <button class="add-all-bank-btn">Thêm tất cả vào ngân hàng</button>
                     <button data-export="txt">Xuất TXT</button>
                     <button data-export="csv">Xuất CSV</button>
                     <button data-export="docx">Xuất DOCX</button>
@@ -210,7 +212,7 @@
                   </div>
                 </div>
                 <div class="gen-status" id="topicStatus"></div>
-                <ol class="output-list" id="topicOutput"></ol>
+                <div class="output-list" id="topicOutput"></div>
                 <div class="answers-section" id="topicAnswers" hidden>
                   <button class="toggle-answers" id="toggleAnswers">Hiện đáp án</button>
                   <div class="answers-content" id="answersContent" hidden></div>
@@ -225,9 +227,16 @@
               <div class="panel">
                 <h2>Chuyển đổi Word sang Excel</h2>
                 <p>Upload file Word (.docx) chứa câu hỏi để xuất ra file Excel.</p>
-                <div class="upload-area">
-                  <input type="file" id="convertFile" accept=".docx" />
-                  <button id="convertBtn" type="button">Chuyển đổi</button>
+                <div class="upload-area" style="flex-direction: column; align-items: stretch; gap: 8px;">
+                  <div style="display: flex; align-items: center; gap: 8px;">
+                    <label style="min-width: 140px; font-weight: 500;">File câu hỏi (.docx):</label>
+                    <input type="file" id="convertFile" accept=".docx" style="flex: 1;" />
+                  </div>
+                  <div style="display: flex; align-items: center; gap: 8px;">
+                    <label style="min-width: 140px; font-weight: 500;">File đáp án (tuỳ chọn):</label>
+                    <input type="file" id="answerKeyFile" accept=".docx,.pdf,.xlsx,.xls" style="flex: 1;" />
+                  </div>
+                  <button id="convertBtn" type="button" style="align-self: flex-start;">Chuyển đổi</button>
                 </div>
                 <div class="convert-options" style="margin-top: 12px; text-align: left;">
                   <div style="margin-bottom: 8px;">
@@ -817,6 +826,8 @@
           <button class="modal-close" id="questionModalClose">&times;</button>
         </div>
         <div class="modal-body">
+          <!-- Rendered preview (shown when viewing) -->
+          <div id="questionViewPreview" hidden style="margin-bottom:16px;"></div>
           <form id="questionForm">
             <input type="hidden" id="questionId" />
             <div class="form-group">
@@ -1076,42 +1087,185 @@
         navBlob.hidden = true;
       }
 
-      /* ---- Render results inline ---- */
-      function renderQuestions(questions, outputEl, statusEl, resultPanel) {
+      /* ---- Render question card (shared by both tabs) ---- */
+      function renderQuestionCard(qText, options, answer, index) {
+        const safeText = escapeHtml(qText).replace(/\n/g, '<br>');
+        return `
+        <div class="created-question" data-index="${index}">
+          <div class="q-header">
+            <span class="q-number">Câu ${index + 1}</span>
+            <div class="q-actions">
+              <button class="edit-q-btn">Sửa</button>
+              <button class="add-to-bank-btn">Thêm vào ngân hàng</button>
+            </div>
+          </div>
+          <div class="q-display">
+            <div class="q-content">${safeText}</div>
+            ${options.length ? `<div class="q-options">${options.map((o, j) => `<div class="q-opt"><span class="q-opt-label">${String.fromCharCode(65 + j)})</span> ${escapeHtml(o).replace(/\n/g, '<br>')}</div>`).join('')}</div>` : ''}
+            ${answer ? `<div class="q-answer"><span>Đáp án: ${escapeHtml(answer)}</span></div>` : ''}
+          </div>
+          <div class="q-edit" hidden>
+            <textarea class="edit-q-text" rows="${Math.max(2, qText.split('\n').length)}">${escapeHtml(qText)}</textarea>
+            <div class="q-options-edit">
+              ${options.map((o, j) => `<div class="q-opt-row"><span class="q-opt-label">${String.fromCharCode(65 + j)})</span><input class="edit-q-opt" value="${escapeHtml(o).replace(/"/g, '&quot;')}" /></div>`).join('')}
+            </div>
+            <div class="q-answer-row">
+              <label>Đáp án:</label>
+              <input class="edit-q-answer" value="${escapeHtml(answer).replace(/"/g, '&quot;')}" />
+            </div>
+          </div>
+        </div>`;
+      }
+
+      /* ---- Toggle edit mode ---- */
+      function toggleEditQuestion(btn) {
+        const card = btn.closest('.created-question');
+        const display = card.querySelector('.q-display');
+        const edit = card.querySelector('.q-edit');
+        const isEditing = !edit.hidden;
+
+        if (isEditing) {
+          // Read edited values
+          const qText = card.querySelector('.edit-q-text').value;
+          const optInputs = card.querySelectorAll('.edit-q-opt');
+          const ansInput = card.querySelector('.edit-q-answer');
+          const ansValue = ansInput ? ansInput.value : '';
+
+          // Rebuild options HTML
+          const optsHtml = [...optInputs].map((inp, j) =>
+            `<div class="q-opt"><span class="q-opt-label">${String.fromCharCode(65 + j)})</span> ${escapeHtml(inp.value).replace(/\n/g, '<br>')}</div>`
+          ).join('');
+
+          // Rebuild entire display
+          display.innerHTML = `
+            <div class="q-content">${escapeHtml(qText).replace(/\n/g, '<br>')}</div>
+            ${optsHtml ? `<div class="q-options">${optsHtml}</div>` : ''}
+            ${ansValue ? `<div class="q-answer"><span>Đáp án: ${escapeHtml(ansValue)}</span></div>` : ''}
+          `;
+
+          edit.hidden = true;
+          display.hidden = false;
+          btn.textContent = 'Sửa';
+          renderMath(display);
+        } else {
+          edit.hidden = false;
+          display.hidden = true;
+          btn.textContent = 'Xong';
+        }
+      }
+
+      /* ---- Event delegation for edit/bank buttons ---- */
+      document.addEventListener('click', (e) => {
+        const editBtn = e.target.closest('.edit-q-btn');
+        if (editBtn) { toggleEditQuestion(editBtn); return; }
+
+        const bankBtn = e.target.closest('.add-to-bank-btn');
+        if (bankBtn && !bankBtn.disabled) { addToBank(bankBtn); return; }
+
+        const allBankBtn = e.target.closest('.add-all-bank-btn');
+        if (allBankBtn && !allBankBtn.disabled) {
+          const container = allBankBtn.closest('.result-panel').querySelector('.create-output, .output-list');
+          if (container) addAllToBank(container);
+          return;
+        }
+      });
+
+      /* ---- Render results inline (topic tab) ---- */
+      function renderQuestions(questions, outputEl, statusEl, resultPanel, answerMap) {
         currentQuestions = questions;
+        answerMap = answerMap || {};
         outputEl.innerHTML = questions
           .map((q, i) => {
-            // Split question into lines
             const lines = q.split('\n');
-            let html = `<li><strong>Câu ${i + 1}.</strong> `;
-
-            // First line is the question
-            html += escapeHtml(lines[0]);
-
-            // Remaining lines are options - render them nicely
-            if (lines.length > 1) {
-              html += '<div class="options" style="margin-left: 20px; margin-top: 5px;">';
-              for (let j = 1; j < lines.length; j++) {
-                const line = lines[j].trim();
-                if (line) {
-                  // Check if it's an option line (starts with A), B), C), D) or A. B. C. D.)
-                  if (/^[A-Da-d][\).\]]\s*/.test(line)) {
-                    html += `<div>${escapeHtml(line)}</div>`;
-                  } else {
-                    html += `<div>${escapeHtml(line)}</div>`;
-                  }
-                }
+            const questionText = lines[0] || '';
+            const optionLines = [];
+            let answerLine = answerMap[i] || '';
+            for (let j = 1; j < lines.length; j++) {
+              const line = lines[j].trim();
+              if (!line) continue;
+              if (/^(Đáp án|Answer|Correct)[:\s]/i.test(line)) {
+                if (!answerLine) answerLine = line.replace(/^(Đáp án|Answer|Correct)[:\s]*/i, '').trim();
+              } else {
+                optionLines.push(line.replace(/^[A-Da-d][\).\]]\s*/, ''));
               }
-              html += '</div>';
             }
-            html += '</li>';
-            return html;
+            return renderQuestionCard(questionText, optionLines, answerLine, i);
           })
           .join('');
-        // Always keep panel visible so user can see error messages
         resultPanel.hidden = false;
-        // Render math formulas with KaTeX
         renderMath(outputEl);
+      }
+
+      /* ---- Add a single question to the bank ---- */
+      async function addToBank(btn) {
+        const card = btn.closest('.created-question');
+        // Read from edit fields (they always hold the latest data)
+        const content = card.querySelector('.edit-q-text').value.trim();
+        const optInputs = card.querySelectorAll('.edit-q-opt');
+        const options = [...optInputs].map(inp => inp.value.trim()).filter(v => v);
+        const ansInput = card.querySelector('.edit-q-answer');
+        const answer = ansInput ? ansInput.value.trim() : '';
+
+        if (!content) {
+          alert('Nội dung câu hỏi không được để trống');
+          return;
+        }
+
+        try {
+          btn.disabled = true;
+          btn.textContent = 'Đang thêm...';
+
+          // Detect subject from the tab's select
+          let subject = 'general';
+          const inCreate = card.closest('#tab-create');
+          const inTopic = card.closest('#tab-topic');
+          if (inCreate) {
+            subject = document.getElementById('createSubject').value || 'general';
+          } else if (inTopic) {
+            subject = document.getElementById('topicSubject').value || 'general';
+          }
+
+          const res = await fetch('/api/questions', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              content: content,
+              options: JSON.stringify(options),
+              answer: answer,
+              subject: subject,
+              difficulty: 'medium',
+              question_type: options.length ? 'mcq' : 'essay',
+              source: 'ai_generated'
+            })
+          });
+
+          if (res.ok) {
+            btn.textContent = 'Đã thêm ✓';
+            btn.classList.add('added');
+          } else {
+            let errMsg = 'Không thể thêm';
+            try { const errData = await res.json(); errMsg = errData.detail || errMsg; } catch(e) {}
+            alert('Lỗi: ' + errMsg);
+            btn.disabled = false;
+            btn.textContent = 'Thêm vào ngân hàng';
+          }
+        } catch (err) {
+          alert('Lỗi kết nối server');
+          btn.disabled = false;
+          btn.textContent = 'Thêm vào ngân hàng';
+        }
+      }
+
+      /* ---- Add all questions to the bank ---- */
+      async function addAllToBank(container) {
+        const buttons = container.querySelectorAll('.add-to-bank-btn:not([disabled])');
+        if (!buttons.length) {
+          alert('Tất cả câu hỏi đã được thêm');
+          return;
+        }
+        for (const btn of buttons) {
+          await addToBank(btn);
+        }
       }
 
       // Escape HTML but preserve LaTeX delimiters
@@ -1190,6 +1344,7 @@
           formData.append('file', fileInput.files[0]);
 
           const res = await fetch('/api/parse-exam', { method: 'POST', body: formData });
+          if (!res.ok) throw new Error(`Server error ${res.status}`);
           const data = await res.json();
 
           if (data.ok) {
@@ -1263,19 +1418,18 @@
           formData.append('ai_engine', document.getElementById('createEngine').value || activeEngine);
 
           const res = await fetch('/api/generate-similar-exam', { method: 'POST', body: formData });
+          if (!res.ok) throw new Error(`Server error ${res.status}`);
           const data = await res.json();
 
           if (data.ok) {
             createdQuestions = data.questions || data.generated_questions || [];
             countEl.textContent = createdQuestions.length;
-            output.innerHTML = createdQuestions.map((q, i) => `
-              <div class="created-question">
-                <div class="q-number">Câu ${i + 1}</div>
-                <div class="q-content">${escapeHtml(q.question || q.content || '').replace(/\n/g, '<br>')}</div>
-                <div class="q-options">${(q.options || []).map((o, j) => `<div class="q-opt">${String.fromCharCode(65 + j)}) ${escapeHtml(o).replace(/\n/g, '<br>')}</div>`).join('')}</div>
-                <div class="q-answer">Đáp án: ${q.answer || q.correct_answer || ''}</div>
-              </div>
-            `).join('');
+            output.innerHTML = createdQuestions.map((q, i) => {
+              const qText = q.question || q.content || '';
+              const opts = q.options || [];
+              const ans = q.answer || q.correct_answer || '';
+              return renderQuestionCard(qText, opts, ans, i);
+            }).join('');
             renderMath(output);
             result.hidden = false;
             status.textContent = `Đã tạo ${createdQuestions.length} câu hỏi mới (${difficulty === 'same' ? 'tương đương' : difficulty === 'easier' ? 'dễ hơn' : 'khó hơn'})`;
@@ -1406,9 +1560,9 @@
             }
             return `<div class="created-question">
               <div class="q-number">Câu ${i + 1}</div>
-              <div class="q-content">${escapeHtml(q.content || '').replace(/\n/g, '<br>')}</div>
+              <div class="q-content">${escapeHtml(q.content || q.question || '').replace(/\n/g, '<br>')}</div>
               <div class="q-options">${(q.options || []).map((o, j) => `<span>${String.fromCharCode(65 + j)}) ${escapeHtml(o)}</span>`).join(' ')}</div>
-              ${q.correct_answer ? `<div class="q-answer">Đáp án: ${q.correct_answer}</div>` : ''}
+              ${(q.correct_answer || q.answer) ? `<div class="q-answer">Đáp án: ${q.correct_answer || q.answer}</div>` : ''}
             </div>`;
           }).join('');
           renderMath(body);
@@ -1429,7 +1583,7 @@
 
       document.getElementById('modalExportDocx').addEventListener('click', async () => {
         if (!currentModalQuestions.length) return;
-        const samples = currentModalQuestions.map(q => typeof q === 'string' ? q : q.content).join('\n');
+        const samples = currentModalQuestions.map(q => typeof q === 'string' ? q : (q.content || q.question || '')).join('\n');
         const formData = new FormData();
         formData.append('samples', samples);
         formData.append('topic', 'history');
@@ -1446,7 +1600,7 @@
 
       document.getElementById('modalExportPdf').addEventListener('click', async () => {
         if (!currentModalQuestions.length) return;
-        const samples = currentModalQuestions.map(q => typeof q === 'string' ? q : q.content).join('\n');
+        const samples = currentModalQuestions.map(q => typeof q === 'string' ? q : (q.content || q.question || '')).join('\n');
         const formData = new FormData();
         formData.append('samples', samples);
         formData.append('topic', 'history');
@@ -1548,7 +1702,7 @@
             const idx = parseInt(btn.dataset.index);
             const h = usageHistory[idx];
             if (!h || !h.questions || !h.questions.length) return;
-            const samples = h.questions.map(q => typeof q === 'string' ? q : q.content).join('\n');
+            const samples = h.questions.map(q => typeof q === 'string' ? q : (q.content || q.question || '')).join('\n');
             const formData = new FormData();
             formData.append('samples', samples);
             formData.append('topic', 'history');
@@ -1569,7 +1723,7 @@
             const idx = parseInt(btn.dataset.index);
             const h = usageHistory[idx];
             if (!h || !h.questions || !h.questions.length) return;
-            const samples = h.questions.map(q => typeof q === 'string' ? q : q.content).join('\n');
+            const samples = h.questions.map(q => typeof q === 'string' ? q : (q.content || q.question || '')).join('\n');
             const formData = new FormData();
             formData.append('samples', samples);
             formData.append('topic', 'history');
@@ -1633,9 +1787,18 @@
           formData.append('ai_engine', document.getElementById('topicEngine').value || activeEngine);
           formData.append('use_rag', document.getElementById('topicUseRag').checked);
           const res = await fetch('/generate-topic', { method: 'POST', body: formData });
+          if (!res.ok) throw new Error(`Server error ${res.status}`);
           const data = await res.json();
           statusEl.textContent = data.message || '';
-          renderQuestions(data.questions || [], outputEl, statusEl, resultPanel);
+          // Parse answer key into map: {0: "A", 1: "B", ...}
+          const answerMap = {};
+          if (data.answers) {
+            data.answers.split('\n').forEach(line => {
+              const m = line.match(/^(\d+)\.\s*([A-Da-d])/i);
+              if (m) answerMap[parseInt(m[1]) - 1] = m[2].toUpperCase();
+            });
+          }
+          renderQuestions(data.questions || [], outputEl, statusEl, resultPanel, answerMap);
           // Show answers if available
           const answersSection = document.getElementById('topicAnswers');
           const answersContent = document.getElementById('answersContent');
@@ -1748,6 +1911,11 @@
           formData.append('file', fileInput.files[0]);
           formData.append('use_latex', useLatex ? '1' : '0');
           formData.append('subject', subject);
+
+          const answerKeyInput = document.getElementById('answerKeyFile');
+          if (answerKeyInput.files.length) {
+            formData.append('answer_key', answerKeyInput.files[0]);
+          }
 
           const res = await fetch('/convert-word-to-excel', { method: 'POST', body: formData });
 
@@ -1873,22 +2041,23 @@
         const correctRadios = document.querySelectorAll('input[name="correctAnswer"]');
 
         // Reset form
+        const viewPreview = document.getElementById('questionViewPreview');
         questionForm.reset();
         optionInputs.forEach(input => input.value = '');
         correctRadios.forEach(radio => radio.checked = false);
+        viewPreview.hidden = true;
+        viewPreview.innerHTML = '';
 
         if (questionId) {
-          // Edit mode - load question data
+          // View/Edit mode - load question data
           title.textContent = 'Chi tiết câu hỏi';
           try {
             const res = await fetch(`/api/questions/${questionId}`);
             if (!res.ok) {
-              console.error('API error:', res.status, res.statusText);
               alert('Không thể tải câu hỏi. Vui lòng thử lại.');
               return;
             }
             const q = await res.json();
-            console.log('Loaded question:', q);  // Debug log
 
             idField.value = q.id;
             contentField.value = q.content || '';
@@ -1898,7 +2067,7 @@
             sourceField.value = q.source || '';
             explanationField.value = q.explanation || '';
 
-            // Parse options from content or options field
+            // Parse options
             let options = [];
             if (q.options) {
               try {
@@ -1915,34 +2084,42 @@
               }
             });
 
-            // Set correct answer (API returns 'answer' field)
-            // Answer can be: "A"/"B"/"C"/"D", "1"/"2"/"3"/"4" (1-indexed), or "0"/"1"/"2"/"3" (0-indexed)
+            // Set correct answer
             const answerValue = q.answer || q.correct_answer;
+            let answerDisplay = '';
             if (answerValue !== null && answerValue !== undefined && answerValue !== '') {
+              answerDisplay = String(answerValue).trim();
               let answerIdx = -1;
-              const answerStr = String(answerValue).trim().toUpperCase();
-
-              // Check if it's a letter (A, B, C, D)
+              const answerStr = answerDisplay.toUpperCase();
               if (/^[A-D]$/.test(answerStr)) {
                 answerIdx = answerStr.charCodeAt(0) - 'A'.charCodeAt(0);
               } else {
-                // It's a number - could be 1-indexed or 0-indexed
                 const num = parseInt(answerStr);
                 if (!isNaN(num)) {
-                  // If num is 1-4, treat as 1-indexed (common in question banks)
-                  // If num is 0-3, treat as 0-indexed
-                  if (num >= 1 && num <= 4) {
-                    answerIdx = num - 1;  // Convert 1-indexed to 0-indexed
-                  } else if (num >= 0 && num <= 3) {
-                    answerIdx = num;  // Already 0-indexed
-                  }
+                  if (num >= 1 && num <= 4) answerIdx = num - 1;
+                  else if (num >= 0 && num <= 3) answerIdx = num;
                 }
               }
-
               if (answerIdx >= 0 && answerIdx < correctRadios.length) {
                 correctRadios[answerIdx].checked = true;
               }
             }
+
+            // Build rendered preview
+            const previewContent = escapeHtml(q.content || '').replace(/\n/g, '<br>');
+            const previewOpts = options.map((o, j) =>
+              `<div class="q-opt"><span class="q-opt-label">${String.fromCharCode(65 + j)})</span> ${escapeHtml(o)}</div>`
+            ).join('');
+            viewPreview.innerHTML = `
+              <div class="created-question" style="margin:0;">
+                <div class="q-display">
+                  <div class="q-content">${previewContent}</div>
+                  ${previewOpts ? `<div class="q-options">${previewOpts}</div>` : ''}
+                  ${answerDisplay ? `<div class="q-answer"><span>Đáp án: ${escapeHtml(answerDisplay)}</span></div>` : ''}
+                </div>
+              </div>`;
+            viewPreview.hidden = false;
+            renderMath(viewPreview);
           } catch (err) {
             console.error('Error loading question:', err);
           }

@@ -258,14 +258,7 @@ def generate_topic(
     questions = [q for q in questions if q.strip()]
     final_questions = questions[:count]
 
-    saved = _save_text_questions_to_bank(
-        final_questions,
-        subject=subject,
-        source="generated-topic",
-        difficulty=difficulty,
-    )
-
-    return {"questions": final_questions, "answers": answers, "saved_to_bank": saved}
+    return {"questions": final_questions, "answers": answers}
 
 
 @router.post("/auto-generate")
