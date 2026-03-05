@@ -187,6 +187,14 @@
                     </select>
                   </div>
                   <div>
+                    <label for="topicLanguage">Ngôn ngữ</label>
+                    <select id="topicLanguage">
+                      <option value="vi">Tiếng Việt</option>
+                      <option value="en">Tiếng Anh</option>
+                      <option value="bilingual">Song ngữ</option>
+                    </select>
+                  </div>
+                  <div>
                     <label for="topicEngine">AI Engine</label>
                     <select id="topicEngine"></select>
                   </div>
@@ -1177,18 +1185,23 @@
         outputEl.innerHTML = questions
           .map((q, i) => {
             const lines = q.split('\n');
-            const questionText = lines[0] || '';
+            const questionParts = [];
             const optionLines = [];
             let answerLine = answerMap[i] || '';
-            for (let j = 1; j < lines.length; j++) {
+            let seenOption = false;
+            for (let j = 0; j < lines.length; j++) {
               const line = lines[j].trim();
               if (!line) continue;
               if (/^(Đáp án|Answer|Correct)[:\s]/i.test(line)) {
                 if (!answerLine) answerLine = line.replace(/^(Đáp án|Answer|Correct)[:\s]*/i, '').trim();
-              } else {
-                optionLines.push(line.replace(/^[A-Da-d][\).\]]\s*/, ''));
+              } else if (/^[A-Ea-e][\).\]]\s*/.test(line)) {
+                seenOption = true;
+                optionLines.push(line.replace(/^[A-Ea-e][\).\]]\s*/, ''));
+              } else if (!seenOption) {
+                questionParts.push(line);
               }
             }
+            const questionText = questionParts.join('\n');
             return renderQuestionCard(questionText, optionLines, answerLine, i);
           })
           .join('');
@@ -1785,6 +1798,7 @@
           formData.append('count', document.getElementById('topicCount').value || 10);
           formData.append('difficulty', document.getElementById('topicDifficulty').value);
           formData.append('ai_engine', document.getElementById('topicEngine').value || activeEngine);
+          formData.append('language', document.getElementById('topicLanguage').value);
           formData.append('use_rag', document.getElementById('topicUseRag').checked);
           const res = await fetch('/generate-topic', { method: 'POST', body: formData });
           if (!res.ok) throw new Error(`Server error ${res.status}`);

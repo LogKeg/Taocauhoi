@@ -204,6 +204,7 @@ def generate_topic(
     ai_engine: str = Form("ollama"),
     topic: str = Form(""),
     difficulty: str = Form("medium"),
+    language: str = Form("vi"),
     use_rag: bool = Form(True),
     rag_count: int = Form(5),
 ) -> dict:
@@ -227,7 +228,7 @@ def generate_topic(
             limit=rag_count,
         )
 
-    prompt = build_topic_prompt(subject, grade, qtype, count, topic, difficulty, rag_examples=rag_examples)
+    prompt = build_topic_prompt(subject, grade, qtype, count, topic, difficulty, rag_examples=rag_examples, language=language)
     text, err = call_ai(prompt, ai_engine)
 
     if not text:

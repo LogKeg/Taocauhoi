@@ -66,11 +66,13 @@ def build_topic_prompt(
     topic: str = "",
     difficulty: str = "medium",
     rag_examples: Optional[List[str]] = None,
+    language: str = "vi",
 ) -> str:
     """Build AI prompt for generating questions by topic."""
     subject = SUBJECTS.get(subject_key, {"label": subject_key, "lang": "vi"})
     label = subject.get("label", subject_key)
-    lang = subject.get("lang", "vi")
+    # Override lang with user-selected language
+    lang = language if language in ("en", "vi", "bilingual") else subject.get("lang", "vi")
 
     # Resolve topic label
     topic_label = ""
@@ -86,6 +88,57 @@ def build_topic_prompt(
     # Difficulty text
     difficulty_map_en = {"easy": "easy", "medium": "medium", "hard": "hard/challenging"}
     difficulty_map_vi = {"easy": "dễ", "medium": "trung bình", "hard": "khó"}
+
+    if lang == "bilingual":
+        grade_text = f"Grade {grade} / Lớp {grade}"
+        type_text = {
+            "mcq": "multiple-choice / trắc nghiệm",
+            "blank": "fill-in-the-blank / điền khuyết",
+            "essay": "short-answer / tự luận",
+        }.get(qtype, "multiple-choice / trắc nghiệm")
+        topic_text = f", topic: {topic_label}" if topic_label else ""
+        diff_text = f"{difficulty_map_en.get(difficulty, 'medium')} / {difficulty_map_vi.get(difficulty, 'trung bình')}"
+        example = ""
+        if qtype == "mcq":
+            example = (
+                "\n\nExample format (MUST follow exactly):\n"
+                "What is the largest planet in the Solar System?\n"
+                "Hành tinh lớn nhất trong Hệ Mặt Trời là gì?\n"
+                "A) Mars / Sao Hỏa\n"
+                "B) Jupiter / Sao Mộc\n"
+                "C) Saturn / Sao Thổ\n"
+                "D) Venus / Sao Kim\n"
+                "\nWhat is H2O commonly known as?\n"
+                "H2O thường được gọi là gì?\n"
+                "A) Salt / Muối\n"
+                "B) Water / Nước\n"
+                "C) Oil / Dầu\n"
+                "D) Sugar / Đường\n"
+                "\n---ANSWERS---\n1. B\n2. B\n"
+            )
+
+        rag_section_bi = ""
+        if rag_examples:
+            rag_section_bi = (
+                "\n\nREFERENCE QUESTIONS (from question bank):\n\n"
+                + "\n\n".join(f"Example {i+1}:\n{q}" for i, q in enumerate(rag_examples))
+                + "\n\nCreate NEW questions similar in style, DO NOT copy verbatim.\n"
+            )
+
+        return (
+            "You are a bilingual (English-Vietnamese) education content writer.\n"
+            f"Create {count} {type_text} questions for {label} ({grade_text}{topic_text}).\n"
+            f"Difficulty level: {diff_text}.\n"
+            "CRITICAL FORMAT RULES:\n"
+            "- Each question: English text on first line, Vietnamese translation on next line.\n"
+            "- Each option: English / Vietnamese (separated by ' / ').\n"
+            "  Example option: A) Refraction / Khúc xạ\n"
+            "- Do NOT number questions. Do NOT write 'Question 1', 'Q1', etc.\n"
+            "- Separate questions with a blank line.\n"
+            "- After all questions, add a line \"---ANSWERS---\" then list answers (e.g. 1. B, 2. A, ...).\n"
+            f"{example}"
+            f"{rag_section_bi}"
+        )
 
     if lang == "en":
         grade_text = f"Grade {grade}"
