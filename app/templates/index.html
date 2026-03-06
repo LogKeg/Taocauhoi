@@ -1363,8 +1363,6 @@
 
           if (data.ok) {
             parsedSampleQuestions = data.questions || [];
-            document.getElementById('parseFileName').textContent = data.filename;
-            document.getElementById('parseQuestionCount').textContent = parsedSampleQuestions.length;
 
             // Show detected subject and language
             const subjectNames = {
