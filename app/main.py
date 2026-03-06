@@ -5306,10 +5306,23 @@ def _parse_answer_key_for_template(answer_file_content: bytes, file_ext: str, te
                         break
 
                 if level_col >= 0:
+                    # Detect paired-column format: each level has 2 cols (number, answer)
+                    # Check if header has duplicate names (merged cells)
+                    is_paired = (level_col + 1 < len(header)
+                                 and header[level_col] == header[level_col + 1])
+                    if is_paired:
+                        # Paired format: level_col = numbers, level_col+1 = answers
+                        num_col = level_col
+                        ans_col = level_col + 1
+                    else:
+                        # Standard format: col 0 = numbers, level_col = answers
+                        num_col = 0
+                        ans_col = level_col
+
                     for row in table.rows[1:]:
                         try:
-                            q_num = int(row.cells[0].text.strip())
-                            answer = row.cells[level_col].text.strip().upper()
+                            q_num = int(row.cells[num_col].text.strip())
+                            answer = row.cells[ans_col].text.strip().upper()
                             if answer and answer in "ABCDE":
                                 found_answers[q_num] = answer
                         except (ValueError, IndexError):
