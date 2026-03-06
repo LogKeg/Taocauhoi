@@ -1595,38 +1595,41 @@
         if (e.target.id === 'historyModal') hideHistoryModal();
       });
 
-      document.getElementById('modalExportDocx').addEventListener('click', async () => {
-        if (!currentModalQuestions.length) return;
-        const samples = currentModalQuestions.map(q => typeof q === 'string' ? q : (q.content || q.question || '')).join('\n');
-        const formData = new FormData();
-        formData.append('samples', samples);
-        formData.append('topic', 'history');
-        formData.append('fmt', 'docx');
-        const res = await fetch('/export', { method: 'POST', body: formData });
+      // Helper: export questions via structured API or flat text API
+      async function exportQuestions(questions, fmt, filename) {
+        const hasStructured = questions.some(q => typeof q === 'object' && q.options);
+        let res;
+        if (hasStructured) {
+          res = await fetch('/api/export-exam', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ questions, format: fmt, title: 'Đề thi' })
+          });
+        } else {
+          const samples = questions.map(q => typeof q === 'string' ? q : (q.content || q.question || '')).join('\n\n');
+          const formData = new FormData();
+          formData.append('samples', samples);
+          formData.append('topic', 'export');
+          formData.append('fmt', fmt);
+          res = await fetch('/export', { method: 'POST', body: formData });
+        }
         const blob = await res.blob();
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = 'lich_su.docx';
+        a.download = filename;
         a.click();
         URL.revokeObjectURL(url);
+      }
+
+      document.getElementById('modalExportDocx').addEventListener('click', async () => {
+        if (!currentModalQuestions.length) return;
+        await exportQuestions(currentModalQuestions, 'docx', 'lich_su.docx');
       });
 
       document.getElementById('modalExportPdf').addEventListener('click', async () => {
         if (!currentModalQuestions.length) return;
-        const samples = currentModalQuestions.map(q => typeof q === 'string' ? q : (q.content || q.question || '')).join('\n');
-        const formData = new FormData();
-        formData.append('samples', samples);
-        formData.append('topic', 'history');
-        formData.append('fmt', 'pdf');
-        const res = await fetch('/export', { method: 'POST', body: formData });
-        const blob = await res.blob();
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = 'lich_su.pdf';
-        a.click();
-        URL.revokeObjectURL(url);
+        await exportQuestions(currentModalQuestions, 'pdf', 'lich_su.pdf');
       });
 
       function renderHistory() {
@@ -1716,19 +1719,7 @@
             const idx = parseInt(btn.dataset.index);
             const h = usageHistory[idx];
             if (!h || !h.questions || !h.questions.length) return;
-            const samples = h.questions.map(q => typeof q === 'string' ? q : (q.content || q.question || '')).join('\n');
-            const formData = new FormData();
-            formData.append('samples', samples);
-            formData.append('topic', 'history');
-            formData.append('fmt', 'docx');
-            const res = await fetch('/export', { method: 'POST', body: formData });
-            const blob = await res.blob();
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `lich_su_${idx + 1}.docx`;
-            a.click();
-            URL.revokeObjectURL(url);
+            await exportQuestions(h.questions, 'docx', `lich_su_${idx + 1}.docx`);
           });
         });
 
@@ -1737,19 +1728,7 @@
             const idx = parseInt(btn.dataset.index);
             const h = usageHistory[idx];
             if (!h || !h.questions || !h.questions.length) return;
-            const samples = h.questions.map(q => typeof q === 'string' ? q : (q.content || q.question || '')).join('\n');
-            const formData = new FormData();
-            formData.append('samples', samples);
-            formData.append('topic', 'history');
-            formData.append('fmt', 'pdf');
-            const res = await fetch('/export', { method: 'POST', body: formData });
-            const blob = await res.blob();
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `lich_su_${idx + 1}.pdf`;
-            a.click();
-            URL.revokeObjectURL(url);
+            await exportQuestions(h.questions, 'pdf', `lich_su_${idx + 1}.pdf`);
           });
         });
       }

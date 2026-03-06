@@ -588,7 +588,7 @@ async def export_exam(request: Request):
         doc.add_heading(title, level=1)
 
         for i, q in enumerate(questions, 1):
-            content = q.get("content", "")
+            content = q.get("content", "") or q.get("question", "")
             options = q.get("options", [])
 
             p = doc.add_paragraph()
@@ -630,7 +630,7 @@ async def export_exam(request: Request):
         c.setFont(font_name, font_size)
 
         for i, q in enumerate(questions, 1):
-            content = q.get("content", "")
+            content = q.get("content", "") or q.get("question", "")
             options = q.get("options", [])
 
             # Check page break
