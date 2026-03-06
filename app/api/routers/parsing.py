@@ -835,10 +835,12 @@ def convert_word_to_excel(
         output.seek(0)
 
         base_name = Path(file.filename).stem
+        safe_name = f"{base_name}_questions.xlsx"
+        from urllib.parse import quote
         return StreamingResponse(
             output,
             media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            headers={"Content-Disposition": f"attachment; filename={base_name}_questions.xlsx"}
+            headers={"Content-Disposition": f"attachment; filename*=UTF-8''{quote(safe_name)}"}
         )
 
     except Exception as e:
