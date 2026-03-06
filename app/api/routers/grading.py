@@ -192,11 +192,14 @@ async def grade_answer_sheets(
                     answers = get_answers_for_template(actual_template)
                     tpl = ANSWER_TEMPLATES.get(actual_template, default_template)
 
+                    tpl_name = tpl.get("name", actual_template)
+
                     if len(answers) < tpl["questions"]:
                         results.append({
                             "filename": page_filename,
                             "detected_template": actual_template,
-                            "error": f"No answers found for {tpl['name']}. Please check the answer file."
+                            "template_name": tpl_name,
+                            "error": f"No answers found for {tpl_name}. Please check the answer file."
                         })
                         continue
 
@@ -209,11 +212,13 @@ async def grade_answer_sheets(
                         results.append({
                             "filename": page_filename,
                             "detected_template": actual_template,
+                            "template_name": tpl_name,
                             "error": result["error"]
                         })
                     else:
                         result["filename"] = page_filename
                         result["detected_template"] = actual_template
+                        result["template_name"] = tpl_name
                         results.append(result)
                         all_scores.append(result["score"])
 
@@ -285,12 +290,14 @@ async def grade_answer_sheets(
 
             answers = get_answers_for_template(actual_template)
             tpl = ANSWER_TEMPLATES.get(actual_template, default_template)
+            tpl_name = tpl.get("name", actual_template)
 
             if len(answers) < tpl["questions"]:
                 results.append({
                     "filename": file.filename,
                     "detected_template": actual_template,
-                    "error": f"No answers found for {tpl['name']}. Please check the answer file."
+                    "template_name": tpl_name,
+                    "error": f"No answers found for {tpl_name}. Please check the answer file."
                 })
                 continue
 
@@ -303,11 +310,13 @@ async def grade_answer_sheets(
                 results.append({
                     "filename": file.filename,
                     "detected_template": actual_template,
+                    "template_name": tpl_name,
                     "error": result["error"]
                 })
             else:
                 result["filename"] = file.filename
                 result["detected_template"] = actual_template
+                result["template_name"] = tpl_name
                 results.append(result)
                 all_scores.append(result["score"])
         except Exception as e:
@@ -316,13 +325,38 @@ async def grade_answer_sheets(
                 "error": f"Processing error: {str(e)}"
             })
 
+    # Group results by template for per-level statistics
+    by_template = {}
+    for r in results:
+        tpl_key = r.get("detected_template", template_type)
+        if tpl_key not in by_template:
+            tpl_info = ANSWER_TEMPLATES.get(tpl_key, {})
+            by_template[tpl_key] = {"name": tpl_info.get("name", tpl_key), "scores": [], "count": 0, "errors": 0}
+        by_template[tpl_key]["count"] += 1
+        if "error" in r:
+            by_template[tpl_key]["errors"] += 1
+        else:
+            by_template[tpl_key]["scores"].append(r["score"])
+
     summary = {
         "total_sheets": len(results),
         "graded": len(all_scores),
         "errors": len(results) - len(all_scores),
         "average_score": round(sum(all_scores) / len(all_scores), 2) if all_scores else 0,
         "highest": max(all_scores) if all_scores else 0,
-        "lowest": min(all_scores) if all_scores else 0
+        "lowest": min(all_scores) if all_scores else 0,
+        "by_template": {
+            k: {
+                "name": v["name"],
+                "count": v["count"],
+                "graded": len(v["scores"]),
+                "errors": v["errors"],
+                "average": round(sum(v["scores"]) / len(v["scores"]), 2) if v["scores"] else 0,
+                "highest": max(v["scores"]) if v["scores"] else 0,
+                "lowest": min(v["scores"]) if v["scores"] else 0,
+            }
+            for k, v in by_template.items()
+        }
     }
 
     return {

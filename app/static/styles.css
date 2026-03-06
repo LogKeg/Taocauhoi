@@ -1177,6 +1177,28 @@ button, .btn {
   font-weight: 700;
 }
 
+.breakdown-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  margin-bottom: 12px;
+}
+
+.breakdown-table th,
+.breakdown-table td {
+  padding: 8px 12px;
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+}
+
+.breakdown-table th {
+  background: var(--bg-main);
+  font-weight: 600;
+  font-size: 12px;
+  text-transform: uppercase;
+  color: #64748b;
+}
+
 .grading-table {
   width: 100%;
   border-collapse: collapse;

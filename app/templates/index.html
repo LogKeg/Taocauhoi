@@ -651,6 +651,7 @@
                         <th>Lớp</th>
                         <th>SBD</th>
                         <th>Trường</th>
+                        <th>Cấp độ</th>
                         <th>Điểm</th>
                         <th>Đúng</th>
                         <th>Sai</th>
@@ -2635,6 +2636,33 @@
         gradingResult.hidden = false;
         const summary = data.summary || {};
 
+        // Per-template breakdown
+        const byTemplate = summary.by_template || {};
+        const templateKeys = Object.keys(byTemplate);
+        let templateBreakdownHtml = '';
+        if (templateKeys.length > 1) {
+          templateBreakdownHtml = `
+            <div class="template-breakdown">
+              <h4 style="margin: 12px 0 8px;">Thống kê theo cấp độ</h4>
+              <table class="breakdown-table">
+                <thead><tr><th>Cấp độ</th><th>Số bài</th><th>Đã chấm</th><th>Điểm TB</th><th>Cao nhất</th><th>Thấp nhất</th></tr></thead>
+                <tbody>
+                  ${templateKeys.map(k => {
+                    const t = byTemplate[k];
+                    return `<tr>
+                      <td><strong>${t.name}</strong></td>
+                      <td>${t.count}</td>
+                      <td>${t.graded}</td>
+                      <td>${t.average || 0}</td>
+                      <td>${t.highest || 0}</td>
+                      <td>${t.lowest || 0}</td>
+                    </tr>`;
+                  }).join('')}
+                </tbody>
+              </table>
+            </div>`;
+        }
+
         gradingSummary.innerHTML = `
           <div class="summary-cards">
             <div class="summary-card">
@@ -2658,6 +2686,7 @@
               <span class="value">${summary.lowest || 0}</span>
             </div>
           </div>
+          ${templateBreakdownHtml}
         `;
 
         const tbody = gradingTable.querySelector('tbody');
@@ -2667,7 +2696,7 @@
             return `<tr class="error-row">
               <td>${idx + 1}</td>
               <td>${r.filename || ''}</td>
-              <td colspan="8" style="color: var(--danger);">Lỗi: ${r.error}</td>
+              <td colspan="9" style="color: var(--danger);">${r.template_name ? `[${r.template_name}] ` : ''}Lỗi: ${r.error}</td>
             </tr>`;
           }
           return `<tr>
@@ -2676,6 +2705,7 @@
             <td>${info.class || '-'}</td>
             <td>${info.id_no || '-'}</td>
             <td>${info.school_name || '-'}</td>
+            <td>${r.template_name || '-'}</td>
             <td><strong>${r.score}</strong></td>
             <td style="color: var(--success);">${r.correct}</td>
             <td style="color: var(--danger);">${r.wrong}</td>
@@ -2702,7 +2732,7 @@
         const footer = document.querySelector('.modal-footer');
         footer.hidden = true;
 
-        title.textContent = `Chi tiết: ${result.filename} - Điểm: ${result.score}`;
+        title.textContent = `Chi tiết: ${result.filename}${result.template_name ? ' - ' + result.template_name : ''} - Điểm: ${result.score}`;
         body.innerHTML = `
           <div class="detail-summary">
             <span>Đúng: <strong style="color: var(--success);">${result.correct}</strong></span>
@@ -2954,7 +2984,7 @@
         const footer = document.querySelector('.modal-footer');
         footer.hidden = true;
 
-        title.textContent = `Chi tiết: ${result.filename} - Điểm: ${result.score}`;
+        title.textContent = `Chi tiết: ${result.filename}${result.template_name ? ' - ' + result.template_name : ''} - Điểm: ${result.score}`;
         body.innerHTML = `
           <div class="detail-summary">
             <span>Đúng: <strong style="color: var(--success);">${result.correct}</strong></span>
