@@ -129,9 +129,11 @@ def import_sample_curriculum(
     if not items:
         return {"ok": False, "error": "No sample data available for the specified filters"}
 
-    # Clear existing data for the subject/grade if specified
+    # Clear existing data before re-importing to avoid duplicates
     if subject:
         CurriculumCRUD.delete_by_subject(db, subject)
+    else:
+        CurriculumCRUD.delete_all(db)
 
     # Import new data
     created = CurriculumCRUD.bulk_create(db, items)
