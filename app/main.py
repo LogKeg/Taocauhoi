@@ -5117,9 +5117,38 @@ def _parse_answer_key_for_template(answer_file_content: bytes, file_ext: str, te
         wb = openpyxl.load_workbook(io.BytesIO(answer_file_content))
         ws = wb.active
 
-        for row in ws.iter_rows(min_row=2, max_col=2):
-            if row[1].value:
-                answers.append(str(row[1].value).strip().upper())
+        # Check if header row has level names to select the right column
+        ans_col = 1  # Default: column B (index 1)
+        if ws.max_column > 2:
+            level_keywords = {
+                "pre_ecolier": ["preecolier", "pre-ecolier", "pre ecolier", "pre_ecolier"],
+                "ecolier": ["ecolier"],
+                "benjamin": ["benjamin"],
+                "cadet": ["cadet"],
+                "junior": ["junior"],
+                "student": ["student"],
+            }
+            headers = [str(ws.cell(1, c).value or '').strip().lower() for c in range(1, ws.max_column + 1)]
+            is_ecolier_only = "ecolier" in template_type.lower() and "pre" not in template_type.lower()
+
+            for key, keywords in level_keywords.items():
+                if key in template_type.lower():
+                    for col_idx, h in enumerate(headers):
+                        if is_ecolier_only:
+                            if h == "ecolier" or (h.endswith("ecolier") and not h.startswith("pre")):
+                                ans_col = col_idx
+                                break
+                        else:
+                            if any(kw in h for kw in keywords):
+                                ans_col = col_idx
+                                break
+                    break
+
+        for row in ws.iter_rows(min_row=2, max_col=ws.max_column):
+            if ans_col < len(row) and row[ans_col].value:
+                val = str(row[ans_col].value).strip().upper()
+                if val and val[0] in "ABCDE":
+                    answers.append(val[0])
 
     elif file_ext == "pdf":
         # Đọc từ file PDF
