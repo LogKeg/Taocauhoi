@@ -286,6 +286,11 @@ class QuestionCRUD:
         return False
 
     @staticmethod
+    def exists_by_content(db: Session, content: str) -> bool:
+        """Check if a question with this exact content already exists."""
+        return db.query(Question).filter(Question.content == content).first() is not None
+
+    @staticmethod
     def bulk_create(db: Session, questions: List[dict]) -> List[Question]:
         db_questions = [Question(**q) for q in questions]
         db.add_all(db_questions)

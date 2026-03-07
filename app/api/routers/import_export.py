@@ -45,10 +45,17 @@ async def import_json(file: UploadFile, db: Session = Depends(get_db)):
         raise HTTPException(status_code=400, detail="Không tìm thấy câu hỏi trong file")
 
     imported = []
+    skipped = 0
     for q in questions_data:
+        content = q.get("content", q.get("question", "")).strip()
+        if not content:
+            continue
+        if QuestionCRUD.exists_by_content(db, content):
+            skipped += 1
+            continue
         question = QuestionCRUD.create(
             db,
-            content=q.get("content", q.get("question", "")),
+            content=content,
             options=json.dumps(q.get("options", [])) if q.get("options") else None,
             answer=q.get("answer", ""),
             explanation=q.get("explanation", ""),
@@ -62,7 +69,10 @@ async def import_json(file: UploadFile, db: Session = Depends(get_db)):
         )
         imported.append(question.id)
 
-    return {"ok": True, "count": len(imported), "message": f"Đã import {len(imported)} câu hỏi"}
+    msg = f"Đã import {len(imported)} câu hỏi"
+    if skipped:
+        msg += f" (bỏ qua {skipped} câu trùng)"
+    return {"ok": True, "count": len(imported), "skipped": skipped, "message": msg}
 
 
 @router.post("/import/moodle-xml")
@@ -116,6 +126,8 @@ async def import_moodle_xml(file: UploadFile, db: Session = Depends(get_db)):
             "numerical": "blank",
         }
 
+        if QuestionCRUD.exists_by_content(db, content_text):
+            continue
         question = QuestionCRUD.create(
             db,
             content=content_text,
@@ -181,7 +193,7 @@ async def import_qti(file: UploadFile, db: Session = Depends(get_db)):
                         correct_answer = "".join(choice.itertext()).strip()
                         break
 
-        if content_text:
+        if content_text and not QuestionCRUD.exists_by_content(db, content_text):
             question = QuestionCRUD.create(
                 db,
                 content=content_text,

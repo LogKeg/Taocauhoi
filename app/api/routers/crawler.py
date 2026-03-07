@@ -12,8 +12,39 @@ from PyPDF2 import PdfReader
 
 from app.database import SessionLocal, QuestionCRUD
 from app.services.crawler import fetch_questions_from_url, crawl_multiple_urls
+from app.services.crawler.thuvienhoclieu import (
+    scrape_category,
+    scrape_single_quiz,
+    QUIZ_CATEGORIES,
+)
 
 router = APIRouter(prefix="/api/crawler", tags=["crawler"])
+
+
+def _save_questions(db, questions: list, default_subject: str = "", default_difficulty: str = "medium", default_source: str = "") -> dict:
+    """Save questions to DB with duplicate detection. Returns {saved, skipped}."""
+    saved = 0
+    skipped = 0
+    for q in questions:
+        content = q.get("content", "").strip()
+        if not content:
+            continue
+        if QuestionCRUD.exists_by_content(db, content):
+            skipped += 1
+            continue
+        QuestionCRUD.create(
+            db,
+            content=content,
+            options=q.get("options"),
+            answer=q.get("answer", ""),
+            subject=q.get("subject", default_subject) or "general",
+            grade=q.get("grade", ""),
+            source=q.get("source", default_source),
+            difficulty=q.get("difficulty", default_difficulty),
+            question_type=q.get("question_type", "mcq"),
+        )
+        saved += 1
+    return {"saved": saved, "skipped": skipped}
 
 
 # ============================================================================
@@ -41,21 +72,13 @@ def fetch_from_url(
         }
 
     saved_count = 0
+    skipped_count = 0
     if save_to_db and result["questions"]:
         db = SessionLocal()
         try:
-            for q in result["questions"]:
-                QuestionCRUD.create(
-                    db,
-                    content=q["content"],
-                    options=q.get("options"),
-                    answer=q.get("answer", ""),
-                    subject=q.get("subject", subject) or "general",
-                    source=q.get("source", url),
-                    difficulty=q.get("difficulty", difficulty),
-                    question_type=q.get("question_type", "mcq"),
-                )
-                saved_count += 1
+            r = _save_questions(db, result["questions"], subject, difficulty, url)
+            saved_count = r["saved"]
+            skipped_count = r["skipped"]
         finally:
             db.close()
 
@@ -64,6 +87,7 @@ def fetch_from_url(
         "questions": result["questions"],
         "count": result["count"],
         "saved_count": saved_count,
+        "skipped_count": skipped_count,
         "source": url,
     }
 
@@ -244,21 +268,13 @@ async def upload_file(
         )
 
     saved_count = 0
+    skipped_count = 0
     if save_to_db and questions:
         db = SessionLocal()
         try:
-            for q in questions:
-                QuestionCRUD.create(
-                    db,
-                    content=q["content"],
-                    options=q.get("options"),
-                    answer=q.get("answer", ""),
-                    subject=q.get("subject", subject) or "general",
-                    source=q.get("source", "uploaded"),
-                    difficulty=q.get("difficulty", difficulty),
-                    question_type=q.get("question_type", "mcq"),
-                )
-                saved_count += 1
+            r = _save_questions(db, questions, subject, difficulty, "uploaded")
+            saved_count = r["saved"]
+            skipped_count = r["skipped"]
         finally:
             db.close()
 
@@ -268,6 +284,99 @@ async def upload_file(
         "questions": questions,
         "count": len(questions),
         "saved_count": saved_count,
+        "skipped_count": skipped_count,
+    }
+
+
+# ============================================================================
+# ThuVienHocLieu.com Auto-Scraper
+# ============================================================================
+
+@router.get("/thuvienhoclieu/categories")
+def get_thuvienhoclieu_categories() -> dict:
+    """Get available quiz categories from thuvienhoclieu.com."""
+    return {"categories": QUIZ_CATEGORIES}
+
+
+@router.post("/thuvienhoclieu/scrape")
+def scrape_thuvienhoclieu(
+    category_url: str = Form(""),
+    custom_url: str = Form(""),
+    max_quizzes: int = Form(50),
+    save_to_db: bool = Form(True),
+) -> dict:
+    """
+    Scrape questions from thuvienhoclieu.com.
+
+    Either provide a category_url to auto-discover quizzes,
+    or custom_url for a single quiz page.
+    """
+    url = custom_url.strip() or category_url.strip()
+    if not url:
+        return {"success": False, "error": "Vui lòng chọn danh mục hoặc nhập URL"}
+
+    # Detect if it's a single quiz page or a category
+    is_single = any(p in url for p in [
+        "de-trac-nghiem-online-",
+        "kiem-tra-",
+        "trac-nghiem-truc-tuyen-",
+        "de-thi-thu-",
+    ]) and "/trac-nghiem-online/" not in url.split("de-trac-nghiem")[0].split("kiem-tra")[0]
+
+    if is_single or custom_url.strip():
+        # Try single quiz first
+        result = scrape_single_quiz(url)
+        if result["count"] > 0:
+            saved_count = 0
+            skipped_count = 0
+            if save_to_db:
+                db = SessionLocal()
+                try:
+                    r = _save_questions(db, result["questions"], "", "medium", url)
+                    saved_count = r["saved"]
+                    skipped_count = r["skipped"]
+                finally:
+                    db.close()
+            return {
+                "success": True,
+                "question_count": result["count"],
+                "quiz_count": 1,
+                "saved_count": saved_count,
+                "skipped_count": skipped_count,
+                "scanned_pages": 1,
+                "error_count": 0,
+                "errors": [],
+            }
+        elif not category_url.strip():
+            # Not a quiz page and no category fallback
+            return {
+                "success": False,
+                "error": result.get("error") or "Không tìm thấy câu hỏi trên trang này",
+            }
+
+    # Category scrape
+    result = scrape_category(url, max_quizzes=max_quizzes)
+
+    saved_count = 0
+    skipped_count = 0
+    if save_to_db and result["questions"]:
+        db = SessionLocal()
+        try:
+            r = _save_questions(db, result["questions"], "", "medium", url)
+            saved_count = r["saved"]
+            skipped_count = r["skipped"]
+        finally:
+            db.close()
+
+    return {
+        "success": True,
+        "question_count": result["question_count"],
+        "quiz_count": result["quiz_count"],
+        "saved_count": saved_count,
+        "skipped_count": skipped_count,
+        "scanned_pages": result["scanned_pages"],
+        "error_count": result["error_count"],
+        "errors": result["errors"],
     }
 
 
@@ -281,6 +390,12 @@ def get_suggested_sources() -> dict:
     Get list of suggested education websites for crawling.
     """
     sources = [
+        {
+            "name": "Thư Viện Học Liệu",
+            "url": "https://thuvienhoclieu.com",
+            "description": "Trắc nghiệm online, đề thi các môn lớp 10-12 (hỗ trợ auto-scrape)",
+            "subjects": ["toan", "vat_ly", "hoa_hoc", "sinh_hoc", "tieng_anh", "lich_su", "gdcd"],
+        },
         {
             "name": "VietJack",
             "url": "https://vietjack.com",

@@ -291,6 +291,8 @@
                 <div class="output-header">
                   <h3>Danh sách câu hỏi (<span id="bankTotal">0</span>)</h3>
                   <div class="actions">
+                    <button id="bankDeleteFilteredBtn" style="background:#ef4444;color:#fff;" hidden>Xóa theo bộ lọc</button>
+                    <button id="bankDeleteAllBtn" style="background:#dc2626;color:#fff;">Xóa tất cả</button>
                     <button id="addQuestionBtn">+ Thêm câu hỏi</button>
                   </div>
                 </div>
@@ -306,8 +308,41 @@
               <div class="panel">
                 <h2>Import câu hỏi từ nguồn ngoài</h2>
                 <p>Lấy câu hỏi từ website hoặc upload file để bổ sung vào ngân hàng câu hỏi.</p>
-                <!-- Import từ URL -->
+                <!-- Auto-Scraper ThuVienHocLieu -->
                 <div class="import-section">
+                  <h3>Auto-Scrape từ ThuVienHocLieu.com</h3>
+                  <p>Tự động quét và tải câu hỏi trắc nghiệm từ thuvienhoclieu.com</p>
+                  <div class="auto-grid">
+                    <div style="grid-column: 1 / -1;">
+                      <label for="tvhlCategory">Chọn danh mục</label>
+                      <select id="tvhlCategory">
+                        <option value="">-- Chọn danh mục --</option>
+                      </select>
+                    </div>
+                    <div style="grid-column: 1 / -1;">
+                      <label for="tvhlCustomUrl">Hoặc nhập URL cụ thể</label>
+                      <input type="text" id="tvhlCustomUrl" placeholder="https://thuvienhoclieu.com/de-trac-nghiem-online-..." />
+                    </div>
+                    <div>
+                      <label for="tvhlMaxQuizzes">Số đề tối đa</label>
+                      <select id="tvhlMaxQuizzes">
+                        <option value="10">10 đề</option>
+                        <option value="25">25 đề</option>
+                        <option value="50" selected>50 đề</option>
+                        <option value="100">100 đề</option>
+                        <option value="200">200 đề</option>
+                      </select>
+                    </div>
+                  </div>
+                  <button id="tvhlScrapeBtn" type="button">Bắt đầu Scrape</button>
+                  <div class="gen-status" id="tvhlStatus" style="margin-top: 0.5rem;"></div>
+                  <div id="tvhlResults" hidden style="margin-top: 1rem;">
+                    <div id="tvhlResultsList"></div>
+                  </div>
+                </div>
+
+                <!-- Import từ URL -->
+                <div class="import-section" style="margin-top: 1.5rem; border-top: 1px solid #e5e7eb; padding-top: 1.5rem;">
                   <h3>Import từ URL</h3>
                   <div class="auto-grid">
                     <div style="grid-column: 1 / -1;">
@@ -1940,7 +1975,7 @@
 
       /* ---- Question Bank ---- */
       let bankPage = 0;
-      const bankLimit = 20;
+      const bankLimit = 50;
 
       async function loadBankQuestions() {
         const subject = document.getElementById('bankSubject').value;
@@ -1954,11 +1989,16 @@
         if (difficulty) params.append('difficulty', difficulty);
         if (search) params.append('search', search);
 
+        // Show/hide "Xóa theo bộ lọc" button
+        const delFilterBtn = document.getElementById('bankDeleteFilteredBtn');
+        delFilterBtn.hidden = !(subject || difficulty || search);
+
         try {
           const res = await fetch(`/api/questions?${params}`);
           const data = await res.json();
 
-          document.getElementById('bankTotal').textContent = data.total || 0;
+          const total = data.total || 0;
+          document.getElementById('bankTotal').textContent = total;
 
           const list = document.getElementById('bankList');
           list.innerHTML = (data.questions || []).map(q => `
@@ -1966,7 +2006,8 @@
               <div class="bank-item-content">
                 <strong>${q.subject || 'N/A'}</strong> -
                 <span class="difficulty-${q.difficulty || 'medium'}">${q.difficulty || 'medium'}</span>
-                <p>${escapeHtml((q.content || '').substring(0, 150))}...</p>
+                ${q.grade ? `<span style="color:#6b7280;font-size:0.85em;">(Lớp ${q.grade})</span>` : ''}
+                <p>${escapeHtml((q.content || '').substring(0, 150))}${(q.content||'').length > 150 ? '...' : ''}</p>
               </div>
               <div class="bank-item-actions">
                 <button class="edit-q" data-id="${q.id}">Sửa</button>
@@ -1976,6 +2017,30 @@
           `).join('') || '<p>Không có câu hỏi nào.</p>';
           renderMath(list);
 
+          // Pagination
+          const totalPages = Math.ceil(total / bankLimit);
+          const paginationEl = document.getElementById('bankPagination');
+          if (totalPages > 1) {
+            let html = '';
+            if (bankPage > 0) html += `<button class="page-btn" data-page="${bankPage - 1}">&laquo; Trước</button>`;
+            const startPage = Math.max(0, bankPage - 3);
+            const endPage = Math.min(totalPages, bankPage + 4);
+            for (let i = startPage; i < endPage; i++) {
+              html += `<button class="page-btn ${i === bankPage ? 'active' : ''}" data-page="${i}">${i + 1}</button>`;
+            }
+            if (bankPage < totalPages - 1) html += `<button class="page-btn" data-page="${bankPage + 1}">Sau &raquo;</button>`;
+            html += `<span style="margin-left:0.5rem;color:#6b7280;font-size:0.85em;">Trang ${bankPage + 1}/${totalPages}</span>`;
+            paginationEl.innerHTML = html;
+            paginationEl.querySelectorAll('.page-btn').forEach(btn => {
+              btn.addEventListener('click', () => {
+                bankPage = parseInt(btn.dataset.page);
+                loadBankQuestions();
+              });
+            });
+          } else {
+            paginationEl.innerHTML = '';
+          }
+
           // Attach delete handlers
           list.querySelectorAll('.delete-q').forEach(btn => {
             btn.addEventListener('click', async (e) => {
@@ -1983,6 +2048,7 @@
               if (!confirm('Xóa câu hỏi này?')) return;
               await fetch(`/api/questions/${btn.dataset.id}`, { method: 'DELETE' });
               loadBankQuestions();
+              loadBankStats();
             });
           });
 
@@ -2010,7 +2076,38 @@
           const res = await fetch('/api/questions/stats');
           const data = await res.json();
           const el = document.getElementById('bankStats');
-          el.innerHTML = `<strong>Tổng: ${data.total || 0} câu hỏi</strong>`;
+          const stats = data.stats || {};
+          const total = data.total || 0;
+
+          // Populate subject filter dropdown from actual data
+          const bankSubject = document.getElementById('bankSubject');
+          const currentVal = bankSubject.value;
+          const subjectLabels = {
+            math: 'Toán', physics: 'Vật Lý', chemistry: 'Hóa Học', biology: 'Sinh Học',
+            english: 'Tiếng Anh', history: 'Lịch Sử', geography: 'Địa Lý',
+            civic_education: 'GDCD', informatics: 'Tin học', literature: 'Ngữ văn',
+            toan_hoc: 'Toán học', tieng_anh: 'Tiếng Anh', khoa_hoc: 'Khoa học',
+            general: 'Chung', imported: 'Imported', unknown: 'Chưa phân loại',
+          };
+          let opts = '<option value="">Tất cả môn</option>';
+          for (const [subj, info] of Object.entries(stats)) {
+            const label = subjectLabels[subj] || subj;
+            opts += `<option value="${subj}">${label} (${info.total})</option>`;
+          }
+          bankSubject.innerHTML = opts;
+          bankSubject.value = currentVal;
+
+          // Stats summary
+          let html = `<strong>Tổng: ${total} câu hỏi</strong>`;
+          if (Object.keys(stats).length > 1) {
+            html += '<div style="display:flex;flex-wrap:wrap;gap:0.5rem;margin-top:0.3rem;">';
+            for (const [subj, info] of Object.entries(stats)) {
+              const label = subjectLabels[subj] || subj;
+              html += `<span style="background:#f3f4f6;padding:2px 8px;border-radius:4px;font-size:0.85em;">${label}: ${info.total}</span>`;
+            }
+            html += '</div>';
+          }
+          el.innerHTML = html;
         } catch (err) {
           console.error(err);
         }
@@ -2235,6 +2332,61 @@
         bankPage = 0;
         loadBankQuestions();
         loadBankStats();
+      });
+      document.getElementById('bankSubject').addEventListener('change', () => {
+        bankPage = 0;
+        loadBankQuestions();
+      });
+      document.getElementById('bankDifficulty').addEventListener('change', () => {
+        bankPage = 0;
+        loadBankQuestions();
+      });
+      document.getElementById('bankSearch').addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') { bankPage = 0; loadBankQuestions(); }
+      });
+
+      // Bulk delete all
+      document.getElementById('bankDeleteAllBtn').addEventListener('click', async () => {
+        const total = document.getElementById('bankTotal').textContent;
+        if (!confirm(`Xóa TẤT CẢ ${total} câu hỏi trong ngân hàng? Hành động này không thể hoàn tác!`)) return;
+        if (!confirm('Bạn chắc chắn chứ? Tất cả câu hỏi sẽ bị xóa vĩnh viễn!')) return;
+        try {
+          const res = await fetch('/api/questions/bulk-delete', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({})
+          });
+          const data = await res.json();
+          alert(data.message || `Đã xóa ${data.deleted || 0} câu hỏi`);
+          bankPage = 0;
+          loadBankQuestions();
+          loadBankStats();
+        } catch (err) { alert('Lỗi: ' + err.message); }
+      });
+
+      // Bulk delete by filter
+      document.getElementById('bankDeleteFilteredBtn').addEventListener('click', async () => {
+        const subject = document.getElementById('bankSubject').value;
+        const difficulty = document.getElementById('bankDifficulty').value;
+        const search = document.getElementById('bankSearch').value;
+        const total = document.getElementById('bankTotal').textContent;
+        const filters = [];
+        if (subject) filters.push(`môn: ${subject}`);
+        if (difficulty) filters.push(`độ khó: ${difficulty}`);
+        if (search) filters.push(`từ khóa: "${search}"`);
+        if (!confirm(`Xóa ${total} câu hỏi theo bộ lọc (${filters.join(', ')})?\nHành động này không thể hoàn tác!`)) return;
+        try {
+          const res = await fetch('/api/questions/bulk-delete', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ subject, difficulty, search })
+          });
+          const data = await res.json();
+          alert(data.message || `Đã xóa ${data.deleted || 0} câu hỏi`);
+          bankPage = 0;
+          loadBankQuestions();
+          loadBankStats();
+        } catch (err) { alert('Lỗi: ' + err.message); }
       });
 
       /* ---- Grading (Chấm bài) ---- */
@@ -3017,6 +3169,86 @@
       });
 
       /* ---- Import Data Tab ---- */
+
+      /* -- ThuVienHocLieu Auto-Scraper -- */
+      async function loadTvhlCategories() {
+        try {
+          const res = await fetch('/api/crawler/thuvienhoclieu/categories');
+          const data = await res.json();
+          const sel = document.getElementById('tvhlCategory');
+          if (data.categories) {
+            sel.innerHTML = '<option value="">-- Chọn danh mục --</option>' +
+              data.categories.map(c =>
+                `<option value="${c.url}">${c.name}</option>`
+              ).join('');
+          }
+        } catch (err) { /* ignore */ }
+      }
+      loadTvhlCategories();
+
+      document.getElementById('tvhlScrapeBtn').addEventListener('click', async () => {
+        const statusEl = document.getElementById('tvhlStatus');
+        const resultsEl = document.getElementById('tvhlResults');
+        const listEl = document.getElementById('tvhlResultsList');
+        const btn = document.getElementById('tvhlScrapeBtn');
+
+        const categoryUrl = document.getElementById('tvhlCategory').value;
+        const customUrl = document.getElementById('tvhlCustomUrl').value.trim();
+        const maxQuizzes = document.getElementById('tvhlMaxQuizzes').value;
+
+        if (!categoryUrl && !customUrl) {
+          statusEl.textContent = 'Vui lòng chọn danh mục hoặc nhập URL.';
+          return;
+        }
+
+        btn.disabled = true;
+        btn.textContent = 'Đang scrape...';
+        statusEl.innerHTML = '<strong>Đang quét dữ liệu từ thuvienhoclieu.com...</strong><br>Quá trình này có thể mất vài phút tùy số lượng đề.';
+        resultsEl.hidden = true;
+
+        try {
+          const formData = new FormData();
+          formData.append('category_url', categoryUrl);
+          formData.append('custom_url', customUrl);
+          formData.append('max_quizzes', maxQuizzes);
+          formData.append('save_to_db', 'true');
+
+          const res = await fetch('/api/crawler/thuvienhoclieu/scrape', {
+            method: 'POST',
+            body: formData,
+          });
+          const data = await res.json();
+
+          if (data.success) {
+            statusEl.innerHTML = `
+              <strong>Hoàn tất!</strong><br>
+              Đã quét: ${data.scanned_pages || 0} trang danh mục<br>
+              Số đề: ${data.quiz_count || 0}<br>
+              Tổng câu hỏi: ${data.question_count || 0}<br>
+              <strong>Đã lưu vào ngân hàng: ${data.saved_count || 0} câu</strong>
+              ${data.skipped_count ? `<br><em>Bỏ qua ${data.skipped_count} câu trùng lặp</em>` : ''}
+            `;
+            if (data.errors && data.errors.length) {
+              listEl.innerHTML = '<strong>Lỗi:</strong>' +
+                data.errors.map(e =>
+                  `<div class="import-result-item error"><small>${e.url}: ${e.error}</small></div>`
+                ).join('');
+              resultsEl.hidden = false;
+            }
+            // Refresh bank
+            if (typeof loadBankStats === 'function') loadBankStats();
+            if (typeof loadBankQuestions === 'function') loadBankQuestions();
+          } else {
+            statusEl.textContent = data.error || 'Lỗi khi scrape.';
+          }
+        } catch (err) {
+          statusEl.textContent = 'Lỗi: ' + err.message;
+        } finally {
+          btn.disabled = false;
+          btn.textContent = 'Bắt đầu Scrape';
+        }
+      });
+
       async function loadSuggestedSources() {
         try {
           const res = await fetch('/api/crawler/suggested-sources');
@@ -3038,16 +3270,21 @@
         }
       }
 
-      function initImportSubjects() {
-        const selects = ['importSubject', 'importFileSubject'];
-        selects.forEach(id => {
-          const sel = document.getElementById(id);
-          if (sel && subjectsData) {
-            sel.innerHTML = Object.entries(subjectsData)
-              .map(([k, v]) => `<option value="${k}">${v.label}</option>`)
-              .join('');
-          }
-        });
+      async function initImportSubjects() {
+        try {
+          const res = await fetch('/subjects');
+          const data = await res.json();
+          const subjects = data.subjects || [];
+          const selects = ['importSubject', 'importFileSubject'];
+          selects.forEach(id => {
+            const sel = document.getElementById(id);
+            if (sel) {
+              sel.innerHTML = subjects
+                .map(s => `<option value="${s.key}">${s.label}</option>`)
+                .join('');
+            }
+          });
+        } catch (err) { /* ignore */ }
       }
 
       document.getElementById('importUrlBtn').addEventListener('click', async () => {
@@ -3075,7 +3312,7 @@
           const data = await res.json();
 
           if (data.success) {
-            statusEl.textContent = `Đã import ${data.saved_count}/${data.total_questions} câu hỏi vào ngân hàng.`;
+            statusEl.textContent = `Đã import ${data.saved_count}/${data.total_questions} câu hỏi vào ngân hàng.${data.skipped_count ? ` Bỏ qua ${data.skipped_count} câu trùng.` : ''}`;
             if (data.results && data.results.length) {
               listEl.innerHTML = data.results.map(r => `
                 <div class="import-result-item ${r.error ? 'error' : 'success'}">

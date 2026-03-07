@@ -72,6 +72,18 @@ def fetch_questions_from_url(
     Returns:
         Dict with keys: questions, count, source, error
     """
+    # Special handling for thuvienhoclieu.com
+    parsed_url = urlparse(url)
+    if "thuvienhoclieu.com" in parsed_url.netloc:
+        from .thuvienhoclieu import scrape_single_quiz
+        result = scrape_single_quiz(url)
+        return {
+            "questions": result["questions"],
+            "count": result["count"],
+            "source": url,
+            "error": result.get("error"),
+        }
+
     html, error = fetch_page(url)
     if error:
         return {"questions": [], "count": 0, "source": url, "error": error}
@@ -126,13 +138,20 @@ def crawl_multiple_urls(
             all_questions.extend(result["questions"])
 
     saved_count = 0
+    skipped_count = 0
     if save_to_db and all_questions:
         db = SessionLocal()
         try:
             for q in all_questions:
+                content = (q.get("content") or "").strip()
+                if not content:
+                    continue
+                if QuestionCRUD.exists_by_content(db, content):
+                    skipped_count += 1
+                    continue
                 QuestionCRUD.create(
                     db,
-                    content=q["content"],
+                    content=content,
                     options=q.get("options"),
                     answer=q.get("answer", ""),
                     subject=q.get("subject", subject) or "general",
@@ -148,4 +167,5 @@ def crawl_multiple_urls(
         "total_questions": len(all_questions),
         "results": results,
         "saved_count": saved_count,
+        "skipped_count": skipped_count,
     }

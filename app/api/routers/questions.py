@@ -142,6 +142,33 @@ def delete_question(question_id: int, db: Session = Depends(get_db)):
     raise HTTPException(status_code=404, detail="Không tìm thấy câu hỏi")
 
 
+@router.post("/questions/bulk-delete")
+def bulk_delete_questions(
+    filters: dict = {},
+    db: Session = Depends(get_db),
+):
+    """Delete questions by filter or all if no filter provided."""
+    from app.database import Question
+
+    query = db.query(Question)
+    subject = filters.get("subject", "")
+    difficulty = filters.get("difficulty", "")
+    search = filters.get("search", "")
+
+    if subject:
+        query = query.filter(Question.subject == subject)
+    if difficulty:
+        query = query.filter(Question.difficulty == difficulty)
+    if search:
+        query = query.filter(Question.content.contains(search))
+
+    count = query.count()
+    query.delete(synchronize_session=False)
+    db.commit()
+
+    return {"ok": True, "deleted": count, "message": f"Đã xóa {count} câu hỏi"}
+
+
 # ============================================================================
 # USAGE HISTORY APIs
 # ============================================================================
