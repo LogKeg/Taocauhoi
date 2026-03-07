@@ -622,9 +622,16 @@ def convert_word_to_excel(
                 if num_level_0 > 10 and num_level_0 == num_level_1:
                     is_word_numbered_format = True
 
+            # Detect Vietnamese "Câu X:" exam format
+            is_vn_cau_format = False
+            if not is_envie_format and not is_word_numbered_format:
+                cau_count = sum(1 for line in lines[:80] if re.match(r'^Câu\s+\d+', line, re.IGNORECASE))
+                if cau_count >= 3:
+                    is_vn_cau_format = True
+
             # Detect English reading/competition exam format
             is_english_reading_format = False
-            if not is_math_format and not is_english_level_format and not is_envie_format and not is_word_numbered_format:
+            if not is_math_format and not is_english_level_format and not is_envie_format and not is_word_numbered_format and not is_vn_cau_format:
                 text_sample = ' '.join(lines[:50]).lower()
                 has_instruction = any(
                     kw in text_sample
@@ -640,10 +647,32 @@ def convert_word_to_excel(
                 questions = funcs['parse_math_exam_questions'](lines)
             elif is_english_level_format:
                 questions = funcs['parse_english_exam_questions'](doc)
-            elif is_envie_format or is_word_numbered_format or is_english_reading_format:
+            elif is_envie_format or is_word_numbered_format or is_english_reading_format or is_vn_cau_format:
                 questions = funcs['parse_envie_questions'](doc)
             else:
                 questions = funcs['parse_bilingual_questions'](lines, table_options)
+
+        # Post-process: split merged options like "A. xxx   B. xxx" into separate options
+        _opt_split_re = re.compile(
+            r'\s{2,}(?=[A-E][\.\)]\s)'        # 2+ spaces before "B. "
+            r'|(?<=\S)\t+(?=[A-E][\.\)])'      # tab before "B."
+            r'|(?<=\S)\s+(?=[B-E][\.\)]\s)'    # single space before "B. " (not A)
+            r'|(?<=\.)(?=[B-E][\.\)]\s*\S)'    # "text.B. text"
+            r'|(?<=[a-z\u00E0-\u1EF9])(?=[B-E][\.\)]\s*\S)'  # "textB. text" (lowercase→B.)
+            r'|(?<=\S)(?=[B-E]\.\xa0)'         # non-breaking space: "textB.\xa0text"
+        )
+        for q in questions:
+            opts = q.get('options', [])
+            if opts and len(opts) < 4:
+                split_opts = []
+                for opt in opts:
+                    parts = _opt_split_re.split(opt)
+                    for part in parts:
+                        part = re.sub(r'^[A-Ea-e]\s*[.)]\s*', '', part.strip())
+                        if part:
+                            split_opts.append(part)
+                if len(split_opts) > len(opts):
+                    q['options'] = split_opts
 
         # For science subject, apply bilingual dedup (IKSC format: EN+VN pairs)
         if subject == 'science' and questions:
