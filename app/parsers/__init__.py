@@ -21,15 +21,22 @@ from app.parsers.docx import (
     extract_cloze_questions,
 )
 
-# Load kebab-case module (exam-envie-bilingual-question-parser.py)
-# Python cannot import hyphened filenames directly, so we use importlib
-_envie_parser_path = os.path.join(os.path.dirname(__file__), "exam-envie-bilingual-question-parser.py")
+# Load kebab-case modules using importlib (Python cannot import hyphened filenames directly)
+_current_dir = os.path.dirname(__file__)
+
+# Load exam-envie-bilingual-question-parser.py
+_envie_parser_path = os.path.join(_current_dir, "exam-envie-bilingual-question-parser.py")
 _envie_spec = importlib.util.spec_from_file_location("exam_envie_bilingual_question_parser", _envie_parser_path)
 _envie_module = importlib.util.module_from_spec(_envie_spec)
 _envie_spec.loader.exec_module(_envie_module)
-
 _parse_envie_questions = _envie_module._parse_envie_questions
-_dedup_bilingual_science = _envie_module._dedup_bilingual_science
+
+# Load envie-bilingual-dedup-helper.py
+_dedup_path = os.path.join(_current_dir, "envie-bilingual-dedup-helper.py")
+_dedup_spec = importlib.util.spec_from_file_location("envie_bilingual_dedup_helper", _dedup_path)
+_dedup_module = importlib.util.module_from_spec(_dedup_spec)
+_dedup_spec.loader.exec_module(_dedup_module)
+_dedup_bilingual_science = _dedup_module._dedup_bilingual_science
 
 __all__ = [
     "_parse_math_exam_questions",
