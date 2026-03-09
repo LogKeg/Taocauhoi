@@ -434,15 +434,26 @@ _vj_spec.loader.exec_module(_vietjack)
 
 
 VIETJACK_CATEGORIES = [
-    {"name": "Toán 12 - Giữa kì 1", "url": "https://vietjack.com/de-kiem-tra-lop-12/de-thi-toan-12-giua-ki-1-ket-noi-tri-thuc.jsp"},
-    {"name": "Vật lý 12 - Giữa kì 1", "url": "https://vietjack.com/de-kiem-tra-lop-12/de-thi-vat-li-12-giua-ki-1-ket-noi-tri-thuc.jsp"},
-    {"name": "Hóa học 12 - Giữa kì 1", "url": "https://vietjack.com/de-kiem-tra-lop-12/de-thi-hoa-12-giua-ki-1-ket-noi-tri-thuc.jsp"},
-    {"name": "Sinh học 12 - Giữa kì 1", "url": "https://vietjack.com/de-kiem-tra-lop-12/de-thi-sinh-12-giua-ki-1-ket-noi-tri-thuc.jsp"},
-    {"name": "Tiếng Anh 12 - Giữa kì 1", "url": "https://vietjack.com/de-kiem-tra-lop-12/de-thi-tieng-anh-12-giua-ki-1-ket-noi-tri-thuc.jsp"},
-    {"name": "Lịch sử 12 - Giữa kì 1", "url": "https://vietjack.com/de-kiem-tra-lop-12/de-thi-lich-su-12-giua-ki-1-ket-noi-tri-thuc.jsp"},
-    {"name": "Địa lí 12 - Giữa kì 1", "url": "https://vietjack.com/de-kiem-tra-lop-12/de-thi-dia-li-12-giua-ki-1-ket-noi-tri-thuc.jsp"},
-    {"name": "Toán 11 - Giữa kì 1", "url": "https://vietjack.com/de-kiem-tra-lop-11/de-thi-toan-11-giua-ki-1-ket-noi-tri-thuc.jsp"},
-    {"name": "Toán 10 - Giữa kì 1", "url": "https://vietjack.com/de-kiem-tra-lop-10/de-thi-toan-10-giua-ki-1-ket-noi-tri-thuc.jsp"},
+    # Toán 12
+    {"name": "Toán 12 - Giữa kì 1 (KNTT)", "url": "https://vietjack.com/de-kiem-tra-lop-12/de-thi-toan-12-giua-ki-1-ket-noi-tri-thuc.jsp"},
+    {"name": "Toán 12 - Bộ đề giữa kì 1", "url": "https://vietjack.com/de-kiem-tra-lop-12/bo-de-thi-toan-lop-12-giua-hoc-ki-1.jsp"},
+    {"name": "Toán 12 - Học kì 1", "url": "https://vietjack.com/de-kiem-tra-lop-12/de-thi-toan-12-hoc-ki-1.jsp"},
+    # Địa lí 12
+    {"name": "Địa lí 12 - Giữa kì 1 (KNTT)", "url": "https://vietjack.com/de-kiem-tra-lop-12/de-thi-dia-li-12-giua-ki-1-ket-noi-tri-thuc.jsp"},
+    {"name": "Địa lí 12 - Giữa kì 1 (CTST)", "url": "https://vietjack.com/de-kiem-tra-lop-12/de-thi-dia-li-12-giua-ki-1-chan-troi-sang-tao.jsp"},
+    {"name": "Địa lí 12 - Giữa kì 1 (Cánh Diều)", "url": "https://vietjack.com/de-kiem-tra-lop-12/de-thi-dia-li-12-giua-ki-1-canh-dieu.jsp"},
+    # Lịch sử 12
+    {"name": "Lịch sử 12 - Giữa kì 1 (KNTT)", "url": "https://vietjack.com/de-kiem-tra-lop-12/de-thi-lich-su-12-giua-ki-1-ket-noi-tri-thuc.jsp"},
+    {"name": "Lịch sử 12 - Giữa kì 1 (CTST)", "url": "https://vietjack.com/de-kiem-tra-lop-12/de-thi-lich-su-12-giua-ki-1-chan-troi-sang-tao.jsp"},
+    # Công nghệ 12
+    {"name": "Công nghệ 12 - Giữa kì 1 (KNTT)", "url": "https://vietjack.com/de-kiem-tra-lop-12/de-thi-cong-nghe-12-giua-ki-1-ket-noi-tri-thuc.jsp"},
+    {"name": "Công nghệ 12 - Giữa kì 1 (Cánh Diều)", "url": "https://vietjack.com/de-kiem-tra-lop-12/de-thi-cong-nghe-12-giua-ki-1-canh-dieu.jsp"},
+    # Tiếng Anh 12
+    {"name": "Tiếng Anh 12 - Bright", "url": "https://vietjack.com/de-kiem-tra-lop-12/bo-de-thi-tieng-anh-12-bright.jsp"},
+    {"name": "Tiếng Anh 12 - English Discovery", "url": "https://vietjack.com/de-kiem-tra-lop-12/bo-de-thi-tieng-anh-12-english-discovery.jsp"},
+    # Tổng hợp
+    {"name": "Tổng hợp đề thi cuối kì 1 lớp 12", "url": "https://vietjack.com/de-kiem-tra-lop-12/de-thi-cuoi-ki-1-lop-12.jsp"},
+    {"name": "Tổng hợp đề thi cuối kì 2 lớp 12", "url": "https://vietjack.com/de-kiem-tra-lop-12/de-thi-cuoi-ki-2-lop-12.jsp"},
 ]
 
 
