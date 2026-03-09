@@ -417,3 +417,91 @@ def get_suggested_sources() -> dict:
     ]
 
     return {"sources": sources}
+
+
+# ============================================================================
+# VietJack.com Scraper
+# ============================================================================
+
+# Load VietJack scraper module
+import importlib.util
+import os
+_crawler_dir = os.path.join(os.path.dirname(__file__), "..", "..", "services", "crawler")
+_vj_path = os.path.join(_crawler_dir, "vietjack-exam-scraper.py")
+_vj_spec = importlib.util.spec_from_file_location("vietjack_scraper", _vj_path)
+_vietjack = importlib.util.module_from_spec(_vj_spec)
+_vj_spec.loader.exec_module(_vietjack)
+
+
+VIETJACK_CATEGORIES = {
+    "toan-12": "https://vietjack.com/de-kiem-tra-lop-12/de-thi-toan-12-giua-ki-1-ket-noi-tri-thuc.jsp",
+    "vat-ly-12": "https://vietjack.com/de-kiem-tra-lop-12/de-thi-vat-li-12-giua-ki-1-ket-noi-tri-thuc.jsp",
+    "hoa-hoc-12": "https://vietjack.com/de-kiem-tra-lop-12/de-thi-hoa-12-giua-ki-1-ket-noi-tri-thuc.jsp",
+    "sinh-hoc-12": "https://vietjack.com/de-kiem-tra-lop-12/de-thi-sinh-12-giua-ki-1-ket-noi-tri-thuc.jsp",
+    "tieng-anh-12": "https://vietjack.com/de-kiem-tra-lop-12/de-thi-tieng-anh-12-giua-ki-1-ket-noi-tri-thuc.jsp",
+    "lich-su-12": "https://vietjack.com/de-kiem-tra-lop-12/de-thi-lich-su-12-giua-ki-1-ket-noi-tri-thuc.jsp",
+    "dia-li-12": "https://vietjack.com/de-kiem-tra-lop-12/de-thi-dia-li-12-giua-ki-1-ket-noi-tri-thuc.jsp",
+}
+
+
+@router.get("/vietjack/categories")
+def get_vietjack_categories() -> dict:
+    """Get available exam categories from vietjack.com."""
+    return {"categories": VIETJACK_CATEGORIES}
+
+
+@router.post("/vietjack/scrape")
+def scrape_vietjack(
+    custom_url: str = Form(""),
+    save_to_db: bool = Form(True),
+) -> dict:
+    """
+    Scrape questions from vietjack.com.
+
+    Provide a URL to a specific exam page.
+    """
+    url = custom_url.strip()
+    if not url:
+        return {"success": False, "error": "Vui lòng nhập URL trang đề thi"}
+
+    if not url.startswith("https://vietjack.com/"):
+        return {"success": False, "error": "URL không hợp lệ. Chỉ hỗ trợ vietjack.com"}
+
+    # Scrape the page
+    questions, error = _vietjack.scrape_exam(url)
+
+    if error:
+        return {"success": False, "error": error, "questions": [], "count": 0}
+
+    # Convert questions format for saving
+    formatted_questions = []
+    for q in questions:
+        formatted_questions.append({
+            "content": q["question"],
+            "options": json.dumps(q["options"], ensure_ascii=False) if q["options"] else None,
+            "answer": q.get("answer", ""),
+            "subject": q.get("subject", "general"),
+            "grade": q.get("grade", ""),
+            "source": q.get("source", url),
+            "difficulty": "medium",
+            "question_type": "mcq",
+        })
+
+    saved_count = 0
+    skipped_count = 0
+    if save_to_db and formatted_questions:
+        db = SessionLocal()
+        try:
+            r = _save_questions(db, formatted_questions, "", "medium", url)
+            saved_count = r["saved"]
+            skipped_count = r["skipped"]
+        finally:
+            db.close()
+
+    return {
+        "success": True,
+        "questions": questions,  # Return original format for preview
+        "count": len(questions),
+        "saved_count": saved_count,
+        "skipped_count": skipped_count,
+    }
