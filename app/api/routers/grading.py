@@ -62,17 +62,26 @@ def _grade_handwritten_sheet(
 
 
 def _get_grading_functions():
-    """Lazy import of grading functions from main module."""
-    from app import main
+    """Lazy import of grading functions from OMR modules."""
+    from app.services.omr import (
+        _grade_single_sheet,
+        _grade_mixed_format_sheet,
+        _detect_bubbles_grid_based,
+        _group_bubbles_to_questions_improved,
+        _extract_student_info_ocr,
+        _detect_template_from_image,
+        _parse_answer_key_for_template,
+    )
+    from app.services.image import _preprocess_omr_image
     return {
-        'grade_single_sheet': main._grade_single_sheet,
-        'grade_mixed_format_sheet': main._grade_mixed_format_sheet,
-        'preprocess_omr_image': main._preprocess_omr_image,
-        'detect_bubbles_grid_based': main._detect_bubbles_grid_based,
-        'group_bubbles_to_questions_improved': main._group_bubbles_to_questions_improved,
-        'extract_student_info_ocr': main._extract_student_info_ocr,
-        'detect_template_from_image': main._detect_template_from_image,
-        'parse_answer_key_for_template': main._parse_answer_key_for_template,
+        'grade_single_sheet': _grade_single_sheet,
+        'grade_mixed_format_sheet': _grade_mixed_format_sheet,
+        'preprocess_omr_image': _preprocess_omr_image,
+        'detect_bubbles_grid_based': _detect_bubbles_grid_based,
+        'group_bubbles_to_questions_improved': _group_bubbles_to_questions_improved,
+        'extract_student_info_ocr': _extract_student_info_ocr,
+        'detect_template_from_image': _detect_template_from_image,
+        'parse_answer_key_for_template': _parse_answer_key_for_template,
         'grade_handwritten_sheet': _grade_handwritten_sheet,
     }
 

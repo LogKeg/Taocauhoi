@@ -302,16 +302,20 @@ def _save_questions_to_bank(
 
 
 def _get_parsing_functions():
-    """Lazy import of parsing functions from main module."""
-    from app import main
+    """Lazy import of parsing functions from modules."""
+    from app.parsers import (
+        _parse_math_exam_questions,
+        _parse_english_exam_questions,
+        _parse_envie_questions,
+    )
     from app.services.ai import call_ai, load_saved_settings
     return {
         'parse_cell_based_questions': parse_cell_based_questions,
         'extract_docx_lines': extract_docx_lines_with_options,
         'extract_docx_content': extract_docx_content,
-        'parse_math_exam_questions': main._parse_math_exam_questions,
-        'parse_english_exam_questions': main._parse_english_exam_questions,
-        'parse_envie_questions': main._parse_envie_questions,
+        'parse_math_exam_questions': _parse_math_exam_questions,
+        'parse_english_exam_questions': _parse_english_exam_questions,
+        'parse_envie_questions': _parse_envie_questions,
         'parse_bilingual_questions': parse_bilingual_questions,
         'save_questions_to_bank': _save_questions_to_bank,
         'call_ai': call_ai,
@@ -405,7 +409,7 @@ async def parse_exam_file(file: UploadFile):
 
     # For science subject, apply bilingual dedup (IKSC format: EN+VN pairs)
     if detected_subject == 'science' or is_bilingual_science_format:
-        from app.main import _dedup_bilingual_science
+        from app.parsers import _dedup_bilingual_science
         questions = _dedup_bilingual_science(questions)
 
     return {
@@ -676,7 +680,7 @@ def convert_word_to_excel(
 
         # For science subject, apply bilingual dedup (IKSC format: EN+VN pairs)
         if subject == 'science' and questions:
-            from app.main import _dedup_bilingual_science
+            from app.parsers import _dedup_bilingual_science
             questions = _dedup_bilingual_science(questions)
 
         # Save to question bank
