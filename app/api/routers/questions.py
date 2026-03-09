@@ -1,13 +1,23 @@
 """
 Question bank API endpoints.
 """
+import importlib.util
+import os
 from typing import Optional
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from app.api.dependencies import get_db
 from app.database import QuestionCRUD, HistoryCRUD
 from app.core import QuestionCreate, QuestionUpdate, BulkSaveRequest
+
+# Load cache module
+_services_dir = os.path.join(os.path.dirname(__file__), "..", "..", "services")
+_cache_path = os.path.join(_services_dir, "database-query-cache.py")
+_spec = importlib.util.spec_from_file_location("db_cache", _cache_path)
+_db_cache = importlib.util.module_from_spec(_spec)
+_spec.loader.exec_module(_db_cache)
 
 router = APIRouter(prefix="/api", tags=["questions"])
 
@@ -66,8 +76,8 @@ def get_questions(
 
 @router.get("/questions/stats")
 def get_questions_stats(db: Session = Depends(get_db)):
-    """Get statistics about questions in the bank"""
-    stats = QuestionCRUD.get_by_subject_stats(db)
+    """Get statistics about questions in the bank (cached)"""
+    stats = _db_cache.get_cached_subject_stats(db)
     total = sum(s["total"] for s in stats.values())
     return {"stats": stats, "total": total}
 
@@ -98,6 +108,7 @@ def create_question(data: QuestionCreate, db: Session = Depends(get_db)):
         tags=data.tags,
         source=data.source,
     )
+    _db_cache.invalidate_on_question_change()  # Clear cache
     return {"ok": True, "id": question.id, "message": "Đã lưu câu hỏi"}
 
 
@@ -121,6 +132,7 @@ def bulk_create_questions(data: BulkSaveRequest, db: Session = Depends(get_db)):
         for q in data.questions
     ]
     questions = QuestionCRUD.bulk_create(db, questions_data)
+    _db_cache.invalidate_on_question_change()  # Clear cache
     return {"ok": True, "count": len(questions), "message": f"Đã lưu {len(questions)} câu hỏi"}
 
 
@@ -131,6 +143,7 @@ def update_question(question_id: int, data: QuestionUpdate, db: Session = Depend
     question = QuestionCRUD.update(db, question_id, **update_data)
     if not question:
         raise HTTPException(status_code=404, detail="Không tìm thấy câu hỏi")
+    _db_cache.invalidate_on_question_change()  # Clear cache
     return {"ok": True, "message": "Đã cập nhật câu hỏi"}
 
 
@@ -138,6 +151,7 @@ def update_question(question_id: int, data: QuestionUpdate, db: Session = Depend
 def delete_question(question_id: int, db: Session = Depends(get_db)):
     """Delete a question"""
     if QuestionCRUD.delete(db, question_id):
+        _db_cache.invalidate_on_question_change()  # Clear cache
         return {"ok": True, "message": "Đã xóa câu hỏi"}
     raise HTTPException(status_code=404, detail="Không tìm thấy câu hỏi")
 
@@ -165,6 +179,7 @@ def bulk_delete_questions(
     count = query.count()
     query.delete(synchronize_session=False)
     db.commit()
+    _db_cache.invalidate_on_question_change()  # Clear cache
 
     return {"ok": True, "deleted": count, "message": f"Đã xóa {count} câu hỏi"}
 

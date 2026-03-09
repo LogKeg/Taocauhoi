@@ -1,6 +1,9 @@
 """
 API routers for the application.
 """
+import importlib.util
+import os
+
 from .settings import router as settings_router
 from .questions import router as questions_router
 from .exams import router as exams_router
@@ -12,6 +15,21 @@ from .parsing import router as parsing_router
 from .crawler import router as crawler_router
 from .storage import router as storage_router
 from .curriculum import router as curriculum_router
+
+# Load kebab-case router files using importlib
+_current_dir = os.path.dirname(os.path.abspath(__file__))
+
+
+def _load_router(filename: str):
+    filepath = os.path.join(_current_dir, filename)
+    module_name = filename.replace('-', '_').replace('.py', '')
+    spec = importlib.util.spec_from_file_location(module_name, filepath)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module.router
+
+
+system_router = _load_router("system-status-and-cache-endpoints.py")
 
 __all__ = [
     "settings_router",
@@ -25,4 +43,5 @@ __all__ = [
     "crawler_router",
     "storage_router",
     "curriculum_router",
+    "system_router",
 ]
