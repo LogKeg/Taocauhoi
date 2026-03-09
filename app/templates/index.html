@@ -308,68 +308,42 @@
               <div class="panel">
                 <h2>Import câu hỏi từ nguồn ngoài</h2>
                 <p>Lấy câu hỏi từ website hoặc upload file để bổ sung vào ngân hàng câu hỏi.</p>
-                <!-- Auto-Scraper ThuVienHocLieu -->
+                <!-- Auto-Scraper (Unified) -->
                 <div class="import-section">
-                  <h3>Auto-Scrape từ ThuVienHocLieu.com</h3>
-                  <p>Tự động quét và tải câu hỏi trắc nghiệm từ thuvienhoclieu.com</p>
+                  <h3>Auto-Scrape câu hỏi trắc nghiệm</h3>
+                  <p>Tự động quét và tải câu hỏi từ các trang giáo dục Việt Nam</p>
                   <div class="auto-grid">
+                    <div>
+                      <label for="scrapeSource">Nguồn</label>
+                      <select id="scrapeSource">
+                        <option value="thuvienhoclieu">ThuVienHocLieu.com</option>
+                        <option value="vietjack">VietJack.com</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label for="scrapeMaxItems">Số lượng tối đa</label>
+                      <select id="scrapeMaxItems">
+                        <option value="10">10</option>
+                        <option value="25">25</option>
+                        <option value="50" selected>50</option>
+                        <option value="100">100</option>
+                      </select>
+                    </div>
                     <div style="grid-column: 1 / -1;">
-                      <label for="tvhlCategory">Chọn danh mục</label>
-                      <select id="tvhlCategory">
+                      <label for="scrapeCategory">Danh mục</label>
+                      <select id="scrapeCategory">
                         <option value="">-- Chọn danh mục --</option>
                       </select>
                     </div>
                     <div style="grid-column: 1 / -1;">
-                      <label for="tvhlCustomUrl">Hoặc nhập URL cụ thể</label>
-                      <input type="text" id="tvhlCustomUrl" placeholder="https://thuvienhoclieu.com/de-trac-nghiem-online-..." />
-                    </div>
-                    <div>
-                      <label for="tvhlMaxQuizzes">Số đề tối đa</label>
-                      <select id="tvhlMaxQuizzes">
-                        <option value="10">10 đề</option>
-                        <option value="25">25 đề</option>
-                        <option value="50" selected>50 đề</option>
-                        <option value="100">100 đề</option>
-                        <option value="200">200 đề</option>
-                      </select>
+                      <label for="scrapeCustomUrl">Hoặc nhập URL cụ thể</label>
+                      <input type="text" id="scrapeCustomUrl" placeholder="Nhập URL trang đề thi..." />
                     </div>
                   </div>
-                  <button id="tvhlScrapeBtn" type="button">Bắt đầu Scrape</button>
-                  <div class="gen-status" id="tvhlStatus" style="margin-top: 0.5rem;"></div>
-                  <div id="tvhlResults" hidden style="margin-top: 1rem;">
-                    <div id="tvhlResultsList"></div>
-                  </div>
-                </div>
-
-                <!-- Auto-Scraper VietJack -->
-                <div class="import-section" style="margin-top: 1.5rem; border-top: 1px solid #e5e7eb; padding-top: 1.5rem;">
-                  <h3>Auto-Scrape từ VietJack.com</h3>
-                  <p>Tự động quét đề thi trắc nghiệm từ vietjack.com (hỗ trợ công thức toán)</p>
-                  <div class="auto-grid">
-                    <div style="grid-column: 1 / -1;">
-                      <label for="vjCategory">Chọn danh mục</label>
-                      <select id="vjCategory">
-                        <option value="">-- Chọn danh mục --</option>
-                      </select>
-                    </div>
-                    <div style="grid-column: 1 / -1;">
-                      <label for="vjCustomUrl">Hoặc nhập URL cụ thể</label>
-                      <input type="text" id="vjCustomUrl" placeholder="https://vietjack.com/de-kiem-tra-lop-12/..." />
-                    </div>
-                    <div>
-                      <label for="vjMaxPages">Số trang tối đa</label>
-                      <select id="vjMaxPages">
-                        <option value="5" selected>5 trang</option>
-                        <option value="10">10 trang</option>
-                        <option value="20">20 trang</option>
-                        <option value="50">50 trang</option>
-                      </select>
-                    </div>
-                  </div>
-                  <button id="vjScrapeBtn" type="button">Bắt đầu Scrape</button>
-                  <div class="gen-status" id="vjStatus" style="margin-top: 0.5rem;"></div>
-                  <div id="vjResults" hidden style="margin-top: 1rem;">
-                    <div id="vjResultsList"></div>
+                  <button id="scrapeBtn" type="button">Bắt đầu Scrape</button>
+                  <div class="gen-status" id="scrapeStatus" style="margin-top: 0.5rem;"></div>
+                  <div id="scrapeResults" hidden style="margin-top: 1rem;">
+                    <div id="scrapeResultsList"></div>
                   </div>
                 </div>
 
@@ -3202,47 +3176,54 @@
 
       /* ---- Import Data Tab ---- */
 
-      /* -- ThuVienHocLieu Auto-Scraper -- */
-      async function loadTvhlCategories() {
+      /* -- Unified Auto-Scraper -- */
+      const scraperCategories = {
+        thuvienhoclieu: [],
+        vietjack: []
+      };
+
+      async function loadScraperCategories() {
         try {
-          const res = await fetch('/api/crawler/thuvienhoclieu/categories');
-          const data = await res.json();
-          const sel = document.getElementById('tvhlCategory');
-          if (data.categories) {
-            sel.innerHTML = '<option value="">-- Chọn danh mục --</option>' +
-              data.categories.map(c =>
-                `<option value="${c.url}">${c.name}</option>`
-              ).join('');
-          }
+          const [tvhlRes, vjRes] = await Promise.all([
+            fetch('/api/crawler/thuvienhoclieu/categories'),
+            fetch('/api/crawler/vietjack/categories')
+          ]);
+          const tvhlData = await tvhlRes.json();
+          const vjData = await vjRes.json();
+          scraperCategories.thuvienhoclieu = tvhlData.categories || [];
+          scraperCategories.vietjack = vjData.categories || [];
+          updateScraperCategoryDropdown();
         } catch (err) { /* ignore */ }
       }
-      loadTvhlCategories();
 
-      /* -- VietJack Auto-Scraper -- */
-      async function loadVjCategories() {
-        try {
-          const res = await fetch('/api/crawler/vietjack/categories');
-          const data = await res.json();
-          const sel = document.getElementById('vjCategory');
-          if (data.categories) {
-            sel.innerHTML = '<option value="">-- Chọn danh mục --</option>' +
-              data.categories.map(c =>
-                `<option value="${c.url}">${c.name}</option>`
-              ).join('');
-          }
-        } catch (err) { /* ignore */ }
+      function updateScraperCategoryDropdown() {
+        const source = document.getElementById('scrapeSource').value;
+        const sel = document.getElementById('scrapeCategory');
+        const categories = scraperCategories[source] || [];
+        sel.innerHTML = '<option value="">-- Chọn danh mục --</option>' +
+          categories.map(c => `<option value="${c.url}">${c.name}</option>`).join('');
+        // Update placeholder
+        const urlInput = document.getElementById('scrapeCustomUrl');
+        if (source === 'thuvienhoclieu') {
+          urlInput.placeholder = 'https://thuvienhoclieu.com/de-trac-nghiem-online-...';
+        } else {
+          urlInput.placeholder = 'https://vietjack.com/de-kiem-tra-lop-12/...';
+        }
       }
-      loadVjCategories();
 
-      document.getElementById('vjScrapeBtn').addEventListener('click', async () => {
-        const statusEl = document.getElementById('vjStatus');
-        const resultsEl = document.getElementById('vjResults');
-        const listEl = document.getElementById('vjResultsList');
-        const btn = document.getElementById('vjScrapeBtn');
+      document.getElementById('scrapeSource').addEventListener('change', updateScraperCategoryDropdown);
+      loadScraperCategories();
 
-        const categoryUrl = document.getElementById('vjCategory').value;
-        const customUrl = document.getElementById('vjCustomUrl').value.trim();
-        const maxPages = document.getElementById('vjMaxPages').value;
+      document.getElementById('scrapeBtn').addEventListener('click', async () => {
+        const statusEl = document.getElementById('scrapeStatus');
+        const resultsEl = document.getElementById('scrapeResults');
+        const listEl = document.getElementById('scrapeResultsList');
+        const btn = document.getElementById('scrapeBtn');
+
+        const source = document.getElementById('scrapeSource').value;
+        const categoryUrl = document.getElementById('scrapeCategory').value;
+        const customUrl = document.getElementById('scrapeCustomUrl').value.trim();
+        const maxItems = document.getElementById('scrapeMaxItems').value;
 
         if (!categoryUrl && !customUrl) {
           statusEl.textContent = 'Vui lòng chọn danh mục hoặc nhập URL.';
@@ -3251,98 +3232,45 @@
 
         btn.disabled = true;
         btn.textContent = 'Đang scrape...';
-        statusEl.innerHTML = '<strong>Đang quét dữ liệu từ vietjack.com...</strong><br>Quá trình này có thể mất vài phút.';
+        const sourceName = source === 'thuvienhoclieu' ? 'thuvienhoclieu.com' : 'vietjack.com';
+        statusEl.innerHTML = `<strong>Đang quét dữ liệu từ ${sourceName}...</strong><br>Quá trình này có thể mất vài phút.`;
         resultsEl.hidden = true;
 
         try {
           const formData = new FormData();
           formData.append('category_url', categoryUrl);
           formData.append('custom_url', customUrl);
-          formData.append('max_pages', maxPages);
           formData.append('save_to_db', 'true');
-
-          const res = await fetch('/api/crawler/vietjack/scrape', {
-            method: 'POST',
-            body: formData,
-          });
-          const data = await res.json();
-
-          if (data.success) {
-            statusEl.innerHTML = `
-              <strong>Hoàn tất!</strong><br>
-              Tổng câu hỏi: ${data.question_count || 0}<br>
-              <strong>Đã lưu vào ngân hàng: ${data.saved_count || 0} câu</strong>
-              ${data.skipped_count ? `<br><em>Bỏ qua ${data.skipped_count} câu trùng lặp</em>` : ''}
-            `;
-            if (data.errors && data.errors.length) {
-              listEl.innerHTML = '<strong>Lỗi:</strong>' +
-                data.errors.map(e => `<div class="import-result-item error"><small>${e}</small></div>`).join('');
-              resultsEl.hidden = false;
-            }
-            // Refresh bank
-            if (typeof loadBankStats === 'function') loadBankStats();
-            if (typeof loadBankQuestions === 'function') loadBankQuestions();
+          if (source === 'thuvienhoclieu') {
+            formData.append('max_quizzes', maxItems);
           } else {
-            statusEl.textContent = data.error || 'Lỗi khi scrape.';
+            formData.append('max_pages', maxItems);
           }
-        } catch (err) {
-          statusEl.textContent = 'Lỗi: ' + err.message;
-        } finally {
-          btn.disabled = false;
-          btn.textContent = 'Bắt đầu Scrape';
-        }
-      });
 
-      document.getElementById('tvhlScrapeBtn').addEventListener('click', async () => {
-        const statusEl = document.getElementById('tvhlStatus');
-        const resultsEl = document.getElementById('tvhlResults');
-        const listEl = document.getElementById('tvhlResultsList');
-        const btn = document.getElementById('tvhlScrapeBtn');
+          const endpoint = source === 'thuvienhoclieu'
+            ? '/api/crawler/thuvienhoclieu/scrape'
+            : '/api/crawler/vietjack/scrape';
 
-        const categoryUrl = document.getElementById('tvhlCategory').value;
-        const customUrl = document.getElementById('tvhlCustomUrl').value.trim();
-        const maxQuizzes = document.getElementById('tvhlMaxQuizzes').value;
-
-        if (!categoryUrl && !customUrl) {
-          statusEl.textContent = 'Vui lòng chọn danh mục hoặc nhập URL.';
-          return;
-        }
-
-        btn.disabled = true;
-        btn.textContent = 'Đang scrape...';
-        statusEl.innerHTML = '<strong>Đang quét dữ liệu từ thuvienhoclieu.com...</strong><br>Quá trình này có thể mất vài phút tùy số lượng đề.';
-        resultsEl.hidden = true;
-
-        try {
-          const formData = new FormData();
-          formData.append('category_url', categoryUrl);
-          formData.append('custom_url', customUrl);
-          formData.append('max_quizzes', maxQuizzes);
-          formData.append('save_to_db', 'true');
-
-          const res = await fetch('/api/crawler/thuvienhoclieu/scrape', {
-            method: 'POST',
-            body: formData,
-          });
+          const res = await fetch(endpoint, { method: 'POST', body: formData });
           const data = await res.json();
 
           if (data.success) {
-            statusEl.innerHTML = `
-              <strong>Hoàn tất!</strong><br>
-              Đã quét: ${data.scanned_pages || 0} trang danh mục<br>
-              Số đề: ${data.quiz_count || 0}<br>
-              Tổng câu hỏi: ${data.question_count || 0}<br>
-              <strong>Đã lưu vào ngân hàng: ${data.saved_count || 0} câu</strong>
-              ${data.skipped_count ? `<br><em>Bỏ qua ${data.skipped_count} câu trùng lặp</em>` : ''}
-            `;
+            let html = '<strong>Hoàn tất!</strong><br>';
+            if (data.scanned_pages) html += `Đã quét: ${data.scanned_pages} trang<br>`;
+            if (data.quiz_count) html += `Số đề: ${data.quiz_count}<br>`;
+            html += `Tổng câu hỏi: ${data.question_count || 0}<br>`;
+            html += `<strong>Đã lưu: ${data.saved_count || 0} câu</strong>`;
+            if (data.skipped_count) html += `<br><em>Bỏ qua ${data.skipped_count} câu trùng lặp</em>`;
+            statusEl.innerHTML = html;
+
             if (data.errors && data.errors.length) {
               listEl.innerHTML = '<strong>Lỗi:</strong>' +
-                data.errors.map(e =>
-                  `<div class="import-result-item error"><small>${e.url}: ${e.error}</small></div>`
-                ).join('');
+                data.errors.map(e => {
+                  const msg = typeof e === 'string' ? e : `${e.url}: ${e.error}`;
+                  return `<div class="import-result-item error"><small>${msg}</small></div>`;
+                }).join('');
               resultsEl.hidden = false;
             }
-            // Refresh bank
             if (typeof loadBankStats === 'function') loadBankStats();
             if (typeof loadBankQuestions === 'function') loadBankQuestions();
           } else {
