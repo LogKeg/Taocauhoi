@@ -318,6 +318,7 @@
                       <select id="scrapeSource">
                         <option value="thuvienhoclieu">ThuVienHocLieu.com</option>
                         <option value="vietjack">VietJack.com</option>
+                        <option value="hoc247">Hoc247.net</option>
                       </select>
                     </div>
                     <div>
@@ -3179,19 +3180,23 @@
       /* -- Unified Auto-Scraper -- */
       const scraperCategories = {
         thuvienhoclieu: [],
-        vietjack: []
+        vietjack: [],
+        hoc247: []
       };
 
       async function loadScraperCategories() {
         try {
-          const [tvhlRes, vjRes] = await Promise.all([
+          const [tvhlRes, vjRes, hoc247Res] = await Promise.all([
             fetch('/api/crawler/thuvienhoclieu/categories'),
-            fetch('/api/crawler/vietjack/categories')
+            fetch('/api/crawler/vietjack/categories'),
+            fetch('/api/crawler/hoc247/categories')
           ]);
           const tvhlData = await tvhlRes.json();
           const vjData = await vjRes.json();
+          const hoc247Data = await hoc247Res.json();
           scraperCategories.thuvienhoclieu = tvhlData.categories || [];
           scraperCategories.vietjack = vjData.categories || [];
+          scraperCategories.hoc247 = hoc247Data.categories || [];
           updateScraperCategoryDropdown();
         } catch (err) { /* ignore */ }
       }
@@ -3204,11 +3209,12 @@
           categories.map(c => `<option value="${c.url}">${c.name}</option>`).join('');
         // Update placeholder
         const urlInput = document.getElementById('scrapeCustomUrl');
-        if (source === 'thuvienhoclieu') {
-          urlInput.placeholder = 'https://thuvienhoclieu.com/de-trac-nghiem-online-...';
-        } else {
-          urlInput.placeholder = 'https://vietjack.com/de-kiem-tra-lop-12/...';
-        }
+        const placeholders = {
+          thuvienhoclieu: 'https://thuvienhoclieu.com/de-trac-nghiem-online-...',
+          vietjack: 'https://vietjack.com/de-kiem-tra-lop-12/...',
+          hoc247: 'https://hoc247.net/trac-nghiem-toan-12-...'
+        };
+        urlInput.placeholder = placeholders[source] || '';
       }
 
       document.getElementById('scrapeSource').addEventListener('change', updateScraperCategoryDropdown);
@@ -3232,8 +3238,8 @@
 
         btn.disabled = true;
         btn.textContent = 'Đang scrape...';
-        const sourceName = source === 'thuvienhoclieu' ? 'thuvienhoclieu.com' : 'vietjack.com';
-        statusEl.innerHTML = `<strong>Đang quét dữ liệu từ ${sourceName}...</strong><br>Quá trình này có thể mất vài phút.`;
+        const sourceNames = { thuvienhoclieu: 'thuvienhoclieu.com', vietjack: 'vietjack.com', hoc247: 'hoc247.net' };
+        statusEl.innerHTML = `<strong>Đang quét dữ liệu từ ${sourceNames[source]}...</strong><br>Quá trình này có thể mất vài phút.`;
         resultsEl.hidden = true;
 
         try {
@@ -3247,9 +3253,12 @@
             formData.append('max_pages', maxItems);
           }
 
-          const endpoint = source === 'thuvienhoclieu'
-            ? '/api/crawler/thuvienhoclieu/scrape'
-            : '/api/crawler/vietjack/scrape';
+          const endpoints = {
+            thuvienhoclieu: '/api/crawler/thuvienhoclieu/scrape',
+            vietjack: '/api/crawler/vietjack/scrape',
+            hoc247: '/api/crawler/hoc247/scrape'
+          };
+          const endpoint = endpoints[source];
 
           const res = await fetch(endpoint, { method: 'POST', body: formData });
           const data = await res.json();

@@ -515,8 +515,119 @@ def scrape_vietjack(
 
     return {
         "success": True,
-        "questions": questions,  # Return original format for preview
-        "count": len(questions),
+        "question_count": len(questions),
         "saved_count": saved_count,
         "skipped_count": skipped_count,
+    }
+
+
+# ============================================================================
+# Hoc247.net Scraper
+# ============================================================================
+
+# Load Hoc247 scraper module
+_hoc247_path = os.path.join(_crawler_dir, "hoc247-exam-scraper.py")
+_hoc247_spec = importlib.util.spec_from_file_location("hoc247_scraper", _hoc247_path)
+_hoc247 = importlib.util.module_from_spec(_hoc247_spec)
+_hoc247_spec.loader.exec_module(_hoc247)
+
+
+HOC247_CATEGORIES = [
+    # Toán
+    {"name": "Trắc nghiệm Toán 12", "url": "https://hoc247.net/trac-nghiem-toan-12-index.html"},
+    {"name": "Trắc nghiệm Toán 11", "url": "https://hoc247.net/trac-nghiem-toan-11-index.html"},
+    {"name": "Trắc nghiệm Toán 10", "url": "https://hoc247.net/trac-nghiem-toan-10-index.html"},
+    # Vật lý
+    {"name": "Trắc nghiệm Vật lý 12", "url": "https://hoc247.net/trac-nghiem-vat-ly-12-index.html"},
+    {"name": "Trắc nghiệm Vật lý 11", "url": "https://hoc247.net/trac-nghiem-vat-ly-11-index.html"},
+    # Hóa học
+    {"name": "Trắc nghiệm Hóa học 12", "url": "https://hoc247.net/trac-nghiem-hoa-hoc-12-index.html"},
+    {"name": "Trắc nghiệm Hóa học 11", "url": "https://hoc247.net/trac-nghiem-hoa-hoc-11-index.html"},
+    # Sinh học
+    {"name": "Trắc nghiệm Sinh học 12", "url": "https://hoc247.net/trac-nghiem-sinh-12-index.html"},
+    # Tiếng Anh
+    {"name": "Trắc nghiệm Tiếng Anh 12", "url": "https://hoc247.net/trac-nghiem-tieng-anh-12-index.html"},
+    {"name": "Trắc nghiệm Tiếng Anh 11 (KNTT)", "url": "https://hoc247.net/trac-nghiem-tieng-anh-11-ket-noi-tri-thuc-index.html"},
+    # Lịch sử
+    {"name": "Trắc nghiệm Lịch sử 12", "url": "https://hoc247.net/trac-nghiem-lich-su-12-index.html"},
+    # Địa lý
+    {"name": "Trắc nghiệm Địa lý 12", "url": "https://hoc247.net/trac-nghiem-dia-12-index.html"},
+    # GDCD
+    {"name": "Trắc nghiệm GDCD 12", "url": "https://hoc247.net/trac-nghiem-gdcd-12-index.html"},
+    # Đề thi
+    {"name": "Đề thi giữa HK2 Toán 12", "url": "https://hoc247.net/de-thi-giua-hoc-ki-2-lop-12-mon-toan-index.html"},
+    {"name": "Đề thi giữa HK2 Tiếng Anh 12", "url": "https://hoc247.net/de-thi-giua-hoc-ki-2-lop-12-mon-tieng-anh-index.html"},
+]
+
+
+@router.get("/hoc247/categories")
+def get_hoc247_categories() -> dict:
+    """Get available quiz categories from hoc247.net."""
+    return {"categories": HOC247_CATEGORIES}
+
+
+@router.post("/hoc247/scrape")
+def scrape_hoc247(
+    category_url: str = Form(""),
+    custom_url: str = Form(""),
+    max_pages: int = Form(10),
+    save_to_db: bool = Form(True),
+) -> dict:
+    """
+    Scrape questions from hoc247.net.
+
+    Provide a category URL to discover quiz pages, or a custom URL for a specific quiz.
+    """
+    url = custom_url.strip() or category_url.strip()
+    if not url:
+        return {"success": False, "error": "Vui lòng chọn danh mục hoặc nhập URL"}
+
+    if not url.startswith("https://hoc247.net/"):
+        return {"success": False, "error": "URL không hợp lệ. Chỉ hỗ trợ hoc247.net"}
+
+    # Check if it's an index page (category) or a specific quiz page
+    is_category = "-index.html" in url
+
+    if is_category:
+        # Scrape category - discover and scrape multiple quizzes
+        questions, errors = _hoc247.scrape_category(url, max_pages=max_pages)
+    else:
+        # Scrape single quiz
+        questions, error = _hoc247.scrape_quiz(url)
+        errors = [error] if error else []
+
+    if not questions and errors:
+        return {"success": False, "error": errors[0] if errors else "Không tìm thấy câu hỏi"}
+
+    # Convert questions format for saving
+    formatted_questions = []
+    for q in questions:
+        formatted_questions.append({
+            "content": q["question"],
+            "options": json.dumps(q["options"], ensure_ascii=False) if q["options"] else None,
+            "answer": q.get("answer", ""),
+            "subject": q.get("subject", "general"),
+            "grade": q.get("grade", ""),
+            "source": q.get("source", url),
+            "difficulty": "medium",
+            "question_type": "mcq",
+        })
+
+    saved_count = 0
+    skipped_count = 0
+    if save_to_db and formatted_questions:
+        db = SessionLocal()
+        try:
+            r = _save_questions(db, formatted_questions, "", "medium", url)
+            saved_count = r["saved"]
+            skipped_count = r["skipped"]
+        finally:
+            db.close()
+
+    return {
+        "success": True,
+        "question_count": len(questions),
+        "saved_count": saved_count,
+        "skipped_count": skipped_count,
+        "errors": errors if errors else [],
     }
