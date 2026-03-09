@@ -331,9 +331,9 @@
                       </select>
                     </div>
                     <div style="grid-column: 1 / -1;">
-                      <label for="scrapeCategory">Danh mục</label>
+                      <label for="scrapeCategory">Danh mục (để trống = tất cả)</label>
                       <select id="scrapeCategory">
-                        <option value="">-- Chọn danh mục --</option>
+                        <option value="">-- Tất cả danh mục --</option>
                       </select>
                     </div>
                     <div style="grid-column: 1 / -1;">
@@ -3229,62 +3229,80 @@
         const source = document.getElementById('scrapeSource').value;
         const categoryUrl = document.getElementById('scrapeCategory').value;
         const customUrl = document.getElementById('scrapeCustomUrl').value.trim();
-        const maxItems = document.getElementById('scrapeMaxItems').value;
+        const maxItems = parseInt(document.getElementById('scrapeMaxItems').value);
 
-        if (!categoryUrl && !customUrl) {
-          statusEl.textContent = 'Vui lòng chọn danh mục hoặc nhập URL.';
+        // If no category selected and no custom URL, scrape all categories
+        const categories = scraperCategories[source] || [];
+        const urlsToScrape = customUrl ? [customUrl] : (categoryUrl ? [categoryUrl] : categories.map(c => c.url));
+
+        if (urlsToScrape.length === 0) {
+          statusEl.textContent = 'Không có danh mục nào để scrape.';
           return;
         }
 
         btn.disabled = true;
         btn.textContent = 'Đang scrape...';
         const sourceNames = { thuvienhoclieu: 'thuvienhoclieu.com', vietjack: 'vietjack.com', hoc247: 'hoc247.net' };
-        statusEl.innerHTML = `<strong>Đang quét dữ liệu từ ${sourceNames[source]}...</strong><br>Quá trình này có thể mất vài phút.`;
+        const scrapeAllMsg = !categoryUrl && !customUrl ? ` (tất cả ${urlsToScrape.length} danh mục)` : '';
+        statusEl.innerHTML = `<strong>Đang quét dữ liệu từ ${sourceNames[source]}${scrapeAllMsg}...</strong><br>Quá trình này có thể mất vài phút.`;
         resultsEl.hidden = true;
 
+        const endpoints = {
+          thuvienhoclieu: '/api/crawler/thuvienhoclieu/scrape',
+          vietjack: '/api/crawler/vietjack/scrape',
+          hoc247: '/api/crawler/hoc247/scrape'
+        };
+        const endpoint = endpoints[source];
+
+        let totalQuestions = 0, totalSaved = 0, totalSkipped = 0;
+        const allErrors = [];
+
         try {
-          const formData = new FormData();
-          formData.append('category_url', categoryUrl);
-          formData.append('custom_url', customUrl);
-          formData.append('save_to_db', 'true');
-          if (source === 'thuvienhoclieu') {
-            formData.append('max_quizzes', maxItems);
-          } else {
-            formData.append('max_pages', maxItems);
-          }
+          for (let i = 0; i < urlsToScrape.length; i++) {
+            const url = urlsToScrape[i];
+            statusEl.innerHTML = `<strong>Đang quét ${sourceNames[source]}...</strong><br>Danh mục ${i + 1}/${urlsToScrape.length}`;
 
-          const endpoints = {
-            thuvienhoclieu: '/api/crawler/thuvienhoclieu/scrape',
-            vietjack: '/api/crawler/vietjack/scrape',
-            hoc247: '/api/crawler/hoc247/scrape'
-          };
-          const endpoint = endpoints[source];
-
-          const res = await fetch(endpoint, { method: 'POST', body: formData });
-          const data = await res.json();
-
-          if (data.success) {
-            let html = '<strong>Hoàn tất!</strong><br>';
-            if (data.scanned_pages) html += `Đã quét: ${data.scanned_pages} trang<br>`;
-            if (data.quiz_count) html += `Số đề: ${data.quiz_count}<br>`;
-            html += `Tổng câu hỏi: ${data.question_count || 0}<br>`;
-            html += `<strong>Đã lưu: ${data.saved_count || 0} câu</strong>`;
-            if (data.skipped_count) html += `<br><em>Bỏ qua ${data.skipped_count} câu trùng lặp</em>`;
-            statusEl.innerHTML = html;
-
-            if (data.errors && data.errors.length) {
-              listEl.innerHTML = '<strong>Lỗi:</strong>' +
-                data.errors.map(e => {
-                  const msg = typeof e === 'string' ? e : `${e.url}: ${e.error}`;
-                  return `<div class="import-result-item error"><small>${msg}</small></div>`;
-                }).join('');
-              resultsEl.hidden = false;
+            const formData = new FormData();
+            formData.append('category_url', url);
+            formData.append('custom_url', '');
+            formData.append('save_to_db', 'true');
+            if (source === 'thuvienhoclieu') {
+              formData.append('max_quizzes', Math.ceil(maxItems / urlsToScrape.length) || 10);
+            } else {
+              formData.append('max_pages', Math.ceil(maxItems / urlsToScrape.length) || 5);
             }
-            if (typeof loadBankStats === 'function') loadBankStats();
-            if (typeof loadBankQuestions === 'function') loadBankQuestions();
-          } else {
-            statusEl.textContent = data.error || 'Lỗi khi scrape.';
+
+            try {
+              const res = await fetch(endpoint, { method: 'POST', body: formData });
+              const data = await res.json();
+              if (data.success) {
+                totalQuestions += data.question_count || 0;
+                totalSaved += data.saved_count || 0;
+                totalSkipped += data.skipped_count || 0;
+              }
+              if (data.errors) allErrors.push(...data.errors);
+            } catch (e) {
+              allErrors.push(`${url}: ${e.message}`);
+            }
           }
+
+          let html = '<strong>Hoàn tất!</strong><br>';
+          html += `Tổng câu hỏi: ${totalQuestions}<br>`;
+          html += `<strong>Đã lưu: ${totalSaved} câu</strong>`;
+          if (totalSkipped) html += `<br><em>Bỏ qua ${totalSkipped} câu trùng lặp</em>`;
+          statusEl.innerHTML = html;
+
+          if (allErrors.length) {
+            listEl.innerHTML = '<strong>Lỗi:</strong>' +
+              allErrors.slice(0, 10).map(e => {
+                const msg = typeof e === 'string' ? e : `${e.url}: ${e.error}`;
+                return `<div class="import-result-item error"><small>${msg}</small></div>`;
+              }).join('');
+            if (allErrors.length > 10) listEl.innerHTML += `<div><small>...và ${allErrors.length - 10} lỗi khác</small></div>`;
+            resultsEl.hidden = false;
+          }
+          if (typeof loadBankStats === 'function') loadBankStats();
+          if (typeof loadBankQuestions === 'function') loadBankQuestions();
         } catch (err) {
           statusEl.textContent = 'Lỗi: ' + err.message;
         } finally {
