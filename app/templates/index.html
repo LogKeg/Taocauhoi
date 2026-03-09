@@ -341,6 +341,38 @@
                   </div>
                 </div>
 
+                <!-- Auto-Scraper VietJack -->
+                <div class="import-section" style="margin-top: 1.5rem; border-top: 1px solid #e5e7eb; padding-top: 1.5rem;">
+                  <h3>Auto-Scrape từ VietJack.com</h3>
+                  <p>Tự động quét đề thi trắc nghiệm từ vietjack.com (hỗ trợ công thức toán)</p>
+                  <div class="auto-grid">
+                    <div style="grid-column: 1 / -1;">
+                      <label for="vjCategory">Chọn danh mục</label>
+                      <select id="vjCategory">
+                        <option value="">-- Chọn danh mục --</option>
+                      </select>
+                    </div>
+                    <div style="grid-column: 1 / -1;">
+                      <label for="vjCustomUrl">Hoặc nhập URL cụ thể</label>
+                      <input type="text" id="vjCustomUrl" placeholder="https://vietjack.com/de-kiem-tra-lop-12/..." />
+                    </div>
+                    <div>
+                      <label for="vjMaxPages">Số trang tối đa</label>
+                      <select id="vjMaxPages">
+                        <option value="5" selected>5 trang</option>
+                        <option value="10">10 trang</option>
+                        <option value="20">20 trang</option>
+                        <option value="50">50 trang</option>
+                      </select>
+                    </div>
+                  </div>
+                  <button id="vjScrapeBtn" type="button">Bắt đầu Scrape</button>
+                  <div class="gen-status" id="vjStatus" style="margin-top: 0.5rem;"></div>
+                  <div id="vjResults" hidden style="margin-top: 1rem;">
+                    <div id="vjResultsList"></div>
+                  </div>
+                </div>
+
                 <!-- Import từ URL -->
                 <div class="import-section" style="margin-top: 1.5rem; border-top: 1px solid #e5e7eb; padding-top: 1.5rem;">
                   <h3>Import từ URL</h3>
@@ -3185,6 +3217,81 @@
         } catch (err) { /* ignore */ }
       }
       loadTvhlCategories();
+
+      /* -- VietJack Auto-Scraper -- */
+      async function loadVjCategories() {
+        try {
+          const res = await fetch('/api/crawler/vietjack/categories');
+          const data = await res.json();
+          const sel = document.getElementById('vjCategory');
+          if (data.categories) {
+            sel.innerHTML = '<option value="">-- Chọn danh mục --</option>' +
+              data.categories.map(c =>
+                `<option value="${c.url}">${c.name}</option>`
+              ).join('');
+          }
+        } catch (err) { /* ignore */ }
+      }
+      loadVjCategories();
+
+      document.getElementById('vjScrapeBtn').addEventListener('click', async () => {
+        const statusEl = document.getElementById('vjStatus');
+        const resultsEl = document.getElementById('vjResults');
+        const listEl = document.getElementById('vjResultsList');
+        const btn = document.getElementById('vjScrapeBtn');
+
+        const categoryUrl = document.getElementById('vjCategory').value;
+        const customUrl = document.getElementById('vjCustomUrl').value.trim();
+        const maxPages = document.getElementById('vjMaxPages').value;
+
+        if (!categoryUrl && !customUrl) {
+          statusEl.textContent = 'Vui lòng chọn danh mục hoặc nhập URL.';
+          return;
+        }
+
+        btn.disabled = true;
+        btn.textContent = 'Đang scrape...';
+        statusEl.innerHTML = '<strong>Đang quét dữ liệu từ vietjack.com...</strong><br>Quá trình này có thể mất vài phút.';
+        resultsEl.hidden = true;
+
+        try {
+          const formData = new FormData();
+          formData.append('category_url', categoryUrl);
+          formData.append('custom_url', customUrl);
+          formData.append('max_pages', maxPages);
+          formData.append('save_to_db', 'true');
+
+          const res = await fetch('/api/crawler/vietjack/scrape', {
+            method: 'POST',
+            body: formData,
+          });
+          const data = await res.json();
+
+          if (data.success) {
+            statusEl.innerHTML = `
+              <strong>Hoàn tất!</strong><br>
+              Tổng câu hỏi: ${data.question_count || 0}<br>
+              <strong>Đã lưu vào ngân hàng: ${data.saved_count || 0} câu</strong>
+              ${data.skipped_count ? `<br><em>Bỏ qua ${data.skipped_count} câu trùng lặp</em>` : ''}
+            `;
+            if (data.errors && data.errors.length) {
+              listEl.innerHTML = '<strong>Lỗi:</strong>' +
+                data.errors.map(e => `<div class="import-result-item error"><small>${e}</small></div>`).join('');
+              resultsEl.hidden = false;
+            }
+            // Refresh bank
+            if (typeof loadBankStats === 'function') loadBankStats();
+            if (typeof loadBankQuestions === 'function') loadBankQuestions();
+          } else {
+            statusEl.textContent = data.error || 'Lỗi khi scrape.';
+          }
+        } catch (err) {
+          statusEl.textContent = 'Lỗi: ' + err.message;
+        } finally {
+          btn.disabled = false;
+          btn.textContent = 'Bắt đầu Scrape';
+        }
+      });
 
       document.getElementById('tvhlScrapeBtn').addEventListener('click', async () => {
         const statusEl = document.getElementById('tvhlStatus');

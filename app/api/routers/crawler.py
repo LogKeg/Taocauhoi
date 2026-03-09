@@ -433,15 +433,17 @@ _vietjack = importlib.util.module_from_spec(_vj_spec)
 _vj_spec.loader.exec_module(_vietjack)
 
 
-VIETJACK_CATEGORIES = {
-    "toan-12": "https://vietjack.com/de-kiem-tra-lop-12/de-thi-toan-12-giua-ki-1-ket-noi-tri-thuc.jsp",
-    "vat-ly-12": "https://vietjack.com/de-kiem-tra-lop-12/de-thi-vat-li-12-giua-ki-1-ket-noi-tri-thuc.jsp",
-    "hoa-hoc-12": "https://vietjack.com/de-kiem-tra-lop-12/de-thi-hoa-12-giua-ki-1-ket-noi-tri-thuc.jsp",
-    "sinh-hoc-12": "https://vietjack.com/de-kiem-tra-lop-12/de-thi-sinh-12-giua-ki-1-ket-noi-tri-thuc.jsp",
-    "tieng-anh-12": "https://vietjack.com/de-kiem-tra-lop-12/de-thi-tieng-anh-12-giua-ki-1-ket-noi-tri-thuc.jsp",
-    "lich-su-12": "https://vietjack.com/de-kiem-tra-lop-12/de-thi-lich-su-12-giua-ki-1-ket-noi-tri-thuc.jsp",
-    "dia-li-12": "https://vietjack.com/de-kiem-tra-lop-12/de-thi-dia-li-12-giua-ki-1-ket-noi-tri-thuc.jsp",
-}
+VIETJACK_CATEGORIES = [
+    {"name": "Toán 12 - Giữa kì 1", "url": "https://vietjack.com/de-kiem-tra-lop-12/de-thi-toan-12-giua-ki-1-ket-noi-tri-thuc.jsp"},
+    {"name": "Vật lý 12 - Giữa kì 1", "url": "https://vietjack.com/de-kiem-tra-lop-12/de-thi-vat-li-12-giua-ki-1-ket-noi-tri-thuc.jsp"},
+    {"name": "Hóa học 12 - Giữa kì 1", "url": "https://vietjack.com/de-kiem-tra-lop-12/de-thi-hoa-12-giua-ki-1-ket-noi-tri-thuc.jsp"},
+    {"name": "Sinh học 12 - Giữa kì 1", "url": "https://vietjack.com/de-kiem-tra-lop-12/de-thi-sinh-12-giua-ki-1-ket-noi-tri-thuc.jsp"},
+    {"name": "Tiếng Anh 12 - Giữa kì 1", "url": "https://vietjack.com/de-kiem-tra-lop-12/de-thi-tieng-anh-12-giua-ki-1-ket-noi-tri-thuc.jsp"},
+    {"name": "Lịch sử 12 - Giữa kì 1", "url": "https://vietjack.com/de-kiem-tra-lop-12/de-thi-lich-su-12-giua-ki-1-ket-noi-tri-thuc.jsp"},
+    {"name": "Địa lí 12 - Giữa kì 1", "url": "https://vietjack.com/de-kiem-tra-lop-12/de-thi-dia-li-12-giua-ki-1-ket-noi-tri-thuc.jsp"},
+    {"name": "Toán 11 - Giữa kì 1", "url": "https://vietjack.com/de-kiem-tra-lop-11/de-thi-toan-11-giua-ki-1-ket-noi-tri-thuc.jsp"},
+    {"name": "Toán 10 - Giữa kì 1", "url": "https://vietjack.com/de-kiem-tra-lop-10/de-thi-toan-10-giua-ki-1-ket-noi-tri-thuc.jsp"},
+]
 
 
 @router.get("/vietjack/categories")
@@ -452,15 +454,17 @@ def get_vietjack_categories() -> dict:
 
 @router.post("/vietjack/scrape")
 def scrape_vietjack(
+    category_url: str = Form(""),
     custom_url: str = Form(""),
+    max_pages: int = Form(5),
     save_to_db: bool = Form(True),
 ) -> dict:
     """
     Scrape questions from vietjack.com.
 
-    Provide a URL to a specific exam page.
+    Provide a URL to a specific exam page or a category to discover pages.
     """
-    url = custom_url.strip()
+    url = custom_url.strip() or category_url.strip()
     if not url:
         return {"success": False, "error": "Vui lòng nhập URL trang đề thi"}
 
