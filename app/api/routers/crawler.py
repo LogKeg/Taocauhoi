@@ -533,30 +533,70 @@ _hoc247_spec.loader.exec_module(_hoc247)
 
 
 HOC247_CATEGORIES = [
-    # Toán
-    {"name": "Trắc nghiệm Toán 12", "url": "https://hoc247.net/trac-nghiem-toan-12-index.html"},
-    {"name": "Trắc nghiệm Toán 11", "url": "https://hoc247.net/trac-nghiem-toan-11-index.html"},
-    {"name": "Trắc nghiệm Toán 10", "url": "https://hoc247.net/trac-nghiem-toan-10-index.html"},
-    # Vật lý
-    {"name": "Trắc nghiệm Vật lý 12", "url": "https://hoc247.net/trac-nghiem-vat-ly-12-index.html"},
-    {"name": "Trắc nghiệm Vật lý 11", "url": "https://hoc247.net/trac-nghiem-vat-ly-11-index.html"},
-    # Hóa học
-    {"name": "Trắc nghiệm Hóa học 12", "url": "https://hoc247.net/trac-nghiem-hoa-hoc-12-index.html"},
-    {"name": "Trắc nghiệm Hóa học 11", "url": "https://hoc247.net/trac-nghiem-hoa-hoc-11-index.html"},
-    # Sinh học
-    {"name": "Trắc nghiệm Sinh học 12", "url": "https://hoc247.net/trac-nghiem-sinh-12-index.html"},
-    # Tiếng Anh
-    {"name": "Trắc nghiệm Tiếng Anh 12", "url": "https://hoc247.net/trac-nghiem-tieng-anh-12-index.html"},
-    {"name": "Trắc nghiệm Tiếng Anh 11 (KNTT)", "url": "https://hoc247.net/trac-nghiem-tieng-anh-11-ket-noi-tri-thuc-index.html"},
-    # Lịch sử
-    {"name": "Trắc nghiệm Lịch sử 12", "url": "https://hoc247.net/trac-nghiem-lich-su-12-index.html"},
-    # Địa lý
-    {"name": "Trắc nghiệm Địa lý 12", "url": "https://hoc247.net/trac-nghiem-dia-12-index.html"},
-    # GDCD
-    {"name": "Trắc nghiệm GDCD 12", "url": "https://hoc247.net/trac-nghiem-gdcd-12-index.html"},
-    # Đề thi
-    {"name": "Đề thi giữa HK2 Toán 12", "url": "https://hoc247.net/de-thi-giua-hoc-ki-2-lop-12-mon-toan-index.html"},
-    {"name": "Đề thi giữa HK2 Tiếng Anh 12", "url": "https://hoc247.net/de-thi-giua-hoc-ki-2-lop-12-mon-tieng-anh-index.html"},
+    # === TOÁN ===
+    {"name": "Toán 12", "url": "https://hoc247.net/trac-nghiem-toan-12-index.html"},
+    {"name": "Toán 11", "url": "https://hoc247.net/trac-nghiem-toan-11-index.html"},
+    {"name": "Toán 10", "url": "https://hoc247.net/trac-nghiem-toan-10-index.html"},
+    {"name": "Toán 9", "url": "https://hoc247.net/trac-nghiem-toan-9-index.html"},
+    {"name": "Toán 7", "url": "https://hoc247.net/trac-nghiem-toan-7-index.html"},
+    {"name": "Toán 6", "url": "https://hoc247.net/trac-nghiem-toan-6-index.html"},
+    # === VẬT LÝ ===
+    {"name": "Vật lý 12", "url": "https://hoc247.net/trac-nghiem-vat-ly-12-index.html"},
+    {"name": "Vật lý 11", "url": "https://hoc247.net/trac-nghiem-vat-ly-11-index.html"},
+    {"name": "Vật lý 10", "url": "https://hoc247.net/trac-nghiem-vat-ly-10-index.html"},
+    {"name": "Vật lý 9", "url": "https://hoc247.net/trac-nghiem-vat-ly-9-index.html"},
+    # === HÓA HỌC ===
+    {"name": "Hóa học 12", "url": "https://hoc247.net/trac-nghiem-hoa-hoc-12-index.html"},
+    {"name": "Hóa học 10", "url": "https://hoc247.net/trac-nghiem-hoa-hoc-10-index.html"},
+    {"name": "Hóa học 9", "url": "https://hoc247.net/trac-nghiem-hoa-hoc-9-index.html"},
+    # === SINH HỌC ===
+    {"name": "Sinh học 12", "url": "https://hoc247.net/trac-nghiem-sinh-12-index.html"},
+    {"name": "Sinh học 11", "url": "https://hoc247.net/trac-nghiem-sinh-hoc-11-index.html"},
+    {"name": "Sinh học 10", "url": "https://hoc247.net/trac-nghiem-sinh-hoc-10-index.html"},
+    {"name": "Sinh học 9", "url": "https://hoc247.net/trac-nghiem-sinh-9-index.html"},
+    # === TIẾNG ANH ===
+    {"name": "Tiếng Anh 12", "url": "https://hoc247.net/trac-nghiem-tieng-anh-12-index.html"},
+    {"name": "Tiếng Anh 11 KNTT", "url": "https://hoc247.net/trac-nghiem-tieng-anh-11-ket-noi-tri-thuc-index.html"},
+    {"name": "Tiếng Anh 11 CTST", "url": "https://hoc247.net/trac-nghiem-tieng-anh-11-chan-troi-sang-tao-index.html"},
+    {"name": "Tiếng Anh 10 KNTT", "url": "https://hoc247.net/trac-nghiem-tieng-anh-10-ket-noi-tri-thuc-index.html"},
+    {"name": "Tiếng Anh 10 CTST", "url": "https://hoc247.net/trac-nghiem-tieng-anh-10-chan-troi-sang-tao-index.html"},
+    {"name": "Tiếng Anh 10 CD", "url": "https://hoc247.net/trac-nghiem-tieng-anh-10-canh-dieu-index.html"},
+    {"name": "Tiếng Anh 9", "url": "https://hoc247.net/trac-nghiem-tieng-anh-9-index.html"},
+    {"name": "Tiếng Anh 7 KNTT", "url": "https://hoc247.net/trac-nghiem-tieng-anh-7-ket-noi-tri-thuc-index.html"},
+    {"name": "Tiếng Anh 6 KNTT", "url": "https://hoc247.net/trac-nghiem-tieng-anh-6-ket-noi-tri-thuc-index.html"},
+    # === LỊCH SỬ ===
+    {"name": "Lịch sử 12", "url": "https://hoc247.net/trac-nghiem-lich-su-12-index.html"},
+    {"name": "Lịch sử 11", "url": "https://hoc247.net/trac-nghiem-lich-su-11-index.html"},
+    {"name": "Lịch sử 10", "url": "https://hoc247.net/trac-nghiem-lich-su-10-index.html"},
+    {"name": "Lịch sử 9", "url": "https://hoc247.net/trac-nghiem-lich-su-9-index.html"},
+    # === ĐỊA LÝ ===
+    {"name": "Địa lý 12", "url": "https://hoc247.net/trac-nghiem-dia-12-index.html"},
+    {"name": "Địa lý 11", "url": "https://hoc247.net/trac-nghiem-dia-li-11-index.html"},
+    {"name": "Địa lý 10", "url": "https://hoc247.net/trac-nghiem-dia-10-index.html"},
+    {"name": "Địa lý 9", "url": "https://hoc247.net/trac-nghiem-dia-9-index.html"},
+    # === GDCD / KTPL ===
+    {"name": "GDCD 12", "url": "https://hoc247.net/trac-nghiem-gdcd-12-index.html"},
+    {"name": "GDCD 9", "url": "https://hoc247.net/trac-nghiem-gdcd-9-index.html"},
+    {"name": "KTPL 11", "url": "https://hoc247.net/trac-nghiem-giao-duc-kinh-te-va-phap-luat-11-index.html"},
+    {"name": "KTPL 10", "url": "https://hoc247.net/trac-nghiem-giao-duc-kinh-te-va-phap-luat-10-index.html"},
+    # === TIN HỌC ===
+    {"name": "Tin học 12", "url": "https://hoc247.net/trac-nghiem-tin-hoc-12-index.html"},
+    {"name": "Tin học 11", "url": "https://hoc247.net/trac-nghiem-tin-hoc-11-index.html"},
+    {"name": "Tin học 10", "url": "https://hoc247.net/trac-nghiem-tin-hoc-10-index.html"},
+    # === CÔNG NGHỆ ===
+    {"name": "Công nghệ 12", "url": "https://hoc247.net/trac-nghiem-cong-nghe-12-index.html"},
+    {"name": "Công nghệ 11", "url": "https://hoc247.net/trac-nghiem-cong-nghe-11-index.html"},
+    {"name": "Công nghệ 10", "url": "https://hoc247.net/trac-nghiem-cong-nghe-10-index.html"},
+    # === KHTN (THCS) ===
+    {"name": "KHTN 8", "url": "https://hoc247.net/trac-nghiem-khoa-hoc-tu-nhien-8-index.html"},
+    {"name": "KHTN 7", "url": "https://hoc247.net/trac-nghiem-khoa-hoc-tu-nhien-7-index.html"},
+    {"name": "KHTN 6", "url": "https://hoc247.net/trac-nghiem-khoa-hoc-tu-nhien-6-index.html"},
+    # === ĐẠI HỌC ===
+    {"name": "ĐH: Triết học", "url": "https://hoc247.net/trac-nghiem-on-thi-mon-triet-hoc-index.html"},
+    {"name": "ĐH: Tư tưởng HCM", "url": "https://hoc247.net/trac-nghiem-on-thi-mon-tu-tuong-ho-chi-minh-index.html"},
+    {"name": "ĐH: Pháp luật đại cương", "url": "https://hoc247.net/trac-nghiem-on-thi-mon-phap-luat-dai-cuong-index.html"},
+    {"name": "ĐH: Kinh tế vi mô", "url": "https://hoc247.net/trac-nghiem-on-thi-mon-kinh-te-vi-mo-index.html"},
+    {"name": "ĐH: Toán cao cấp", "url": "https://hoc247.net/trac-nghiem-on-thi-mon-toan-cao-cap-index.html"},
 ]
 
 
