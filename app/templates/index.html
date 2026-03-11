@@ -275,6 +275,21 @@
                   <select id="bankSubject">
                     <option value="">Tất cả môn</option>
                   </select>
+                  <select id="bankGrade">
+                    <option value="">Tất cả lớp</option>
+                    <option value="1">Lớp 1</option>
+                    <option value="2">Lớp 2</option>
+                    <option value="3">Lớp 3</option>
+                    <option value="4">Lớp 4</option>
+                    <option value="5">Lớp 5</option>
+                    <option value="6">Lớp 6</option>
+                    <option value="7">Lớp 7</option>
+                    <option value="8">Lớp 8</option>
+                    <option value="9">Lớp 9</option>
+                    <option value="10">Lớp 10</option>
+                    <option value="11">Lớp 11</option>
+                    <option value="12">Lớp 12</option>
+                  </select>
                   <select id="bankDifficulty">
                     <option value="">Tất cả độ khó</option>
                     <option value="easy">Dễ</option>
@@ -1986,6 +2001,7 @@
 
       async function loadBankQuestions() {
         const subject = document.getElementById('bankSubject').value;
+        const grade = document.getElementById('bankGrade').value;
         const difficulty = document.getElementById('bankDifficulty').value;
         const search = document.getElementById('bankSearch').value;
 
@@ -1993,12 +2009,13 @@
         params.append('skip', bankPage * bankLimit);
         params.append('limit', bankLimit);
         if (subject) params.append('subject', subject);
+        if (grade) params.append('grade', grade);
         if (difficulty) params.append('difficulty', difficulty);
         if (search) params.append('search', search);
 
         // Show/hide "Xóa theo bộ lọc" button
         const delFilterBtn = document.getElementById('bankDeleteFilteredBtn');
-        delFilterBtn.hidden = !(subject || difficulty || search);
+        delFilterBtn.hidden = !(subject || grade || difficulty || search);
 
         try {
           const res = await fetch(`/api/questions?${params}`);
@@ -2344,6 +2361,10 @@
         bankPage = 0;
         loadBankQuestions();
       });
+      document.getElementById('bankGrade').addEventListener('change', () => {
+        bankPage = 0;
+        loadBankQuestions();
+      });
       document.getElementById('bankDifficulty').addEventListener('change', () => {
         bankPage = 0;
         loadBankQuestions();
@@ -2374,11 +2395,13 @@
       // Bulk delete by filter
       document.getElementById('bankDeleteFilteredBtn').addEventListener('click', async () => {
         const subject = document.getElementById('bankSubject').value;
+        const grade = document.getElementById('bankGrade').value;
         const difficulty = document.getElementById('bankDifficulty').value;
         const search = document.getElementById('bankSearch').value;
         const total = document.getElementById('bankTotal').textContent;
         const filters = [];
         if (subject) filters.push(`môn: ${subject}`);
+        if (grade) filters.push(`lớp: ${grade}`);
         if (difficulty) filters.push(`độ khó: ${difficulty}`);
         if (search) filters.push(`từ khóa: "${search}"`);
         if (!confirm(`Xóa ${total} câu hỏi theo bộ lọc (${filters.join(', ')})?\nHành động này không thể hoàn tác!`)) return;
@@ -2386,7 +2409,7 @@
           const res = await fetch('/api/questions/bulk-delete', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ subject, difficulty, search })
+            body: JSON.stringify({ subject, grade, difficulty, search })
           });
           const data = await res.json();
           alert(data.message || `Đã xóa ${data.deleted || 0} câu hỏi`);

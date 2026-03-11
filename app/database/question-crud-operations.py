@@ -28,6 +28,7 @@ class QuestionCRUD:
         skip: int = 0,
         limit: int = 100,
         subject: Optional[str] = None,
+        grade: Optional[str] = None,
         topic: Optional[str] = None,
         difficulty: Optional[str] = None,
         question_type: Optional[str] = None,
@@ -37,6 +38,8 @@ class QuestionCRUD:
 
         if subject:
             query = query.filter(Question.subject == subject)
+        if grade:
+            query = query.filter(Question.grade == grade)
         if topic:
             query = query.filter(Question.topic == topic)
         if difficulty:
@@ -52,6 +55,7 @@ class QuestionCRUD:
     def count(
         db: Session,
         subject: Optional[str] = None,
+        grade: Optional[str] = None,
         topic: Optional[str] = None,
         difficulty: Optional[str] = None,
     ) -> int:
@@ -59,6 +63,8 @@ class QuestionCRUD:
 
         if subject:
             query = query.filter(Question.subject == subject)
+        if grade:
+            query = query.filter(Question.grade == grade)
         if topic:
             query = query.filter(Question.topic == topic)
         if difficulty:

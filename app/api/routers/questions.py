@@ -51,6 +51,7 @@ def get_questions(
     skip: int = 0,
     limit: int = 100,
     subject: Optional[str] = None,
+    grade: Optional[str] = None,
     topic: Optional[str] = None,
     difficulty: Optional[str] = None,
     question_type: Optional[str] = None,
@@ -63,6 +64,7 @@ def get_questions(
         skip=skip,
         limit=limit,
         subject=subject,
+        grade=grade,
         topic=topic,
         difficulty=difficulty,
         question_type=question_type,
@@ -70,7 +72,7 @@ def get_questions(
     )
     return {
         "questions": [_format_question(q) for q in questions],
-        "total": QuestionCRUD.count(db, subject=subject, topic=topic, difficulty=difficulty),
+        "total": QuestionCRUD.count(db, subject=subject, grade=grade, topic=topic, difficulty=difficulty),
     }
 
 
@@ -166,11 +168,14 @@ def bulk_delete_questions(
 
     query = db.query(Question)
     subject = filters.get("subject", "")
+    grade = filters.get("grade", "")
     difficulty = filters.get("difficulty", "")
     search = filters.get("search", "")
 
     if subject:
         query = query.filter(Question.subject == subject)
+    if grade:
+        query = query.filter(Question.grade == grade)
     if difficulty:
         query = query.filter(Question.difficulty == difficulty)
     if search:
