@@ -183,7 +183,11 @@ def parse_quiz_page(html: str, url: str = "") -> List[Dict]:
                 i += 2
 
             # Only save if we have valid question and at least 2 options
-            if question_text and len(options) >= 2:
+            # Skip questions with too little text (likely image-heavy math formulas)
+            min_option_len = min(len(o) for o in options) if options else 0
+            has_enough_text = len(question_text) >= 20 and min_option_len >= 2
+
+            if question_text and len(options) >= 2 and has_enough_text:
                 questions.append({
                     "question": question_text,
                     "options": options[:4],
