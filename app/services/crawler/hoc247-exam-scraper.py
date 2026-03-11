@@ -66,11 +66,36 @@ def _fetch_html(url: str, timeout: int = 30) -> Tuple[str, Optional[str]]:
 
 
 def _detect_subject(url: str, title: str = "") -> str:
-    """Detect subject from URL or title."""
-    text = (url + " " + title).lower()
-    for slug, subj in SUBJECT_MAP.items():
-        if slug in text:
+    """Detect subject from URL or title.
+
+    Prioritizes:
+    1. Filename portion of URL (most specific)
+    2. Longer matches over shorter ones (e.g., "tieng-anh" over "toan")
+    3. Title matches as fallback
+    """
+    # Extract filename from URL (e.g., "trac-nghiem-tieng-anh-10-ket-noi-tri-thuc...")
+    filename = url.split('/')[-1].lower() if '/' in url else url.lower()
+    title_lower = title.lower()
+
+    # Sort SUBJECT_MAP by slug length (longer = more specific = higher priority)
+    sorted_subjects = sorted(SUBJECT_MAP.items(), key=lambda x: len(x[0]), reverse=True)
+
+    # First, check filename (most reliable source)
+    for slug, subj in sorted_subjects:
+        if slug in filename:
             return subj
+
+    # Fallback: check title
+    for slug, subj in sorted_subjects:
+        if slug in title_lower:
+            return subj
+
+    # Last resort: check full URL path
+    url_lower = url.lower()
+    for slug, subj in sorted_subjects:
+        if slug in url_lower:
+            return subj
+
     return "general"
 
 
