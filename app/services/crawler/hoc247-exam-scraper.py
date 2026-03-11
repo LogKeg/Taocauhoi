@@ -201,11 +201,13 @@ def discover_quiz_urls(html: str, base_url: str) -> List[str]:
     for a in soup.find_all('a', href=True):
         href = a['href']
 
-        # Look for quiz-related links
+        # Look for quiz-related links (includes lesson IDs like l11657)
         if any(pattern in href.lower() for pattern in [
-            'trac-nghiem-', 'cau-hoi-', 'bai-tap-', 'de-thi-'
+            'trac-nghiem-', 'cau-hoi-', 'bai-tap-', 'de-thi-', '-l'
         ]) and href.endswith('.html'):
             full_url = urljoin(base_url, href)
+            # Normalize http to https
+            full_url = full_url.replace('http://hoc247.net', 'https://hoc247.net')
             if full_url.startswith('https://hoc247.net/') and full_url not in urls:
                 # Skip index pages, we want actual quiz pages
                 if '-index.html' not in full_url:
@@ -232,15 +234,38 @@ def scrape_quiz(url: str) -> Tuple[List[Dict], Optional[str]]:
     return questions, None
 
 
-def scrape_category(url: str, max_pages: int = 10) -> Tuple[List[Dict], List[str]]:
+def _discover_sub_indexes(html: str, base_url: str) -> List[str]:
+    """Find sub-index pages (KNTT, CTST, CD variations) from a main index."""
+    soup = BeautifulSoup(html, "html.parser")
+    sub_indexes = []
+
+    for a in soup.find_all('a', href=True):
+        href = a['href']
+        # Look for sub-index pages (same subject but different curriculum)
+        if '-index.html' in href and href != base_url:
+            full_url = urljoin(base_url, href)
+            full_url = full_url.replace('http://hoc247.net', 'https://hoc247.net')
+            if full_url.startswith('https://hoc247.net/') and full_url not in sub_indexes:
+                # Only include sub-indexes of same subject (e.g., vat-ly-10-kntt from vat-ly-10)
+                base_subject = base_url.split('/')[-1].replace('-index.html', '')
+                sub_subject = full_url.split('/')[-1].replace('-index.html', '')
+                if base_subject in sub_subject or sub_subject.startswith(base_subject.rsplit('-', 1)[0]):
+                    sub_indexes.append(full_url)
+
+    return sub_indexes
+
+
+def scrape_category(url: str, max_pages: int = 20) -> Tuple[List[Dict], List[str]]:
     """
     Scrape multiple quizzes from a category page.
+    Automatically follows sub-index pages (KNTT, CTST, CD).
 
     Returns:
         (all_questions, errors)
     """
     all_questions = []
     errors = []
+    scraped_urls = set()
 
     html, error = _fetch_html(url)
     if error:
@@ -251,10 +276,25 @@ def scrape_category(url: str, max_pages: int = 10) -> Tuple[List[Dict], List[str
     if questions:
         all_questions.extend(questions)
 
-    # Then discover and scrape linked quiz pages
-    quiz_urls = discover_quiz_urls(html, url)[:max_pages]
+    # Discover quiz URLs from this page
+    quiz_urls = discover_quiz_urls(html, url)
 
-    for quiz_url in quiz_urls:
+    # If few quiz URLs found, check for sub-indexes (KNTT, CTST, CD)
+    if len(quiz_urls) < 5:
+        sub_indexes = _discover_sub_indexes(html, url)
+        for sub_url in sub_indexes[:3]:  # Max 3 sub-indexes
+            time.sleep(REQUEST_DELAY)
+            sub_html, sub_err = _fetch_html(sub_url)
+            if not sub_err:
+                sub_quiz_urls = discover_quiz_urls(sub_html, sub_url)
+                quiz_urls.extend(sub_quiz_urls)
+
+    # Scrape quiz pages
+    for quiz_url in quiz_urls[:max_pages]:
+        if quiz_url in scraped_urls:
+            continue
+        scraped_urls.add(quiz_url)
+
         time.sleep(REQUEST_DELAY)
         questions, err = scrape_quiz(quiz_url)
         if err:

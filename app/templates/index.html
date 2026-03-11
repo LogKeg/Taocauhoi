@@ -3266,10 +3266,11 @@
             formData.append('category_url', url);
             formData.append('custom_url', '');
             formData.append('save_to_db', 'true');
+            // Khi scrape nhiều danh mục, vẫn giữ số lượng đủ lớn cho mỗi danh mục
             if (source === 'thuvienhoclieu') {
-              formData.append('max_quizzes', Math.ceil(maxItems / urlsToScrape.length) || 10);
+              formData.append('max_quizzes', urlsToScrape.length > 1 ? 20 : maxItems);
             } else {
-              formData.append('max_pages', Math.ceil(maxItems / urlsToScrape.length) || 5);
+              formData.append('max_pages', urlsToScrape.length > 1 ? 20 : maxItems);
             }
 
             try {
