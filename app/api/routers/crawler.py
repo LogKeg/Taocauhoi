@@ -671,3 +671,109 @@ def scrape_hoc247(
         "skipped_count": skipped_count,
         "errors": errors if errors else [],
     }
+
+
+# ============================================================================
+# TracNghiem.net Scraper
+# ============================================================================
+
+# Load TracNghiem.net scraper module
+_tracnghiem_path = os.path.join(_crawler_dir, "tracnghiem-net-scraper.py")
+_tracnghiem_spec = importlib.util.spec_from_file_location("tracnghiem_net_scraper", _tracnghiem_path)
+_tracnghiem_net = importlib.util.module_from_spec(_tracnghiem_spec)
+_tracnghiem_spec.loader.exec_module(_tracnghiem_net)
+
+
+TRACNGHIEM_NET_CATEGORIES = [
+    # THPT National Exam
+    {"name": "Tốt nghiệp THPT - Toán", "url": "https://tracnghiem.net/tnthpt/"},
+    # High school by grade
+    {"name": "Toán 12", "url": "https://tracnghiem.net/de-thi-thpt/toan-hoc-lop-12/"},
+    {"name": "Vật lý 12", "url": "https://tracnghiem.net/de-thi-thpt/vat-ly-lop-12/"},
+    {"name": "Hóa học 12", "url": "https://tracnghiem.net/de-thi-thpt/hoa-hoc-lop-12/"},
+    {"name": "Sinh học 12", "url": "https://tracnghiem.net/de-thi-thpt/sinh-hoc-lop-12/"},
+    {"name": "Tiếng Anh 12", "url": "https://tracnghiem.net/de-thi-thpt/tieng-anh-lop-12/"},
+    {"name": "Lịch sử 12", "url": "https://tracnghiem.net/de-thi-thpt/lich-su-lop-12/"},
+    {"name": "Địa lý 12", "url": "https://tracnghiem.net/de-thi-thpt/dia-ly-lop-12/"},
+    {"name": "Toán 11", "url": "https://tracnghiem.net/de-thi-thpt/toan-hoc-lop-11/"},
+    {"name": "Vật lý 11", "url": "https://tracnghiem.net/de-thi-thpt/vat-ly-lop-11/"},
+    {"name": "Hóa học 11", "url": "https://tracnghiem.net/de-thi-thpt/hoa-hoc-lop-11/"},
+    {"name": "Toán 10", "url": "https://tracnghiem.net/de-thi-thpt/toan-hoc-lop-10/"},
+    {"name": "Vật lý 10", "url": "https://tracnghiem.net/de-thi-thpt/vat-ly-lop-10/"},
+    {"name": "Hóa học 10", "url": "https://tracnghiem.net/de-thi-thpt/hoa-hoc-lop-10/"},
+    # THCS (Secondary school)
+    {"name": "Toán 9", "url": "https://tracnghiem.net/de-thi-thcs/toan-hoc-lop-9/"},
+    {"name": "Tiếng Anh 9", "url": "https://tracnghiem.net/de-thi-thcs/tieng-anh-lop-9/"},
+    {"name": "Toán 8", "url": "https://tracnghiem.net/de-thi-thcs/toan-hoc-lop-8/"},
+    {"name": "Toán 7", "url": "https://tracnghiem.net/de-thi-thcs/toan-hoc-lop-7/"},
+    {"name": "Toán 6", "url": "https://tracnghiem.net/de-thi-thcs/toan-hoc-lop-6/"},
+    # Elementary
+    {"name": "Toán 5", "url": "https://tracnghiem.net/de-thi-tieu-hoc/toan-hoc-lop-5/"},
+    {"name": "Toán 4", "url": "https://tracnghiem.net/de-thi-tieu-hoc/toan-hoc-lop-4/"},
+    {"name": "Toán 3", "url": "https://tracnghiem.net/de-thi-tieu-hoc/toan-hoc-lop-3/"},
+]
+
+
+@router.get("/tracnghiem-net/categories")
+def get_tracnghiem_net_categories() -> dict:
+    """Get available quiz categories from tracnghiem.net."""
+    return {"categories": TRACNGHIEM_NET_CATEGORIES}
+
+
+@router.post("/tracnghiem-net/scrape")
+def scrape_tracnghiem_net(
+    category_url: str = Form(""),
+    custom_url: str = Form(""),
+    max_pages: int = Form(10),
+    save_to_db: bool = Form(True),
+) -> dict:
+    """
+    Scrape questions from tracnghiem.net.
+
+    Provide a category URL to discover quiz pages, or a custom URL for a specific quiz.
+    """
+    url = custom_url.strip() or category_url.strip()
+    if not url:
+        return {"success": False, "error": "Vui lòng chọn danh mục hoặc nhập URL"}
+
+    if not url.startswith("https://tracnghiem.net/"):
+        return {"success": False, "error": "URL không hợp lệ. Chỉ hỗ trợ tracnghiem.net"}
+
+    # Scrape category or single page
+    questions, errors = _tracnghiem_net.scrape_category(url, max_pages=max_pages)
+
+    if not questions and errors:
+        return {"success": False, "error": errors[0] if errors else "Không tìm thấy câu hỏi"}
+
+    # Convert questions format for saving
+    formatted_questions = []
+    for q in questions:
+        formatted_questions.append({
+            "content": q["question"],
+            "options": json.dumps(q["options"], ensure_ascii=False) if q["options"] else None,
+            "answer": q.get("answer", ""),
+            "subject": q.get("subject", "general"),
+            "grade": q.get("grade", ""),
+            "source": q.get("source", url),
+            "difficulty": "medium",
+            "question_type": "mcq",
+        })
+
+    saved_count = 0
+    skipped_count = 0
+    if save_to_db and formatted_questions:
+        db = SessionLocal()
+        try:
+            r = _save_questions(db, formatted_questions, "", "medium", url)
+            saved_count = r["saved"]
+            skipped_count = r["skipped"]
+        finally:
+            db.close()
+
+    return {
+        "success": True,
+        "question_count": len(questions),
+        "saved_count": saved_count,
+        "skipped_count": skipped_count,
+        "errors": errors if errors else [],
+    }

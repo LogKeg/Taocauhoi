@@ -334,6 +334,7 @@
                         <option value="thuvienhoclieu">ThuVienHocLieu.com</option>
                         <option value="vietjack">VietJack.com</option>
                         <option value="hoc247">Hoc247.net</option>
+                        <option value="tracnghiem_net">TracNghiem.net (2M+ câu)</option>
                       </select>
                     </div>
                     <div>
@@ -3204,22 +3205,26 @@
       const scraperCategories = {
         thuvienhoclieu: [],
         vietjack: [],
-        hoc247: []
+        hoc247: [],
+        tracnghiem_net: []
       };
 
       async function loadScraperCategories() {
         try {
-          const [tvhlRes, vjRes, hoc247Res] = await Promise.all([
+          const [tvhlRes, vjRes, hoc247Res, tnRes] = await Promise.all([
             fetch('/api/crawler/thuvienhoclieu/categories'),
             fetch('/api/crawler/vietjack/categories'),
-            fetch('/api/crawler/hoc247/categories')
+            fetch('/api/crawler/hoc247/categories'),
+            fetch('/api/crawler/tracnghiem-net/categories')
           ]);
           const tvhlData = await tvhlRes.json();
           const vjData = await vjRes.json();
           const hoc247Data = await hoc247Res.json();
+          const tnData = await tnRes.json();
           scraperCategories.thuvienhoclieu = tvhlData.categories || [];
           scraperCategories.vietjack = vjData.categories || [];
           scraperCategories.hoc247 = hoc247Data.categories || [];
+          scraperCategories.tracnghiem_net = tnData.categories || [];
           updateScraperCategoryDropdown();
         } catch (err) { /* ignore */ }
       }
@@ -3235,7 +3240,8 @@
         const placeholders = {
           thuvienhoclieu: 'https://thuvienhoclieu.com/de-trac-nghiem-online-...',
           vietjack: 'https://vietjack.com/de-kiem-tra-lop-12/...',
-          hoc247: 'https://hoc247.net/trac-nghiem-toan-12-...'
+          hoc247: 'https://hoc247.net/trac-nghiem-toan-12-...',
+          tracnghiem_net: 'https://tracnghiem.net/tnthpt/...'
         };
         urlInput.placeholder = placeholders[source] || '';
       }
@@ -3265,7 +3271,7 @@
 
         btn.disabled = true;
         btn.textContent = 'Đang scrape...';
-        const sourceNames = { thuvienhoclieu: 'thuvienhoclieu.com', vietjack: 'vietjack.com', hoc247: 'hoc247.net' };
+        const sourceNames = { thuvienhoclieu: 'thuvienhoclieu.com', vietjack: 'vietjack.com', hoc247: 'hoc247.net', tracnghiem_net: 'tracnghiem.net' };
         const scrapeAllMsg = !categoryUrl && !customUrl ? ` (tất cả ${urlsToScrape.length} danh mục)` : '';
         statusEl.innerHTML = `<strong>Đang quét dữ liệu từ ${sourceNames[source]}${scrapeAllMsg}...</strong><br>Quá trình này có thể mất vài phút.`;
         resultsEl.hidden = true;
@@ -3273,7 +3279,8 @@
         const endpoints = {
           thuvienhoclieu: '/api/crawler/thuvienhoclieu/scrape',
           vietjack: '/api/crawler/vietjack/scrape',
-          hoc247: '/api/crawler/hoc247/scrape'
+          hoc247: '/api/crawler/hoc247/scrape',
+          tracnghiem_net: '/api/crawler/tracnghiem-net/scrape'
         };
         const endpoint = endpoints[source];
 
