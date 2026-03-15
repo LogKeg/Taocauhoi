@@ -84,6 +84,38 @@ def _detect_grade(url: str, title: str = "") -> str:
     return m.group(1) if m else ""
 
 
+def _extract_image_url(element, base_url: str = "") -> Optional[str]:
+    """Extract the first meaningful image URL from an element."""
+    if not element:
+        return None
+
+    img = element.find('img')
+    if img and img.get('src'):
+        src = img['src']
+        # Skip icons, logos, avatars, placeholders
+        if any(skip in src.lower() for skip in ['icon', 'avatar', 'logo', 'placeholder', 'loading', 'pixel']):
+            return None
+        # Skip very small images
+        width = img.get('width', '')
+        height = img.get('height', '')
+        if width and height:
+            try:
+                if int(width) < 50 or int(height) < 50:
+                    return None
+            except ValueError:
+                pass
+        # Make absolute URL
+        if src.startswith('//'):
+            return 'https:' + src
+        elif src.startswith('/'):
+            return urljoin(base_url or 'https://thuvienhoclieu.com', src)
+        elif src.startswith('http'):
+            return src
+        else:
+            return urljoin(base_url or 'https://thuvienhoclieu.com', src)
+    return None
+
+
 def parse_quiz_page(html: str, url: str = "") -> List[Dict]:
     """
     Parse a WP Pro Quiz page to extract questions with correct answers.
@@ -169,7 +201,12 @@ def parse_quiz_page(html: str, url: str = "") -> List[Dict]:
         # Get correct answer
         answer = correct_answers.get(str(question_id), "")
 
-        questions.append({
+        # Extract image from question text area or the question item
+        image_url = _extract_image_url(q_text_el, url)
+        if not image_url:
+            image_url = _extract_image_url(item, url)
+
+        question_data = {
             "content": content,
             "options": json.dumps(options, ensure_ascii=False) if options else None,
             "answer": answer,
@@ -178,7 +215,10 @@ def parse_quiz_page(html: str, url: str = "") -> List[Dict]:
             "difficulty": "medium",
             "question_type": "mcq" if options else "essay",
             "source": url or "thuvienhoclieu.com",
-        })
+        }
+        if image_url:
+            question_data["image_source_url"] = image_url
+        questions.append(question_data)
 
     return questions
 

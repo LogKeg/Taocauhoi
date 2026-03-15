@@ -17,14 +17,17 @@ from app.services.crawler.thuvienhoclieu import (
     scrape_single_quiz,
     QUIZ_CATEGORIES,
 )
+from app.services.image import save_question_image, download_image_sync
 
 router = APIRouter(prefix="/api/crawler", tags=["crawler"])
 
 
 def _save_questions(db, questions: list, default_subject: str = "", default_difficulty: str = "medium", default_source: str = "") -> dict:
-    """Save questions to DB with duplicate detection. Returns {saved, skipped}."""
+    """Save questions to DB with duplicate detection and image download. Returns {saved, skipped, images}."""
     saved = 0
     skipped = 0
+    images_downloaded = 0
+
     for q in questions:
         content = q.get("content", "").strip()
         if not content:
@@ -32,7 +35,9 @@ def _save_questions(db, questions: list, default_subject: str = "", default_diff
         if QuestionCRUD.exists_by_content(db, content):
             skipped += 1
             continue
-        QuestionCRUD.create(
+
+        # Create question first
+        question = QuestionCRUD.create(
             db,
             content=content,
             options=q.get("options"),
@@ -44,7 +49,22 @@ def _save_questions(db, questions: list, default_subject: str = "", default_diff
             question_type=q.get("question_type", "mcq"),
         )
         saved += 1
-    return {"saved": saved, "skipped": skipped}
+
+        # Download and save image if available
+        image_source_url = q.get("image_source_url", "")
+        if image_source_url:
+            try:
+                image_bytes = download_image_sync(image_source_url)
+                if image_bytes:
+                    filename = image_source_url.split('/')[-1].split('?')[0] or "image.png"
+                    image_url = save_question_image(question.id, image_bytes, filename)
+                    if image_url:
+                        QuestionCRUD.update(db, question.id, image_url=image_url)
+                        images_downloaded += 1
+            except Exception as e:
+                print(f"Failed to download image for question {question.id}: {e}")
+
+    return {"saved": saved, "skipped": skipped, "images": images_downloaded}
 
 
 # ============================================================================
@@ -423,11 +443,11 @@ def get_suggested_sources() -> dict:
 # VietJack.com Scraper
 # ============================================================================
 
-# Load VietJack scraper module
+# Load VietJack scraper module (with image support)
 import importlib.util
 import os
 _crawler_dir = os.path.join(os.path.dirname(__file__), "..", "..", "services", "crawler")
-_vj_path = os.path.join(_crawler_dir, "vietjack-exam-scraper.py")
+_vj_path = os.path.join(_crawler_dir, "vietjack-exam-and-quiz-scraper.py")
 _vj_spec = importlib.util.spec_from_file_location("vietjack_scraper", _vj_path)
 _vietjack = importlib.util.module_from_spec(_vj_spec)
 _vj_spec.loader.exec_module(_vietjack)
@@ -483,12 +503,12 @@ def scrape_vietjack(
         return {"success": False, "error": "URL không hợp lệ. Chỉ hỗ trợ vietjack.com"}
 
     # Scrape the page
-    questions, error = _vietjack.scrape_exam(url)
+    questions, error = _vietjack.scrape_quiz(url)
 
     if error:
         return {"success": False, "error": error, "questions": [], "count": 0}
 
-    # Convert questions format for saving
+    # Convert questions format for saving (including image_source_url for download)
     formatted_questions = []
     for q in questions:
         formatted_questions.append({
@@ -500,16 +520,19 @@ def scrape_vietjack(
             "source": q.get("source", url),
             "difficulty": "medium",
             "question_type": "mcq",
+            "image_source_url": q.get("image_source_url", ""),
         })
 
     saved_count = 0
     skipped_count = 0
+    images_count = 0
     if save_to_db and formatted_questions:
         db = SessionLocal()
         try:
             r = _save_questions(db, formatted_questions, "", "medium", url)
             saved_count = r["saved"]
             skipped_count = r["skipped"]
+            images_count = r.get("images", 0)
         finally:
             db.close()
 
@@ -518,6 +541,7 @@ def scrape_vietjack(
         "question_count": len(questions),
         "saved_count": saved_count,
         "skipped_count": skipped_count,
+        "images_count": images_count,
     }
 
 
@@ -639,7 +663,7 @@ def scrape_hoc247(
     if not questions and errors:
         return {"success": False, "error": errors[0] if errors else "Không tìm thấy câu hỏi"}
 
-    # Convert questions format for saving
+    # Convert questions format for saving (including image_source_url for download)
     formatted_questions = []
     for q in questions:
         formatted_questions.append({
@@ -651,16 +675,19 @@ def scrape_hoc247(
             "source": q.get("source", url),
             "difficulty": "medium",
             "question_type": "mcq",
+            "image_source_url": q.get("image_source_url", ""),
         })
 
     saved_count = 0
     skipped_count = 0
+    images_count = 0
     if save_to_db and formatted_questions:
         db = SessionLocal()
         try:
             r = _save_questions(db, formatted_questions, "", "medium", url)
             saved_count = r["saved"]
             skipped_count = r["skipped"]
+            images_count = r.get("images", 0)
         finally:
             db.close()
 
@@ -669,6 +696,7 @@ def scrape_hoc247(
         "question_count": len(questions),
         "saved_count": saved_count,
         "skipped_count": skipped_count,
+        "images_count": images_count,
         "errors": errors if errors else [],
     }
 
@@ -745,7 +773,7 @@ def scrape_tracnghiem_net(
     if not questions and errors:
         return {"success": False, "error": errors[0] if errors else "Không tìm thấy câu hỏi"}
 
-    # Convert questions format for saving
+    # Convert questions format for saving (including image_source_url for download)
     formatted_questions = []
     for q in questions:
         formatted_questions.append({
@@ -757,16 +785,19 @@ def scrape_tracnghiem_net(
             "source": q.get("source", url),
             "difficulty": "medium",
             "question_type": "mcq",
+            "image_source_url": q.get("image_source_url", ""),
         })
 
     saved_count = 0
     skipped_count = 0
+    images_count = 0
     if save_to_db and formatted_questions:
         db = SessionLocal()
         try:
             r = _save_questions(db, formatted_questions, "", "medium", url)
             saved_count = r["saved"]
             skipped_count = r["skipped"]
+            images_count = r.get("images", 0)
         finally:
             db.close()
 
@@ -775,5 +806,6 @@ def scrape_tracnghiem_net(
         "question_count": len(questions),
         "saved_count": saved_count,
         "skipped_count": skipped_count,
+        "images_count": images_count,
         "errors": errors if errors else [],
     }
