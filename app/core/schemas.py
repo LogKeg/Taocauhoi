@@ -36,6 +36,8 @@ class QuestionCreate(BaseModel):
     difficulty: str = "medium"
     tags: Optional[str] = None
     source: Optional[str] = None
+    image_url: Optional[str] = None  # Local path after download
+    image_source_url: Optional[str] = None  # External URL to download from
 
 
 class QuestionUpdate(BaseModel):
@@ -51,6 +53,7 @@ class QuestionUpdate(BaseModel):
     difficulty: Optional[str] = None
     tags: Optional[str] = None
     source: Optional[str] = None
+    image_url: Optional[str] = None
 
 
 class ExamCreate(BaseModel):

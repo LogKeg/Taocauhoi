@@ -62,6 +62,9 @@ class Question(Base):
     difficulty = Column(String(20), default="medium")
     difficulty_score = Column(Float, nullable=True)  # AI-calculated score 0-1
 
+    # Image support
+    image_url = Column(Text, nullable=True)  # Relative path: "images/{id}/filename.png"
+
     # Metadata
     tags = Column(Text, nullable=True)  # JSON array of tags
     source = Column(String(255), nullable=True)  # Where the question came from

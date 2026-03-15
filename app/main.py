@@ -46,6 +46,7 @@ from app.core import (
 app = FastAPI()
 
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
+app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 
 # Include API routers (will be added after all imports)
 # app.include_router(settings_router)  # Settings routes moved to router

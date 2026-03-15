@@ -131,6 +131,41 @@ def _extract_latex(el) -> str:
     return text
 
 
+def _extract_image_url(element, base_url: str = "") -> Optional[str]:
+    """
+    Extract the first image URL from an element.
+    Returns absolute URL or None if no image found.
+    """
+    if not element:
+        return None
+
+    img = element.find('img')
+    if img and img.get('src'):
+        src = img['src']
+        # Skip tiny icons, avatars, lazy placeholders
+        if any(skip in src.lower() for skip in ['icon', 'avatar', 'placeholder', 'loading', 'pixel']):
+            return None
+        # Skip very small images (likely icons)
+        width = img.get('width', '')
+        height = img.get('height', '')
+        if width and height:
+            try:
+                if int(width) < 50 or int(height) < 50:
+                    return None
+            except ValueError:
+                pass
+        # Make absolute URL
+        if src.startswith('//'):
+            return 'https:' + src
+        elif src.startswith('/'):
+            return urljoin(base_url or 'https://hoc247.net', src)
+        elif src.startswith('http'):
+            return src
+        else:
+            return urljoin(base_url or 'https://hoc247.net', src)
+    return None
+
+
 def parse_quiz_page(html: str, url: str = "") -> List[Dict]:
     """
     Parse Hoc247 quiz page to extract multiple choice questions.
@@ -202,16 +237,27 @@ def parse_quiz_page(html: str, url: str = "") -> List[Dict]:
             if option_text:
                 options.append(option_text)
 
+        # Extract image from question area (h3 or nearby elements)
+        image_url = _extract_image_url(h3, url)
+        if not image_url:
+            # Try finding image in parent or previous sibling
+            parent = h3.parent
+            if parent:
+                image_url = _extract_image_url(parent, url)
+
         # Only save if we have valid question and options
         if question_text and len(options) >= 2:
-            questions.append({
+            question_data = {
                 "question": question_text,
                 "options": options[:4],  # Max 4 options A-D
                 "answer": "",  # Hoc247 doesn't show answers directly
                 "subject": subject,
                 "grade": grade,
                 "source": url,
-            })
+            }
+            if image_url:
+                question_data["image_source_url"] = image_url
+            questions.append(question_data)
 
     return questions
 

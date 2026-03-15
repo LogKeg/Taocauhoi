@@ -115,6 +115,60 @@ def _clean_text(text: str) -> str:
     return text.strip()
 
 
+def _extract_image_url(element, base_url: str = "") -> Optional[str]:
+    """
+    Extract the first meaningful image URL from an element.
+    Returns absolute URL or None if no image found.
+    """
+    if not element:
+        return None
+
+    img = element.find('img')
+    if img and img.get('src'):
+        src = img['src']
+        # Skip tiny icons, avatars, lazy placeholders
+        if any(skip in src.lower() for skip in ['icon', 'avatar', 'placeholder', 'loading', 'pixel', 'emoji']):
+            return None
+        # Skip very small images (likely icons)
+        width = img.get('width', '')
+        height = img.get('height', '')
+        if width and height:
+            try:
+                if int(width) < 50 or int(height) < 50:
+                    return None
+            except ValueError:
+                pass
+        # Make absolute URL
+        if src.startswith('//'):
+            return 'https:' + src
+        elif src.startswith('/'):
+            return urljoin(base_url or 'https://tracnghiem.net', src)
+        elif src.startswith('http'):
+            return src
+        else:
+            return urljoin(base_url or 'https://tracnghiem.net', src)
+    return None
+
+
+def _extract_all_question_images(soup, base_url: str = "") -> Dict[int, str]:
+    """
+    Extract images associated with questions by looking at the DOM structure.
+    Returns dict mapping question index (0-based) to image URL.
+    """
+    images = {}
+
+    # Look for question containers that might have images
+    # Common patterns: question-item, q-item, cau-hoi, etc.
+    question_containers = soup.select('.question-item, .q-item, .cau-hoi, [class*="question"]')
+
+    for i, container in enumerate(question_containers):
+        img_url = _extract_image_url(container, base_url)
+        if img_url:
+            images[i] = img_url
+
+    return images
+
+
 def parse_quiz_page(html: str, url: str = "") -> List[Dict]:
     """
     Parse TracNghiem.net quiz page to extract multiple choice questions.
@@ -133,6 +187,9 @@ def parse_quiz_page(html: str, url: str = "") -> List[Dict]:
     subject = _detect_subject(url, title)
     grade = _detect_grade(url, title)
 
+    # Pre-extract images from DOM before text parsing
+    question_images = _extract_all_question_images(soup, url)
+
     # Extract all text and split by "Câu X:" pattern
     all_text = soup.get_text(separator='\n')
 
@@ -141,6 +198,7 @@ def parse_quiz_page(html: str, url: str = "") -> List[Dict]:
     question_pattern = re.compile(r'Câu\s*\d+\s*[:.]\s*', re.IGNORECASE)
     parts = question_pattern.split(all_text)
 
+    question_idx = 0
     for part in parts[1:]:  # Skip first part (before Câu 1)
         if not part.strip():
             continue
@@ -188,14 +246,20 @@ def parse_quiz_page(html: str, url: str = "") -> List[Dict]:
             has_enough_text = len(question_text) >= 20 and min_option_len >= 2
 
             if question_text and len(options) >= 2 and has_enough_text:
-                questions.append({
+                question_data = {
                     "question": question_text,
                     "options": options[:4],
                     "answer": "",  # TracNghiem.net requires login to see answers
                     "subject": subject,
                     "grade": grade,
                     "source": url,
-                })
+                }
+                # Add image if found for this question index
+                if question_idx in question_images:
+                    question_data["image_source_url"] = question_images[question_idx]
+                questions.append(question_data)
+
+        question_idx += 1
 
     return questions
 

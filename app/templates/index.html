@@ -296,7 +296,7 @@
                     <option value="medium">Trung bình</option>
                     <option value="hard">Khó</option>
                   </select>
-                  <input type="text" id="bankSearch" placeholder="Tìm kiếm..." />
+                  <input type="text" id="bankSearch" placeholder="Tìm kiếm nội dung hoặc #ID..." />
                   <button id="bankSearchBtn">Tìm</button>
                   <button id="bankRefreshBtn">Làm mới</button>
                 </div>
@@ -960,6 +960,16 @@
               <label for="questionExplanation">Giải thích (tùy chọn)</label>
               <textarea id="questionExplanation" rows="2" placeholder="Giải thích đáp án..."></textarea>
             </div>
+            <div class="form-group">
+              <label for="questionImage">Hình ảnh minh họa (tùy chọn)</label>
+              <input type="hidden" id="questionImageUrl" />
+              <div id="questionImagePreview" class="image-upload-preview" style="display:none; margin-bottom:8px;">
+                <img id="questionImageImg" src="" alt="Preview" style="max-width:100%; max-height:200px; border-radius:8px; border:1px solid #e0e0e0;" />
+                <button type="button" id="removeQuestionImage" class="btn-small danger" style="margin-top:4px;">Xóa hình</button>
+              </div>
+              <input type="file" id="questionImage" accept="image/*" style="display:none;" />
+              <button type="button" id="uploadImageBtn" class="btn-small">📷 Chọn hình ảnh</button>
+            </div>
           </form>
         </div>
         <div class="modal-footer">
@@ -1155,10 +1165,13 @@
       }
 
       /* ---- Render question card (shared by both tabs) ---- */
-      function renderQuestionCard(qText, options, answer, index) {
+      function renderQuestionCard(qText, options, answer, index, imageUrl = null) {
         const safeText = escapeHtml(qText).replace(/\n/g, '<br>');
+        const imageHtml = imageUrl
+          ? `<div class="q-image"><img src="/uploads/${imageUrl}" alt="Hình minh họa" loading="lazy" onclick="window.open(this.src, '_blank')" /></div>`
+          : '';
         return `
-        <div class="created-question" data-index="${index}">
+        <div class="created-question" data-index="${index}" data-image-url="${imageUrl || ''}">
           <div class="q-header">
             <span class="q-number">Câu ${index + 1}</span>
             <div class="q-actions">
@@ -1167,6 +1180,7 @@
             </div>
           </div>
           <div class="q-display">
+            ${imageHtml}
             <div class="q-content">${safeText}</div>
             ${options.length ? `<div class="q-options">${options.map((o, j) => `<div class="q-opt"><span class="q-opt-label">${String.fromCharCode(65 + j)})</span> ${escapeHtml(o).replace(/\n/g, '<br>')}</div>`).join('')}</div>` : ''}
             ${answer ? `<div class="q-answer"><span>Đáp án: ${escapeHtml(answer)}</span></div>` : ''}
@@ -2004,7 +2018,11 @@
         const subject = document.getElementById('bankSubject').value;
         const grade = document.getElementById('bankGrade').value;
         const difficulty = document.getElementById('bankDifficulty').value;
-        const search = document.getElementById('bankSearch').value;
+        let search = document.getElementById('bankSearch').value.trim();
+
+        // Check if searching by ID (e.g., "#1234" or "1234")
+        const idMatch = search.match(/^#?(\d+)$/);
+        const searchId = idMatch ? idMatch[1] : null;
 
         const params = new URLSearchParams();
         params.append('skip', bankPage * bankLimit);
@@ -2012,7 +2030,11 @@
         if (subject) params.append('subject', subject);
         if (grade) params.append('grade', grade);
         if (difficulty) params.append('difficulty', difficulty);
-        if (search) params.append('search', search);
+        if (searchId) {
+          params.append('id', searchId);
+        } else if (search) {
+          params.append('search', search);
+        }
 
         // Show/hide "Xóa theo bộ lọc" button
         const delFilterBtn = document.getElementById('bankDeleteFilteredBtn');
@@ -2028,10 +2050,13 @@
           const list = document.getElementById('bankList');
           list.innerHTML = (data.questions || []).map(q => `
             <div class="bank-item" data-id="${q.id}">
+              ${q.image_url ? `<div class="bank-item-image"><img src="/uploads/${q.image_url}" alt="Hình" loading="lazy" /></div>` : ''}
               <div class="bank-item-content">
+                <span class="bank-item-id">#${q.id}</span>
                 <strong>${q.subject || 'N/A'}</strong> -
                 <span class="difficulty-${q.difficulty || 'medium'}">${q.difficulty || 'medium'}</span>
                 ${q.grade ? `<span style="color:#6b7280;font-size:0.85em;">(Lớp ${q.grade})</span>` : ''}
+                ${q.image_url ? '<span style="color:#6366f1;font-size:0.75em;margin-left:4px;">📷</span>' : ''}
                 <p>${escapeHtml((q.content || '').substring(0, 150))}${(q.content||'').length > 150 ? '...' : ''}</p>
               </div>
               <div class="bank-item-actions">
@@ -2156,11 +2181,17 @@
 
         // Reset form
         const viewPreview = document.getElementById('questionViewPreview');
+        const imageUrlField = document.getElementById('questionImageUrl');
+        const imagePreview = document.getElementById('questionImagePreview');
+        const imageImg = document.getElementById('questionImageImg');
         questionForm.reset();
         optionInputs.forEach(input => input.value = '');
         correctRadios.forEach(radio => radio.checked = false);
         viewPreview.hidden = true;
         viewPreview.innerHTML = '';
+        imageUrlField.value = '';
+        imagePreview.style.display = 'none';
+        imageImg.src = '';
 
         if (questionId) {
           // View/Edit mode - load question data
@@ -2219,14 +2250,25 @@
               }
             }
 
+            // Load image if exists
+            if (q.image_url) {
+              imageUrlField.value = q.image_url;
+              imageImg.src = `/uploads/${q.image_url}`;
+              imagePreview.style.display = 'block';
+            }
+
             // Build rendered preview
             const previewContent = escapeHtml(q.content || '').replace(/\n/g, '<br>');
             const previewOpts = options.map((o, j) =>
               `<div class="q-opt"><span class="q-opt-label">${String.fromCharCode(65 + j)})</span> ${escapeHtml(o)}</div>`
             ).join('');
+            const previewImage = q.image_url
+              ? `<div class="q-image"><img src="/uploads/${q.image_url}" alt="Hình minh họa" style="max-width:100%; max-height:200px; border-radius:8px;" /></div>`
+              : '';
             viewPreview.innerHTML = `
               <div class="created-question" style="margin:0;">
                 <div class="q-display">
+                  ${previewImage}
                   <div class="q-content">${previewContent}</div>
                   ${previewOpts ? `<div class="q-options">${previewOpts}</div>` : ''}
                   ${answerDisplay ? `<div class="q-answer"><span>Đáp án: ${escapeHtml(answerDisplay)}</span></div>` : ''}
@@ -2258,6 +2300,8 @@
         const typeField = document.getElementById('questionType');
         const sourceField = document.getElementById('questionSource');
         const explanationField = document.getElementById('questionExplanation');
+        const imageUrlField = document.getElementById('questionImageUrl');
+        const imageFileInput = document.getElementById('questionImage');
         const optionInputs = document.querySelectorAll('.option-input');
         const correctRadios = document.querySelectorAll('input[name="correctAnswer"]');
 
@@ -2285,7 +2329,8 @@
           source: sourceField.value.trim() || 'manual',
           explanation: explanationField.value.trim(),
           options: JSON.stringify(options),  // API expects string
-          answer: correctAnswer !== null ? String(correctAnswer) : null
+          answer: correctAnswer !== null ? String(correctAnswer) : null,
+          image_url: imageUrlField.value || null
         };
 
         if (!questionData.content) {
@@ -2303,6 +2348,22 @@
             method = 'PUT';
           }
 
+          // Check if we need to upload a new image
+          const imageFile = imageFileInput.files[0];
+          if (imageFile && questionId) {
+            // Upload image for existing question
+            const formData = new FormData();
+            formData.append('image', imageFile);
+            const uploadRes = await fetch(`/api/questions/${questionId}/image`, {
+              method: 'POST',
+              body: formData
+            });
+            if (uploadRes.ok) {
+              const uploadData = await uploadRes.json();
+              questionData.image_url = uploadData.image_url;
+            }
+          }
+
           const res = await fetch(url, {
             method: method,
             headers: { 'Content-Type': 'application/json' },
@@ -2310,6 +2371,18 @@
           });
 
           if (res.ok) {
+            // For new questions with image, upload after creation
+            if (imageFile && !questionId) {
+              const newQ = await res.json();
+              if (newQ.id) {
+                const formData = new FormData();
+                formData.append('image', imageFile);
+                await fetch(`/api/questions/${newQ.id}/image`, {
+                  method: 'POST',
+                  body: formData
+                });
+              }
+            }
             closeQuestionModal();
             loadBankQuestions();
             loadBankStats();
@@ -2328,6 +2401,30 @@
       document.getElementById('questionCancelBtn').addEventListener('click', closeQuestionModal);
       document.getElementById('questionSaveBtn').addEventListener('click', saveQuestion);
       document.getElementById('addQuestionBtn').addEventListener('click', () => openQuestionModal());
+
+      // Image upload handlers
+      document.getElementById('uploadImageBtn').addEventListener('click', () => {
+        document.getElementById('questionImage').click();
+      });
+
+      document.getElementById('questionImage').addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (file) {
+          const reader = new FileReader();
+          reader.onload = (evt) => {
+            document.getElementById('questionImageImg').src = evt.target.result;
+            document.getElementById('questionImagePreview').style.display = 'block';
+          };
+          reader.readAsDataURL(file);
+        }
+      });
+
+      document.getElementById('removeQuestionImage').addEventListener('click', () => {
+        document.getElementById('questionImage').value = '';
+        document.getElementById('questionImageUrl').value = '';
+        document.getElementById('questionImageImg').src = '';
+        document.getElementById('questionImagePreview').style.display = 'none';
+      });
 
       // Math preview for question content
       document.getElementById('togglePreview').addEventListener('click', () => {

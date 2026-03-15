@@ -5,12 +5,13 @@ import importlib.util
 import os
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from sqlalchemy.orm import Session
 
 from app.api.dependencies import get_db
 from app.database import QuestionCRUD, HistoryCRUD
 from app.core import QuestionCreate, QuestionUpdate, BulkSaveRequest
+from app.services.image import save_question_image, download_image_sync, delete_question_images
 
 # Load cache module
 _services_dir = os.path.join(os.path.dirname(__file__), "..", "..", "services")
@@ -38,6 +39,7 @@ def _format_question(q) -> dict:
         "difficulty_score": q.difficulty_score,
         "tags": q.tags,
         "source": q.source,
+        "image_url": q.image_url,
         "quality_score": q.quality_score,
         "quality_issues": q.quality_issues,
         "times_used": q.times_used,
@@ -56,9 +58,17 @@ def get_questions(
     difficulty: Optional[str] = None,
     question_type: Optional[str] = None,
     search: Optional[str] = None,
+    id: Optional[int] = None,
     db: Session = Depends(get_db),
 ):
-    """Get all questions with optional filters"""
+    """Get all questions with optional filters. Use id param to search by exact ID."""
+    # If searching by ID, return just that question
+    if id is not None:
+        question = QuestionCRUD.get(db, id)
+        if question:
+            return {"questions": [_format_question(question)], "total": 1}
+        return {"questions": [], "total": 0}
+
     questions = QuestionCRUD.get_all(
         db,
         skip=skip,
@@ -116,9 +126,12 @@ def create_question(data: QuestionCreate, db: Session = Depends(get_db)):
 
 @router.post("/questions/bulk")
 def bulk_create_questions(data: BulkSaveRequest, db: Session = Depends(get_db)):
-    """Create multiple questions at once"""
-    questions_data = [
-        {
+    """Create multiple questions at once, with optional image download"""
+    questions_data = []
+    image_downloads = []  # Store (index, image_source_url) for later download
+
+    for i, q in enumerate(data.questions):
+        q_data = {
             "content": q.content,
             "options": q.options,
             "answer": q.answer,
@@ -130,12 +143,89 @@ def bulk_create_questions(data: BulkSaveRequest, db: Session = Depends(get_db)):
             "difficulty": q.difficulty,
             "tags": q.tags,
             "source": q.source,
+            "image_url": q.image_url,  # May already have local path
         }
-        for q in data.questions
-    ]
+        questions_data.append(q_data)
+
+        # Track external image URLs for download after questions are created
+        if q.image_source_url and not q.image_url:
+            image_downloads.append((i, q.image_source_url))
+
+    # Create questions first to get their IDs
     questions = QuestionCRUD.bulk_create(db, questions_data)
+
+    # Download and save images for questions that have external URLs
+    images_downloaded = 0
+    for idx, image_source_url in image_downloads:
+        if idx < len(questions):
+            question = questions[idx]
+            try:
+                image_bytes = download_image_sync(image_source_url)
+                if image_bytes:
+                    # Extract filename from URL
+                    filename = image_source_url.split('/')[-1].split('?')[0] or "image.png"
+                    image_url = save_question_image(question.id, image_bytes, filename)
+                    if image_url:
+                        # Update question with image_url
+                        QuestionCRUD.update(db, question.id, image_url=image_url)
+                        images_downloaded += 1
+            except Exception as e:
+                print(f"Failed to download image for question {question.id}: {e}")
+
     _db_cache.invalidate_on_question_change()  # Clear cache
-    return {"ok": True, "count": len(questions), "message": f"Đã lưu {len(questions)} câu hỏi"}
+
+    msg = f"Đã lưu {len(questions)} câu hỏi"
+    if images_downloaded > 0:
+        msg += f" ({images_downloaded} hình ảnh)"
+    return {"ok": True, "count": len(questions), "images": images_downloaded, "message": msg}
+
+
+@router.post("/questions/{question_id}/image")
+async def upload_question_image(
+    question_id: int,
+    image: UploadFile = File(...),
+    db: Session = Depends(get_db)
+):
+    """Upload an image for a question"""
+    # Verify question exists
+    question = QuestionCRUD.get(db, question_id)
+    if not question:
+        raise HTTPException(status_code=404, detail="Không tìm thấy câu hỏi")
+
+    # Validate file type
+    allowed_types = {"image/png", "image/jpeg", "image/gif", "image/webp"}
+    if image.content_type not in allowed_types:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Loại file không hỗ trợ. Chấp nhận: PNG, JPEG, GIF, WebP"
+        )
+
+    # Read and save image
+    image_bytes = await image.read()
+    image_url = save_question_image(question_id, image_bytes, image.filename or "image.png")
+
+    if not image_url:
+        raise HTTPException(status_code=500, detail="Không thể lưu hình ảnh")
+
+    # Update question with image_url
+    QuestionCRUD.update(db, question_id, image_url=image_url)
+    _db_cache.invalidate_on_question_change()
+
+    return {"ok": True, "image_url": image_url, "message": "Đã lưu hình ảnh"}
+
+
+@router.delete("/questions/{question_id}/image")
+def delete_question_image(question_id: int, db: Session = Depends(get_db)):
+    """Delete the image for a question"""
+    question = QuestionCRUD.get(db, question_id)
+    if not question:
+        raise HTTPException(status_code=404, detail="Không tìm thấy câu hỏi")
+
+    delete_question_images(question_id)
+    QuestionCRUD.update(db, question_id, image_url=None)
+    _db_cache.invalidate_on_question_change()
+
+    return {"ok": True, "message": "Đã xóa hình ảnh"}
 
 
 @router.put("/questions/{question_id}")
@@ -151,8 +241,10 @@ def update_question(question_id: int, data: QuestionUpdate, db: Session = Depend
 
 @router.delete("/questions/{question_id}")
 def delete_question(question_id: int, db: Session = Depends(get_db)):
-    """Delete a question"""
+    """Delete a question and its associated images"""
     if QuestionCRUD.delete(db, question_id):
+        # Also delete associated images
+        delete_question_images(question_id)
         _db_cache.invalidate_on_question_change()  # Clear cache
         return {"ok": True, "message": "Đã xóa câu hỏi"}
     raise HTTPException(status_code=404, detail="Không tìm thấy câu hỏi")
