@@ -15,6 +15,11 @@ from urllib.parse import urljoin
 import httpx
 from bs4 import BeautifulSoup
 
+try:
+    from . import image_filter as img_filter
+except ImportError:
+    import image_filter as img_filter
+
 HEADERS = {
     "User-Agent": (
         "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
@@ -115,39 +120,17 @@ def _clean_text(text: str) -> str:
     return text.strip()
 
 
-def _extract_image_url(element, base_url: str = "") -> Optional[str]:
+def _extract_image_url(element, base_url: str = "", question_text: str = "") -> Optional[str]:
     """
-    Extract the first meaningful image URL from an element.
-    Returns absolute URL or None if no image found.
+    Extract the first meaningful (non-formula) image URL from an element.
+    Uses centralized filter to skip LaTeX/formula images.
+    Only returns image if question_text indicates visual is needed.
     """
-    if not element:
-        return None
-
-    img = element.find('img')
-    if img and img.get('src'):
-        src = img['src']
-        # Skip tiny icons, avatars, lazy placeholders
-        if any(skip in src.lower() for skip in ['icon', 'avatar', 'placeholder', 'loading', 'pixel', 'emoji']):
-            return None
-        # Skip very small images (likely icons)
-        width = img.get('width', '')
-        height = img.get('height', '')
-        if width and height:
-            try:
-                if int(width) < 50 or int(height) < 50:
-                    return None
-            except ValueError:
-                pass
-        # Make absolute URL
-        if src.startswith('//'):
-            return 'https:' + src
-        elif src.startswith('/'):
-            return urljoin(base_url or 'https://tracnghiem.net', src)
-        elif src.startswith('http'):
-            return src
-        else:
-            return urljoin(base_url or 'https://tracnghiem.net', src)
-    return None
+    return img_filter.extract_meaningful_image_url(
+        element,
+        base_url or 'https://tracnghiem.net',
+        question_text
+    )
 
 
 def _extract_all_question_images(soup, base_url: str = "") -> Dict[int, str]:
@@ -254,8 +237,8 @@ def parse_quiz_page(html: str, url: str = "") -> List[Dict]:
                     "grade": grade,
                     "source": url,
                 }
-                # Add image if found for this question index
-                if question_idx in question_images:
+                # Add image if found for this question index AND question needs visual
+                if question_idx in question_images and img_filter.question_needs_image(question_text):
                     question_data["image_source_url"] = question_images[question_idx]
                 questions.append(question_data)
 

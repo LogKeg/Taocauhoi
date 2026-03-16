@@ -14,6 +14,11 @@ from urllib.parse import urljoin, urlparse
 import httpx
 from bs4 import BeautifulSoup, NavigableString, Tag
 
+try:
+    from . import image_filter as img_filter
+except ImportError:
+    import image_filter as img_filter
+
 HEADERS = {
     "User-Agent": (
         "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "

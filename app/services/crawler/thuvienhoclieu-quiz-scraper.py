@@ -14,6 +14,11 @@ from urllib.parse import urljoin
 import httpx
 from bs4 import BeautifulSoup
 
+try:
+    from . import image_filter as img_filter
+except ImportError:
+    import image_filter as img_filter
+
 HEADERS = {
     "User-Agent": (
         "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
@@ -107,36 +112,17 @@ def _clean_text(text: str) -> str:
     return text.strip()
 
 
-def _extract_image_url(element, base_url: str = "") -> Optional[str]:
-    """Extract first meaningful image URL from element."""
-    if not element:
-        return None
-
-    img = element.find('img')
-    if img and img.get('src'):
-        src = img['src']
-        # Skip icons, logos, avatars
-        if any(skip in src.lower() for skip in ['icon', 'avatar', 'logo', 'placeholder', 'loading']):
-            return None
-        # Skip very small images
-        width = img.get('width', '')
-        height = img.get('height', '')
-        if width and height:
-            try:
-                if int(width) < 50 or int(height) < 50:
-                    return None
-            except ValueError:
-                pass
-        # Make absolute URL
-        if src.startswith('//'):
-            return 'https:' + src
-        elif src.startswith('/'):
-            return urljoin(base_url or 'https://thuvienhoclieu.com', src)
-        elif src.startswith('http'):
-            return src
-        else:
-            return urljoin(base_url or 'https://thuvienhoclieu.com', src)
-    return None
+def _extract_image_url(element, base_url: str = "", question_text: str = "") -> Optional[str]:
+    """
+    Extract the first meaningful (non-formula) image URL from an element.
+    Uses centralized filter to skip LaTeX/formula images.
+    Only returns image if question_text indicates visual is needed.
+    """
+    return img_filter.extract_meaningful_image_url(
+        element,
+        base_url or 'https://thuvienhoclieu.com',
+        question_text
+    )
 
 
 def parse_quiz_page(html: str, url: str = "") -> List[Dict]:
@@ -173,10 +159,10 @@ def parse_quiz_page(html: str, url: str = "") -> List[Dict]:
         if not question_text or len(question_text) < 5:
             continue
 
-        # Extract image from question
-        image_url = _extract_image_url(text_el, url)
+        # Extract image from question (only if question mentions visual elements)
+        image_url = _extract_image_url(text_el, url, question_text)
         if not image_url:
-            image_url = _extract_image_url(container, url)
+            image_url = _extract_image_url(container, url, question_text)
 
         # Get options
         options = []

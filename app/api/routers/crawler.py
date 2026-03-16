@@ -446,7 +446,11 @@ def get_suggested_sources() -> dict:
 # Load VietJack scraper module (with image support)
 import importlib.util
 import os
+import sys
 _crawler_dir = os.path.join(os.path.dirname(__file__), "..", "..", "services", "crawler")
+_crawler_dir = os.path.abspath(_crawler_dir)
+if _crawler_dir not in sys.path:
+    sys.path.insert(0, _crawler_dir)
 _vj_path = os.path.join(_crawler_dir, "vietjack-exam-and-quiz-scraper.py")
 _vj_spec = importlib.util.spec_from_file_location("vietjack_scraper", _vj_path)
 _vietjack = importlib.util.module_from_spec(_vj_spec)

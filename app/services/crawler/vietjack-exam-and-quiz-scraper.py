@@ -14,6 +14,11 @@ from urllib.parse import urljoin
 import httpx
 from bs4 import BeautifulSoup
 
+try:
+    from . import image_filter as img_filter
+except ImportError:
+    import image_filter as img_filter
+
 HEADERS = {
     "User-Agent": (
         "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
@@ -102,33 +107,31 @@ def _clean_text(text: str) -> str:
 
 def _extract_question_images(soup, base_url: str = "") -> Dict[int, str]:
     """
-    Extract images associated with questions.
-    Maps question index to image URL.
+    Extract meaningful images (diagrams, charts) associated with questions.
+    Skips formula/LaTeX images. Maps question index to image URL.
     """
     images = {}
+    base = base_url or 'https://vietjack.com'
 
     # VietJack often has images between question text
-    # Look for img tags and try to associate with nearby questions
     all_imgs = soup.find_all('img')
 
     for img in all_imgs:
-        src = img.get('src', '')
-        if not src:
+        # Skip formula images using centralized filter
+        if not img_filter.is_meaningful_image(img):
             continue
 
-        # Skip icons, logos, ads
-        if any(skip in src.lower() for skip in [
-            'icon', 'logo', 'avatar', 'ads', 'banner', 'button', 'pixel'
-        ]):
+        src = img.get('src', '')
+        if not src:
             continue
 
         # Make absolute URL
         if src.startswith('//'):
             src = 'https:' + src
         elif src.startswith('/'):
-            src = urljoin(base_url or 'https://vietjack.com', src)
+            src = urljoin(base, src)
         elif not src.startswith('http'):
-            src = urljoin(base_url or 'https://vietjack.com', src)
+            src = urljoin(base, src)
 
         # Try to find associated question number from nearby text
         parent = img.parent
@@ -220,9 +223,9 @@ def parse_quiz_page(html: str, url: str = "") -> List[Dict]:
                 "source": url,
             }
 
-            # Add image if found
+            # Add image if found AND question needs visual
             q_idx = int(q_num) - 1
-            if q_idx in question_images:
+            if q_idx in question_images and img_filter.question_needs_image(question_text):
                 question_data["image_source_url"] = question_images[q_idx]
 
             questions.append(question_data)
