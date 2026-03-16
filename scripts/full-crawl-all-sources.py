@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """
-Full crawl from all 4 sources: Hoc247, TracNghiem.net, ThuVienHocLieu, VietJack.
+Full crawl from all 5 sources:
+- Hoc247, TracNghiem.net, ThuVienHocLieu, VietJack (Vietnamese)
+- Open Trivia DB (International - English)
 Deletes existing questions first, then crawls everything.
 """
 import sys
@@ -155,6 +157,20 @@ def crawl_thuvienhoclieu():
     return all_questions
 
 
+def crawl_opentdb():
+    """Crawl Open Trivia Database (international questions)."""
+    opentdb = load_scraper("opentdb", "opentdb-api-scraper.py")
+
+    print("  Fetching all categories from Open Trivia DB...")
+    questions, errors = opentdb.scrape_all_categories()
+
+    if errors:
+        for err in errors:
+            print(f"    Warning: {err}")
+
+    return questions
+
+
 def crawl_vietjack():
     """Crawl VietJack categories."""
     vietjack = load_scraper("vietjack", "vietjack-exam-and-quiz-scraper.py")
@@ -246,11 +262,11 @@ def save_questions(questions, source_name):
 
 def main():
     print("=" * 60)
-    print("FULL CRAWL - ALL 4 SOURCES")
+    print("FULL CRAWL - ALL 5 SOURCES")
     print("=" * 60)
 
     # Step 1: Delete existing data
-    print("\n[1/5] Deleting existing questions...")
+    print("\n[1/6] Deleting existing questions...")
     delete_all_questions()
 
     # Also clear images folder
@@ -265,7 +281,7 @@ def main():
     total_images = 0
 
     # Step 2: Hoc247
-    print("\n[2/5] Crawling Hoc247...")
+    print("\n[2/6] Crawling Hoc247...")
     try:
         questions = crawl_hoc247()
         result = save_questions(questions, "hoc247.net")
@@ -276,7 +292,7 @@ def main():
         print(f"  ERROR: {e}")
 
     # Step 3: TracNghiem.net
-    print("\n[3/5] Crawling TracNghiem.net...")
+    print("\n[3/6] Crawling TracNghiem.net...")
     try:
         questions = crawl_tracnghiem_net()
         result = save_questions(questions, "tracnghiem.net")
@@ -287,7 +303,7 @@ def main():
         print(f"  ERROR: {e}")
 
     # Step 4: ThuVienHocLieu
-    print("\n[4/5] Crawling ThuVienHocLieu...")
+    print("\n[4/6] Crawling ThuVienHocLieu...")
     try:
         questions = crawl_thuvienhoclieu()
         result = save_questions(questions, "thuvienhoclieu.com")
@@ -298,10 +314,21 @@ def main():
         print(f"  ERROR: {e}")
 
     # Step 5: VietJack
-    print("\n[5/5] Crawling VietJack...")
+    print("\n[5/6] Crawling VietJack...")
     try:
         questions = crawl_vietjack()
         result = save_questions(questions, "vietjack.com")
+        total_saved += result["saved"]
+        total_images += result["images"]
+        print(f"  => Saved: {result['saved']}, Skipped: {result['skipped']}, Images: {result['images']}")
+    except Exception as e:
+        print(f"  ERROR: {e}")
+
+    # Step 6: Open Trivia DB (International)
+    print("\n[6/6] Crawling Open Trivia DB (International)...")
+    try:
+        questions = crawl_opentdb()
+        result = save_questions(questions, "opentdb.com")
         total_saved += result["saved"]
         total_images += result["images"]
         print(f"  => Saved: {result['saved']}, Skipped: {result['skipped']}, Images: {result['images']}")

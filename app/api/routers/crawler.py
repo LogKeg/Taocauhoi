@@ -429,10 +429,16 @@ def get_suggested_sources() -> dict:
             "subjects": ["toan", "ngu_van", "tieng_anh", "vat_ly", "hoa_hoc"],
         },
         {
-            "name": "Lời Giải Hay",
-            "url": "https://loigiaihay.com",
-            "description": "Lời giải bài tập SGK, đề thi",
-            "subjects": ["toan", "ngu_van", "tieng_anh"],
+            "name": "TracNghiem.net",
+            "url": "https://tracnghiem.net",
+            "description": "2M+ câu hỏi trắc nghiệm các môn (auto-scrape)",
+            "subjects": ["toan", "vat_ly", "hoa_hoc", "sinh_hoc", "tieng_anh", "lich_su", "dia_ly"],
+        },
+        {
+            "name": "Open Trivia DB",
+            "url": "https://opentdb.com",
+            "description": "API câu hỏi quốc tế (tiếng Anh) - Science, Math, History, Geography",
+            "subjects": ["science", "math", "history", "geography", "informatics", "biology"],
         },
     ]
 
@@ -702,6 +708,96 @@ def scrape_hoc247(
         "skipped_count": skipped_count,
         "images_count": images_count,
         "errors": errors if errors else [],
+    }
+
+
+# ============================================================================
+# Open Trivia DB API Scraper (International)
+# ============================================================================
+
+# Load OpenTDB scraper module
+_opentdb_path = os.path.join(_crawler_dir, "opentdb-api-scraper.py")
+_opentdb_spec = importlib.util.spec_from_file_location("opentdb_api_scraper", _opentdb_path)
+_opentdb = importlib.util.module_from_spec(_opentdb_spec)
+_opentdb_spec.loader.exec_module(_opentdb)
+
+
+OPENTDB_CATEGORIES = [
+    {"name": "Science & Nature", "id": 17, "subject": "science"},
+    {"name": "Science: Computers", "id": 18, "subject": "informatics"},
+    {"name": "Science: Mathematics", "id": 19, "subject": "math"},
+    {"name": "Geography", "id": 22, "subject": "geography"},
+    {"name": "History", "id": 23, "subject": "history"},
+    {"name": "General Knowledge", "id": 9, "subject": "general"},
+    {"name": "Animals (Biology)", "id": 27, "subject": "biology"},
+]
+
+
+@router.get("/opentdb/categories")
+def get_opentdb_categories() -> dict:
+    """Get available categories from Open Trivia Database."""
+    return {"categories": OPENTDB_CATEGORIES}
+
+
+@router.post("/opentdb/scrape")
+def scrape_opentdb(
+    category_id: int = Form(None),
+    difficulty: str = Form(""),
+    amount: int = Form(50),
+    save_to_db: bool = Form(True),
+) -> dict:
+    """
+    Scrape questions from Open Trivia Database API.
+
+    - category_id: Optional category (see /opentdb/categories)
+    - difficulty: easy, medium, hard, or empty for all
+    - amount: Number of questions to fetch (max 50 per request)
+    """
+    if category_id:
+        # Fetch from specific category
+        questions, error = _opentdb.fetch_questions(
+            category=category_id,
+            amount=min(amount, 50),
+            difficulty=difficulty if difficulty else None
+        )
+        if error:
+            return {"success": False, "error": error}
+    else:
+        # Fetch from all categories
+        questions, errors = _opentdb.scrape_all_categories()
+        if not questions:
+            return {"success": False, "error": "; ".join(errors) if errors else "No questions found"}
+
+    # Convert questions format for saving
+    formatted_questions = []
+    for q in questions:
+        formatted_questions.append({
+            "content": q["question"],
+            "options": json.dumps(q["options"], ensure_ascii=False) if q["options"] else None,
+            "answer": q.get("answer", ""),
+            "subject": q.get("subject", "general"),
+            "grade": q.get("grade", "international"),
+            "source": "opentdb.com",
+            "difficulty": q.get("difficulty", "medium"),
+            "question_type": "mcq",
+        })
+
+    saved_count = 0
+    skipped_count = 0
+    if save_to_db and formatted_questions:
+        db = SessionLocal()
+        try:
+            r = _save_questions(db, formatted_questions, "", "medium", "opentdb.com")
+            saved_count = r["saved"]
+            skipped_count = r["skipped"]
+        finally:
+            db.close()
+
+    return {
+        "success": True,
+        "question_count": len(questions),
+        "saved_count": saved_count,
+        "skipped_count": skipped_count,
     }
 
 
