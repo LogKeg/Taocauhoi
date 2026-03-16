@@ -335,6 +335,7 @@
                         <option value="vietjack">VietJack.com</option>
                         <option value="hoc247">Hoc247.net</option>
                         <option value="tracnghiem_net">TracNghiem.net (2M+ câu)</option>
+                        <option value="opentdb">Open Trivia DB (Quốc tế)</option>
                       </select>
                     </div>
                     <div>
@@ -3303,25 +3304,33 @@
         thuvienhoclieu: [],
         vietjack: [],
         hoc247: [],
-        tracnghiem_net: []
+        tracnghiem_net: [],
+        opentdb: []
       };
 
       async function loadScraperCategories() {
         try {
-          const [tvhlRes, vjRes, hoc247Res, tnRes] = await Promise.all([
+          const [tvhlRes, vjRes, hoc247Res, tnRes, opentdbRes] = await Promise.all([
             fetch('/api/crawler/thuvienhoclieu/categories'),
             fetch('/api/crawler/vietjack/categories'),
             fetch('/api/crawler/hoc247/categories'),
-            fetch('/api/crawler/tracnghiem-net/categories')
+            fetch('/api/crawler/tracnghiem-net/categories'),
+            fetch('/api/crawler/opentdb/categories')
           ]);
           const tvhlData = await tvhlRes.json();
           const vjData = await vjRes.json();
           const hoc247Data = await hoc247Res.json();
           const tnData = await tnRes.json();
+          const opentdbData = await opentdbRes.json();
           scraperCategories.thuvienhoclieu = tvhlData.categories || [];
           scraperCategories.vietjack = vjData.categories || [];
           scraperCategories.hoc247 = hoc247Data.categories || [];
           scraperCategories.tracnghiem_net = tnData.categories || [];
+          // OpenTDB has id instead of url, convert format
+          scraperCategories.opentdb = (opentdbData.categories || []).map(c => ({
+            name: c.name + ' (' + c.subject + ')',
+            url: c.id.toString()  // Use ID as "url" for form compatibility
+          }));
           updateScraperCategoryDropdown();
         } catch (err) { /* ignore */ }
       }
@@ -3338,7 +3347,8 @@
           thuvienhoclieu: 'https://thuvienhoclieu.com/de-trac-nghiem-online-...',
           vietjack: 'https://vietjack.com/de-kiem-tra-lop-12/...',
           hoc247: 'https://hoc247.net/trac-nghiem-toan-12-...',
-          tracnghiem_net: 'https://tracnghiem.net/tnthpt/...'
+          tracnghiem_net: 'https://tracnghiem.net/tnthpt/...',
+          opentdb: 'Chọn danh mục hoặc để trống để lấy tất cả'
         };
         urlInput.placeholder = placeholders[source] || '';
       }
@@ -3368,7 +3378,7 @@
 
         btn.disabled = true;
         btn.textContent = 'Đang scrape...';
-        const sourceNames = { thuvienhoclieu: 'thuvienhoclieu.com', vietjack: 'vietjack.com', hoc247: 'hoc247.net', tracnghiem_net: 'tracnghiem.net' };
+        const sourceNames = { thuvienhoclieu: 'thuvienhoclieu.com', vietjack: 'vietjack.com', hoc247: 'hoc247.net', tracnghiem_net: 'tracnghiem.net', opentdb: 'opentdb.com' };
         const scrapeAllMsg = !categoryUrl && !customUrl ? ` (tất cả ${urlsToScrape.length} danh mục)` : '';
         statusEl.innerHTML = `<strong>Đang quét dữ liệu từ ${sourceNames[source]}${scrapeAllMsg}...</strong><br>Quá trình này có thể mất vài phút.`;
         resultsEl.hidden = true;
@@ -3377,7 +3387,8 @@
           thuvienhoclieu: '/api/crawler/thuvienhoclieu/scrape',
           vietjack: '/api/crawler/vietjack/scrape',
           hoc247: '/api/crawler/hoc247/scrape',
-          tracnghiem_net: '/api/crawler/tracnghiem-net/scrape'
+          tracnghiem_net: '/api/crawler/tracnghiem-net/scrape',
+          opentdb: '/api/crawler/opentdb/scrape'
         };
         const endpoint = endpoints[source];
 
@@ -3390,14 +3401,20 @@
             statusEl.innerHTML = `<strong>Đang quét ${sourceNames[source]}...</strong><br>Danh mục ${i + 1}/${urlsToScrape.length}`;
 
             const formData = new FormData();
-            formData.append('category_url', url);
-            formData.append('custom_url', '');
             formData.append('save_to_db', 'true');
-            // Khi scrape nhiều danh mục, vẫn giữ số lượng đủ lớn cho mỗi danh mục
-            if (source === 'thuvienhoclieu') {
-              formData.append('max_quizzes', urlsToScrape.length > 1 ? 20 : maxItems);
+            // OpenTDB uses category_id instead of category_url
+            if (source === 'opentdb') {
+              if (url) formData.append('category_id', url);  // url is actually category ID
+              formData.append('amount', '50');
             } else {
-              formData.append('max_pages', urlsToScrape.length > 1 ? 20 : maxItems);
+              formData.append('category_url', url);
+              formData.append('custom_url', '');
+              // Khi scrape nhiều danh mục, vẫn giữ số lượng đủ lớn cho mỗi danh mục
+              if (source === 'thuvienhoclieu') {
+                formData.append('max_quizzes', urlsToScrape.length > 1 ? 20 : maxItems);
+              } else {
+                formData.append('max_pages', urlsToScrape.length > 1 ? 20 : maxItems);
+              }
             }
 
             try {
