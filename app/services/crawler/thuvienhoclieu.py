@@ -30,23 +30,29 @@ HEADERS = {
 # Delay between requests to be respectful
 REQUEST_DELAY = 1.0  # seconds
 
-# Subject mapping from Vietnamese URL slugs
+# Subject mapping from Vietnamese URL slugs (sorted by length for priority matching)
 SUBJECT_MAP = {
-    "toan": "math",
-    "vat-ly": "physics",
-    "vat-li": "physics",
-    "hoa": "chemistry",
-    "hoa-hoc": "chemistry",
-    "sinh": "biology",
-    "sinh-hoc": "biology",
-    "tieng-anh": "english",
     "lich-su": "history",
-    "dia-li": "geography",
-    "dia-ly": "geography",
-    "gdcd": "civic_education",
-    "tin": "informatics",
+    "tieng-anh": "english",
+    "sinh-hoc": "biology",
+    "hoa-hoc": "chemistry",
     "tin-hoc": "informatics",
     "ngu-van": "literature",
+    "vat-ly": "physics",
+    "vat-li": "physics",
+    "dia-li": "geography",
+    "dia-ly": "geography",
+    "mon-su": "history",  # mon-su in URLs like de-thi-thu-...-online-mon-su
+    "mon-dia": "geography",
+    "mon-sinh": "biology",
+    "mon-hoa": "chemistry",
+    "toan": "math",
+    "hoa": "chemistry",
+    "sinh": "biology",
+    "gdcd": "civic_education",
+    "tin": "informatics",
+    "dia": "geography",
+    "su": "history",
 }
 
 # Grade detection
@@ -248,6 +254,9 @@ def discover_quiz_links(html: str, base_url: str = "") -> List[str]:
         r"|trac-nghiem-truc-tuyen-[^/]+"
         r"|de-thi-thu-[^/]+-online[^/]*"
         r"|de-\d+-phut-[^/]+-online[^/]*"
+        r"|de-thi-thu-[^/]*-online-[^/]+"  # New: de-thi-thu-...-online-mon-...
+        r"|de-thi-thu-tn-[^/]*-online-[^/]+"  # de-thi-thu-tn-...-online-...
+        r"|de-thi-thu-tot-nghiep-[^/]*-online[^/]*"  # de-thi-thu-tot-nghiep-...-online
     )
 
     for a_tag in soup.find_all("a", href=True):

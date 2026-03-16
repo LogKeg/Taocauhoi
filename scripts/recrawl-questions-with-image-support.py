@@ -53,7 +53,8 @@ def save_questions_with_images(db, questions: list, source_domain: str) -> dict:
     skipped = 0
 
     for q in questions:
-        content = q.get("question", "").strip()
+        # Support both "question" and "content" field names
+        content = q.get("question", q.get("content", "")).strip()
         if not content:
             continue
 
@@ -191,15 +192,9 @@ def recrawl_thuvienhoclieu(db):
     deleted = delete_questions_by_source(db, "thuvienhoclieu.com")
     print(f"Deleted {deleted} old questions")
 
-    # Categories to crawl (using correct URL format)
+    # Categories to crawl - main quiz listing page discovers all quiz links
     categories = [
-        "https://thuvienhoclieu.com/trac-nghiem-online/trac-nghiem-online-dia-li/trac-nghiem-online-dia-li-12/",
-        "https://thuvienhoclieu.com/trac-nghiem-online/trac-nghiem-online-dia-li/trac-nghiem-online-dia-li-on-thi-tn-thpt/",
-        "https://thuvienhoclieu.com/trac-nghiem-online/trac-nghiem-online-mon-hoa/trac-nghiem-online-hoa-12/",
-        "https://thuvienhoclieu.com/trac-nghiem-online/trac-nghiem-online-mon-hoa/trac-nghiem-online-mon-hoa-on-thi-tnthpt/",
-        "https://thuvienhoclieu.com/trac-nghiem-online/trac-nghiem-online-mon-sinh/trac-nghiem-online-mon-sinh-on-thi-tn-thpt/",
-        "https://thuvienhoclieu.com/trac-nghiem-online/trac-nghiem-online-toan/",
-        "https://thuvienhoclieu.com/trac-nghiem-online/trac-nghiem-online-lich-su/",
+        "https://thuvienhoclieu.com/trac-nghiem-online/",
     ]
 
     total_saved = 0
