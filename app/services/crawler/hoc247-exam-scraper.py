@@ -149,6 +149,58 @@ def _extract_image_url(element, base_url: str = "", question_text: str = "") -> 
     )
 
 
+def _extract_reading_passage(soup) -> str:
+    """
+    Extract reading passage or fill-in-blank text from Hoc247 page if present.
+
+    Supports:
+    - Reading passages: "Read the passage..."
+    - Fill-in-blank: "Fill in each numbered blank..."
+    - Complete dialogue: "Complete the dialogue..."
+    """
+    # Common instruction patterns for English comprehension exercises
+    instruction_patterns = [
+        'Read the passage',
+        'Read the following passage',
+        'Read the text',
+        'Read the following',
+        'Fill in each numbered blank',
+        'Fill in the blank',
+        'Complete the dialogue',
+        'Complete the conversation',
+        'Choose the word',
+        'Choose the best',
+    ]
+
+    # Look for divs containing passage/text
+    for div in soup.find_all('div'):
+        text = div.get_text(separator=' ', strip=True)
+        # Check if this starts with an instruction
+        for pattern in instruction_patterns:
+            if text.startswith(pattern) or pattern in text[:60]:
+                # Make sure it's substantial (not just instruction)
+                if len(text) > 150:
+                    return _clean_text(text)
+                break
+
+    # Alternative: look for content before first question that looks like a passage
+    first_h3 = soup.find('h3', class_='b-title')
+    if first_h3:
+        # Get all previous siblings
+        prev_divs = first_h3.find_all_previous('div')
+        for div in prev_divs:
+            text = div.get_text(separator=' ', strip=True)
+            # Check if this looks like a reading passage (long text, English content)
+            if len(text) > 200 and not text.startswith('Câu'):
+                # Check if it contains English sentences or numbered blanks
+                has_english = re.search(r'[A-Za-z]{3,}\s+[A-Za-z]{3,}\s+[A-Za-z]{3,}', text)
+                has_blanks = re.search(r'\(\d+\)\s*_+', text)
+                if has_english or has_blanks:
+                    return _clean_text(text)
+
+    return ""
+
+
 def parse_quiz_page(html: str, url: str = "") -> List[Dict]:
     """
     Parse Hoc247 quiz page to extract multiple choice questions.
@@ -158,6 +210,7 @@ def parse_quiz_page(html: str, url: str = "") -> List[Dict]:
     - Question text in <a> tag with <p> content
     - Options in <ul class="dstl"> with <li> items
     - Option labels in <span class="cautl">
+    - For Reading comprehension: passage text is prepended to each question
     """
     soup = BeautifulSoup(html, "html.parser")
     questions = []
@@ -169,6 +222,15 @@ def parse_quiz_page(html: str, url: str = "") -> List[Dict]:
     # Detect metadata
     subject = _detect_subject(url, title)
     grade = _detect_grade(url, title)
+
+    # Extract reading passage if this is an English comprehension page
+    # (reading, speaking, skills, etc.)
+    reading_passage = ""
+    if subject == "english":
+        # Check for any English comprehension exercise type
+        url_lower = url.lower()
+        if any(kw in url_lower for kw in ['reading', 'speaking', 'skills', 'read', 'listen']):
+            reading_passage = _extract_reading_passage(soup)
 
     # Find all dstl (danh sach tra loi = answer list) elements
     option_lists = soup.find_all('ul', class_='dstl')
@@ -231,8 +293,13 @@ def parse_quiz_page(html: str, url: str = "") -> List[Dict]:
 
         # Only save if we have valid question and options
         if question_text and len(options) >= 2:
+            # For reading comprehension, prepend the passage to the question
+            full_question = question_text
+            if reading_passage:
+                full_question = f"[Reading Passage]\n{reading_passage}\n\n[Question]\n{question_text}"
+
             question_data = {
-                "question": question_text,
+                "question": full_question,
                 "options": options[:4],  # Max 4 options A-D
                 "answer": "",  # Hoc247 doesn't show answers directly
                 "subject": subject,
