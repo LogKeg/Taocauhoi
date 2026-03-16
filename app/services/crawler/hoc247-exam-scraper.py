@@ -157,46 +157,67 @@ def _extract_reading_passage(soup) -> str:
     - Reading passages: "Read the passage..."
     - Fill-in-blank: "Fill in each numbered blank..."
     - Complete dialogue: "Complete the dialogue..."
+
+    IMPORTANT: Only extract the passage text itself, not the questions that follow.
     """
     # Common instruction patterns for English comprehension exercises
     instruction_patterns = [
         'Read the passage',
         'Read the following passage',
         'Read the text',
-        'Read the following',
+        'Read the following text',
         'Fill in each numbered blank',
         'Fill in the blank',
         'Complete the dialogue',
         'Complete the conversation',
-        'Choose the word',
-        'Choose the best',
     ]
 
-    # Look for divs containing passage/text
+    # Look for divs containing passage/text - get ONLY direct text, not children
     for div in soup.find_all('div'):
-        text = div.get_text(separator=' ', strip=True)
-        # Check if this starts with an instruction
+        # Get only the direct text content of this div (not nested elements)
+        # by extracting text from NavigableString children only
+        direct_text_parts = []
+        for child in div.children:
+            if isinstance(child, str):
+                direct_text_parts.append(child.strip())
+            elif hasattr(child, 'name') and child.name in ['br']:
+                direct_text_parts.append(' ')
+
+        direct_text = ' '.join(direct_text_parts).strip()
+
+        # Check if this starts with an instruction pattern
         for pattern in instruction_patterns:
-            if text.startswith(pattern) or pattern in text[:60]:
-                # Make sure it's substantial (not just instruction)
-                if len(text) > 150:
-                    return _clean_text(text)
+            if direct_text.startswith(pattern) or pattern in direct_text[:80]:
+                # Make sure it's substantial passage (not just instruction)
+                # and doesn't contain question markers
+                if len(direct_text) > 100:
+                    # Remove any trailing "Câu X:" or question content that may have leaked
+                    clean_passage = re.split(r'Câu\s*\d+\s*:', direct_text)[0]
+                    # Remove "Bắt đầu làm bài" or similar buttons
+                    clean_passage = re.sub(r'Bắt đầu làm bài.*$', '', clean_passage)
+                    clean_passage = _clean_text(clean_passage)
+                    if len(clean_passage) > 80:
+                        return clean_passage
                 break
 
-    # Alternative: look for content before first question that looks like a passage
+    # Alternative: look for content before first question
     first_h3 = soup.find('h3', class_='b-title')
     if first_h3:
-        # Get all previous siblings
-        prev_divs = first_h3.find_all_previous('div')
-        for div in prev_divs:
-            text = div.get_text(separator=' ', strip=True)
-            # Check if this looks like a reading passage (long text, English content)
-            if len(text) > 200 and not text.startswith('Câu'):
-                # Check if it contains English sentences or numbered blanks
-                has_english = re.search(r'[A-Za-z]{3,}\s+[A-Za-z]{3,}\s+[A-Za-z]{3,}', text)
-                has_blanks = re.search(r'\(\d+\)\s*_+', text)
+        # Look for the immediate previous div sibling that contains the passage
+        prev_sibling = first_h3.find_previous_sibling('div')
+        if prev_sibling:
+            # Get only direct text
+            direct_text_parts = []
+            for child in prev_sibling.children:
+                if isinstance(child, str):
+                    direct_text_parts.append(child.strip())
+            direct_text = ' '.join(direct_text_parts).strip()
+
+            if len(direct_text) > 100:
+                has_english = re.search(r'[A-Za-z]{3,}\s+[A-Za-z]{3,}\s+[A-Za-z]{3,}', direct_text)
+                has_blanks = re.search(r'\(\d+\)\s*_+', direct_text)
                 if has_english or has_blanks:
-                    return _clean_text(text)
+                    return _clean_text(direct_text)
 
     return ""
 
