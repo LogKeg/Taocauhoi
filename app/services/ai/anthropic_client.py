@@ -23,6 +23,7 @@ def call_anthropic(prompt: str) -> Tuple[Optional[str], Optional[str]]:
     url = f"{ANTHROPIC_API_BASE}/v1/messages"
     headers = {
         "x-api-key": ANTHROPIC_API_KEY,
+        "Authorization": f"Bearer {ANTHROPIC_API_KEY}",
         "anthropic-version": "2023-06-01",
         "content-type": "application/json",
     }

@@ -47,7 +47,10 @@ async def update_ai_settings(request: Request) -> dict:
     if "anthropic_model" in data:
         ai_config.ANTHROPIC_MODEL = data["anthropic_model"].strip() or "claude-sonnet-4-20250514"
     if "anthropic_base" in data:
-        ai_config.ANTHROPIC_API_BASE = data["anthropic_base"].strip() or "https://api.anthropic.com"
+        base = data["anthropic_base"].strip()
+        if base and not base.startswith("http"):
+            base = "https://" + base
+        ai_config.ANTHROPIC_API_BASE = base or "https://api.anthropic.com"
 
     save_settings_to_file({
         "openai_key": ai_config.OPENAI_API_KEY,

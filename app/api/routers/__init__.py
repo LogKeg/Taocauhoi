@@ -30,7 +30,6 @@ def _load_router(filename: str):
 
 
 system_router = _load_router("system-status-and-cache-endpoints.py")
-ai_tools_router = _load_router("ai-tools-generate-explain-classify-translate-improve.py")
 
 __all__ = [
     "settings_router",
@@ -45,5 +44,4 @@ __all__ = [
     "storage_router",
     "curriculum_router",
     "system_router",
-    "ai_tools_router",
 ]
