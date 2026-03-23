@@ -112,6 +112,7 @@ from app.api.routers import (
     storage_router,
     curriculum_router,
     system_router,
+    ai_tools_router,
 )
 
 
@@ -238,6 +239,7 @@ app.include_router(crawler_router)
 app.include_router(storage_router)
 app.include_router(curriculum_router)
 app.include_router(system_router)
+app.include_router(ai_tools_router)
 
 
 @app.get("/")
