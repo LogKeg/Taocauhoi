@@ -46,6 +46,7 @@ OLLAMA_MODEL = _saved.get("ollama_model") or os.getenv("OLLAMA_MODEL", "qwen3.5:
 # Anthropic Claude settings
 ANTHROPIC_API_KEY = _saved.get("anthropic_key") or os.getenv("ANTHROPIC_API_KEY", "")
 ANTHROPIC_MODEL = _saved.get("anthropic_model") or os.getenv("ANTHROPIC_MODEL", "claude-sonnet-4-20250514")
+ANTHROPIC_API_BASE = _saved.get("anthropic_base") or os.getenv("ANTHROPIC_API_BASE", "https://api.anthropic.com")
 
 
 def reload_settings():
@@ -53,7 +54,7 @@ def reload_settings():
     global OPENAI_API_KEY, OPENAI_MODEL, OPENAI_API_BASE
     global GEMINI_API_KEY, GEMINI_MODEL
     global OLLAMA_BASE, OLLAMA_MODEL
-    global ANTHROPIC_API_KEY, ANTHROPIC_MODEL
+    global ANTHROPIC_API_KEY, ANTHROPIC_MODEL, ANTHROPIC_API_BASE
 
     _saved = load_saved_settings()
 
@@ -69,3 +70,4 @@ def reload_settings():
 
     ANTHROPIC_API_KEY = _saved.get("anthropic_key") or os.getenv("ANTHROPIC_API_KEY", "")
     ANTHROPIC_MODEL = _saved.get("anthropic_model") or os.getenv("ANTHROPIC_MODEL", "claude-sonnet-4-20250514")
+    ANTHROPIC_API_BASE = _saved.get("anthropic_base") or os.getenv("ANTHROPIC_API_BASE", "https://api.anthropic.com")

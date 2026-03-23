@@ -1011,9 +1011,18 @@ button, .btn {
   border-radius: 6px;
 }
 
+.engine-status {
+  margin-top: 20px;
+  padding: 16px;
+  background: var(--bg-main);
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+}
+
 .engine-status h3 {
   font-size: 14px;
   margin-bottom: 12px;
+  font-weight: 600;
 }
 
 .engine-row {

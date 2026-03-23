@@ -94,6 +94,13 @@ def get_questions_stats(db: Session = Depends(get_db)):
     return {"stats": stats, "total": total}
 
 
+@router.post("/questions/clear-cache")
+def clear_questions_cache():
+    """Clear all question-related cache."""
+    _db_cache.invalidate_on_question_change()
+    return {"ok": True, "message": "Cache cleared"}
+
+
 @router.get("/questions/{question_id}")
 def get_question(question_id: int, db: Session = Depends(get_db)):
     """Get a single question by ID"""

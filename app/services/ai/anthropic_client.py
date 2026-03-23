@@ -15,12 +15,12 @@ def call_anthropic(prompt: str) -> Tuple[Optional[str], Optional[str]]:
         Tuple of (response_text, error_message)
     """
     # Import dynamically to get current settings
-    from .config import ANTHROPIC_API_KEY, ANTHROPIC_MODEL
+    from .config import ANTHROPIC_API_KEY, ANTHROPIC_MODEL, ANTHROPIC_API_BASE
 
     if not ANTHROPIC_API_KEY:
         return None, "missing_anthropic_api_key"
 
-    url = "https://api.anthropic.com/v1/messages"
+    url = f"{ANTHROPIC_API_BASE}/v1/messages"
     headers = {
         "x-api-key": ANTHROPIC_API_KEY,
         "anthropic-version": "2023-06-01",

@@ -46,6 +46,8 @@ async def update_ai_settings(request: Request) -> dict:
         ai_config.ANTHROPIC_API_KEY = data["anthropic_key"].strip()
     if "anthropic_model" in data:
         ai_config.ANTHROPIC_MODEL = data["anthropic_model"].strip() or "claude-sonnet-4-20250514"
+    if "anthropic_base" in data:
+        ai_config.ANTHROPIC_API_BASE = data["anthropic_base"].strip() or "https://api.anthropic.com"
 
     save_settings_to_file({
         "openai_key": ai_config.OPENAI_API_KEY,
@@ -57,6 +59,7 @@ async def update_ai_settings(request: Request) -> dict:
         "ollama_model": ai_config.OLLAMA_MODEL,
         "anthropic_key": ai_config.ANTHROPIC_API_KEY,
         "anthropic_model": ai_config.ANTHROPIC_MODEL,
+        "anthropic_base": ai_config.ANTHROPIC_API_BASE,
     })
     return {"ok": True}
 
@@ -75,6 +78,7 @@ def get_ai_settings() -> dict:
         "ollama_model": ai_config.OLLAMA_MODEL,
         "anthropic_key": ai_config.ANTHROPIC_API_KEY[:4] + "****" if len(ai_config.ANTHROPIC_API_KEY) > 4 else "",
         "anthropic_model": ai_config.ANTHROPIC_MODEL,
+        "anthropic_base": ai_config.ANTHROPIC_API_BASE,
     }
 
 

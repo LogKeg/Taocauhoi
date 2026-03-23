@@ -845,6 +845,8 @@
                     <input id="setAnthropicKey" type="password" placeholder="sk-ant-..." autocomplete="off" />
                     <label for="setAnthropicModel">Model</label>
                     <input id="setAnthropicModel" type="text" placeholder="claude-sonnet-4-20250514" />
+                    <label for="setAnthropicBase">API Base URL</label>
+                    <input id="setAnthropicBase" type="text" placeholder="https://api.anthropic.com" />
                   </fieldset>
                 </div>
                 <div class="settings-actions">
@@ -1265,6 +1267,7 @@
         document.getElementById('setOllamaModel').placeholder = s.ollama_model;
         document.getElementById('setAnthropicKey').placeholder = s.anthropic_key || 'sk-ant-...';
         document.getElementById('setAnthropicModel').placeholder = s.anthropic_model;
+        document.getElementById('setAnthropicBase').placeholder = s.anthropic_base || 'https://api.anthropic.com';
       }
 
       document.getElementById('saveSettings').addEventListener('click', async () => {
@@ -1281,6 +1284,7 @@
           ['setOllamaModel', 'ollama_model'],
           ['setAnthropicKey', 'anthropic_key'],
           ['setAnthropicModel', 'anthropic_model'],
+          ['setAnthropicBase', 'anthropic_base'],
         ];
         fields.forEach(([id, key]) => {
           const val = document.getElementById(id).value.trim();
