@@ -42,6 +42,10 @@ async def update_ai_settings(request: Request) -> dict:
         ai_config.OLLAMA_BASE = data["ollama_base"].strip() or "http://localhost:11434"
     if "ollama_model" in data:
         ai_config.OLLAMA_MODEL = data["ollama_model"].strip() or "llama3.2:latest"
+    if "anthropic_key" in data:
+        ai_config.ANTHROPIC_API_KEY = data["anthropic_key"].strip()
+    if "anthropic_model" in data:
+        ai_config.ANTHROPIC_MODEL = data["anthropic_model"].strip() or "claude-sonnet-4-20250514"
 
     save_settings_to_file({
         "openai_key": ai_config.OPENAI_API_KEY,
@@ -51,6 +55,8 @@ async def update_ai_settings(request: Request) -> dict:
         "gemini_model": ai_config.GEMINI_MODEL,
         "ollama_base": ai_config.OLLAMA_BASE,
         "ollama_model": ai_config.OLLAMA_MODEL,
+        "anthropic_key": ai_config.ANTHROPIC_API_KEY,
+        "anthropic_model": ai_config.ANTHROPIC_MODEL,
     })
     return {"ok": True}
 
@@ -67,6 +73,8 @@ def get_ai_settings() -> dict:
         "gemini_model": ai_config.GEMINI_MODEL,
         "ollama_base": ai_config.OLLAMA_BASE,
         "ollama_model": ai_config.OLLAMA_MODEL,
+        "anthropic_key": ai_config.ANTHROPIC_API_KEY[:4] + "****" if len(ai_config.ANTHROPIC_API_KEY) > 4 else "",
+        "anthropic_model": ai_config.ANTHROPIC_MODEL,
     }
 
 
@@ -99,6 +107,12 @@ def list_ai_engines() -> dict:
         engines.append({"key": "ollama", "label": f"Ollama ({ai_config.OLLAMA_MODEL})", "available": True})
     else:
         engines.append({"key": "ollama", "label": "Ollama (không kết nối được)", "available": False})
+
+    # Anthropic Claude
+    if ai_config.ANTHROPIC_API_KEY:
+        engines.append({"key": "anthropic", "label": f"Claude ({ai_config.ANTHROPIC_MODEL})", "available": True})
+    else:
+        engines.append({"key": "anthropic", "label": "Claude (chưa có API key)", "available": False})
 
     return {"engines": engines}
 

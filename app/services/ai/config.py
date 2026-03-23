@@ -43,12 +43,17 @@ GEMINI_MODEL = _saved.get("gemini_model") or os.getenv("GEMINI_MODEL", "gemini-2
 OLLAMA_BASE = _saved.get("ollama_base") or os.getenv("OLLAMA_BASE", "http://localhost:11434")
 OLLAMA_MODEL = _saved.get("ollama_model") or os.getenv("OLLAMA_MODEL", "qwen3.5:4b")
 
+# Anthropic Claude settings
+ANTHROPIC_API_KEY = _saved.get("anthropic_key") or os.getenv("ANTHROPIC_API_KEY", "")
+ANTHROPIC_MODEL = _saved.get("anthropic_model") or os.getenv("ANTHROPIC_MODEL", "claude-sonnet-4-20250514")
+
 
 def reload_settings():
     """Reload settings from file and update module variables."""
     global OPENAI_API_KEY, OPENAI_MODEL, OPENAI_API_BASE
     global GEMINI_API_KEY, GEMINI_MODEL
     global OLLAMA_BASE, OLLAMA_MODEL
+    global ANTHROPIC_API_KEY, ANTHROPIC_MODEL
 
     _saved = load_saved_settings()
 
@@ -61,3 +66,6 @@ def reload_settings():
 
     OLLAMA_BASE = _saved.get("ollama_base") or os.getenv("OLLAMA_BASE", "http://localhost:11434")
     OLLAMA_MODEL = _saved.get("ollama_model") or os.getenv("OLLAMA_MODEL", "qwen3.5:4b")
+
+    ANTHROPIC_API_KEY = _saved.get("anthropic_key") or os.getenv("ANTHROPIC_API_KEY", "")
+    ANTHROPIC_MODEL = _saved.get("anthropic_model") or os.getenv("ANTHROPIC_MODEL", "claude-sonnet-4-20250514")

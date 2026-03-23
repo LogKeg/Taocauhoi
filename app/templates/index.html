@@ -839,6 +839,13 @@
                     <label for="setOllamaModel">Model</label>
                     <input id="setOllamaModel" type="text" placeholder="llama3.2" />
                   </fieldset>
+                  <fieldset class="settings-group">
+                    <legend>Anthropic Claude</legend>
+                    <label for="setAnthropicKey">API Key</label>
+                    <input id="setAnthropicKey" type="password" placeholder="sk-ant-..." autocomplete="off" />
+                    <label for="setAnthropicModel">Model</label>
+                    <input id="setAnthropicModel" type="text" placeholder="claude-sonnet-4-20250514" />
+                  </fieldset>
                 </div>
                 <div class="settings-actions">
                   <button id="saveSettings" type="button">Lưu cài đặt</button>
@@ -1256,6 +1263,8 @@
         document.getElementById('setGeminiModel').placeholder = s.gemini_model;
         document.getElementById('setOllamaBase').placeholder = s.ollama_base;
         document.getElementById('setOllamaModel').placeholder = s.ollama_model;
+        document.getElementById('setAnthropicKey').placeholder = s.anthropic_key || 'sk-ant-...';
+        document.getElementById('setAnthropicModel').placeholder = s.anthropic_model;
       }
 
       document.getElementById('saveSettings').addEventListener('click', async () => {
@@ -1270,6 +1279,8 @@
           ['setGeminiModel', 'gemini_model'],
           ['setOllamaBase', 'ollama_base'],
           ['setOllamaModel', 'ollama_model'],
+          ['setAnthropicKey', 'anthropic_key'],
+          ['setAnthropicModel', 'anthropic_model'],
         ];
         fields.forEach(([id, key]) => {
           const val = document.getElementById(id).value.trim();
