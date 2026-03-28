@@ -83,6 +83,7 @@ def _save_text_questions_to_bank(
     subject: str = "general",
     source: str = "generated",
     difficulty: str = "medium",
+    explanations: List[str] = None,
 ) -> int:
     """Save generated text questions to the question bank."""
     from app.database import SessionLocal, QuestionCRUD
@@ -90,17 +91,48 @@ def _save_text_questions_to_bank(
     saved = 0
     db = SessionLocal()
     try:
-        for q in questions:
+        for i, q in enumerate(questions):
             if not q.strip():
                 continue
+            explanation = explanations[i] if explanations and i < len(explanations) else None
             QuestionCRUD.create(
                 db,
                 content=q.strip(),
                 subject=subject,
                 source=source,
                 difficulty=difficulty,
+                explanation=explanation,
             )
             saved += 1
     finally:
         db.close()
     return saved
+
+
+def _parse_explanations(explanations_text: str) -> List[str]:
+    """Parse explanations text into list of individual explanations."""
+    import re
+    if not explanations_text:
+        return []
+
+    explanations = []
+    lines = explanations_text.strip().split('\n')
+    current_expl = []
+
+    for line in lines:
+        line = line.strip()
+        if not line:
+            continue
+        # Check if line starts with a number (new explanation)
+        match = re.match(r'^(?:Câu\s*)?(\d+)[\.\):\s]+(.+)', line, re.IGNORECASE)
+        if match:
+            if current_expl:
+                explanations.append(' '.join(current_expl))
+            current_expl = [match.group(2).strip()]
+        else:
+            current_expl.append(line)
+
+    if current_expl:
+        explanations.append(' '.join(current_expl))
+
+    return explanations

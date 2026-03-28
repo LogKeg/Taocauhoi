@@ -24,6 +24,7 @@ from app.services.generation import (
 from app.api.routers.generation.helpers import (
     _is_engine_available,
     _save_text_questions_to_bank,
+    _parse_explanations,
 )
 
 router = APIRouter(tags=["generation"])
@@ -106,6 +107,17 @@ def generate_topic(
         msg = f"Không nhận được phản hồi từ AI. {err}" if err else "Không nhận được phản hồi từ AI."
         return {"questions": [], "answers": "", "message": msg}
 
+    # Split explanations section first (if exists)
+    explanations = ""
+    explanation_pattern = re.compile(
+        r"\n\s*-{0,3}\s*(?:LỜI GIẢI|Lời giải|EXPLANATIONS|Explanations|Giải thích)\s*-{0,3}\s*:?\s*\n",
+        re.IGNORECASE,
+    )
+    expl_match = explanation_pattern.search(text)
+    if expl_match:
+        explanations = text[expl_match.end():].strip()
+        text = text[:expl_match.start()]
+
     # Split answers section from questions
     answers = ""
     answer_pattern = re.compile(
@@ -130,7 +142,7 @@ def generate_topic(
     questions = [q for q in questions if q.strip()]
     final_questions = questions[:count]
 
-    return {"questions": final_questions, "answers": answers}
+    return {"questions": final_questions, "answers": answers, "explanations": explanations}
 
 
 @router.post("/auto-generate")

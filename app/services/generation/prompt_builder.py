@@ -136,6 +136,7 @@ def build_topic_prompt(
             "- Do NOT number questions. Do NOT write 'Question 1', 'Q1', etc.\n"
             "- Separate questions with a blank line.\n"
             "- After all questions, add a line \"---ANSWERS---\" then list answers (e.g. 1. B, 2. A, ...).\n"
+            "- After answers, add \"---EXPLANATIONS---\" with brief bilingual explanations (1-2 sentences each).\n"
             f"{example}"
             f"{rag_section_bi}"
         )
@@ -179,6 +180,7 @@ def build_topic_prompt(
             "- If multiple-choice, provide 4 options labeled A) B) C) D) on separate lines.\n"
             "- If fill-in-the-blank, use \"...\" for the blank.\n"
             "- After all questions, add a line \"---ANSWERS---\" then list the correct answer for each question (e.g. 1. B, 2. A, ...).\n"
+            "- After answers, add a line \"---EXPLANATIONS---\" then provide brief explanations for each answer (1-2 sentences each).\n"
             f"{example}"
             f"{rag_section_en}"
         )
@@ -233,6 +235,7 @@ def build_topic_prompt(
         f"{math_instruction}"
         "- Mỗi câu hỏi cách nhau bằng một dòng trống\n"
         "- Cuối cùng viết ---ĐÁP ÁN--- rồi liệt kê: 1. A, 2. B, 3. C\n"
+        "- Sau phần đáp án, viết ---LỜI GIẢI--- rồi giải thích ngắn gọn cho từng câu (1-2 câu mỗi lời giải)\n"
         f"{mcq_example}"
         f"{rag_section}"
     )
