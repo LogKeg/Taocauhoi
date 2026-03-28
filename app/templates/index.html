@@ -8,20 +8,27 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/static/styles.css" />
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
     <!-- KaTeX for math rendering -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
     <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
     <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
   </head>
   <body>
+    <div class="toast-container" id="toastContainer"></div>
     <div class="app-container">
       <!-- App Header -->
       <header class="app-header">
         <div class="logo">
-          <div class="logo-icon">Q</div>
+          <div class="logo-icon"><i data-lucide="graduation-cap" style="width:20px;height:20px;stroke-width:2;"></i></div>
           <h1>Tạo đề online</h1>
         </div>
         <div class="header-actions">
+          <button class="theme-toggle" id="themeToggle" title="Chuyển đổi sáng/tối">
+            <i data-lucide="moon" id="themeIconMoon"></i>
+            <i data-lucide="sun" id="themeIconSun" style="display:none;"></i>
+          </button>
           <div class="header-status">
             <span class="status-dot"></span>
             <span>Sẵn sàng</span>
@@ -36,49 +43,49 @@
           <div class="sidebar-section">
             <div class="sidebar-section-title">Tạo đề</div>
             <button class="nav-item active" data-tab="tab-create">
-              <span class="icon">📄</span>Từ đề mẫu
+              <i data-lucide="file-text"></i>Từ đề mẫu
             </button>
             <button class="nav-item" data-tab="tab-topic">
-              <span class="icon">🤖</span>Theo chủ đề (AI)
+              <i data-lucide="sparkles"></i>Theo chủ đề (AI)
             </button>
           </div>
           <div class="sidebar-section">
             <div class="sidebar-section-title">Công cụ</div>
             <button class="nav-item" data-tab="tab-convert">
-              <span class="icon">🔄</span>Word → Excel
+              <i data-lucide="arrow-right-left"></i>Word → Excel
             </button>
             <button class="nav-item" data-tab="tab-bank">
-              <span class="icon">📚</span>Ngân hàng câu hỏi
+              <i data-lucide="library"></i>Ngân hàng câu hỏi
             </button>
             <button class="nav-item" data-tab="tab-import">
-              <span class="icon">📥</span>Import dữ liệu
+              <i data-lucide="download"></i>Import dữ liệu
             </button>
             <button class="nav-item" data-tab="tab-storage">
-              <span class="icon">📁</span>Kho lưu trữ
+              <i data-lucide="folder-open"></i>Kho lưu trữ
             </button>
             <button class="nav-item" data-tab="tab-curriculum">
-              <span class="icon">📖</span>Khung chương trình
+              <i data-lucide="book-open"></i>Khung chương trình
             </button>
           </div>
           <div class="sidebar-section">
             <div class="sidebar-section-title">Chấm bài</div>
             <button class="nav-item" data-tab="tab-grading">
-              <span class="icon">✅</span>OMR Scanner
+              <i data-lucide="scan-line"></i>OMR Scanner
             </button>
             <button class="nav-item" data-tab="tab-handwritten">
-              <span class="icon">✍️</span>Viết tay
+              <i data-lucide="pen-tool"></i>Viết tay
             </button>
           </div>
           <div class="sidebar-section">
             <div class="sidebar-section-title">Khác</div>
             <button class="nav-item" data-tab="tab-history">
-              <span class="icon">🕒</span>Lịch sử
+              <i data-lucide="clock"></i>Lịch sử
             </button>
             <button class="nav-item" data-tab="tab-settings">
-              <span class="icon">⚙️</span>Cài đặt
+              <i data-lucide="settings"></i>Cài đặt
             </button>
             <button class="nav-item" data-tab="tab-blob" id="navBlob" hidden>
-              <span class="icon">☁️</span>Quản lý Blob
+              <i data-lucide="cloud"></i>Quản lý Blob
             </button>
           </div>
         </nav>
@@ -199,9 +206,10 @@
                     <select id="topicEngine"></select>
                   </div>
                   <div class="checkbox-group">
-                    <label>
+                    <label class="toggle-switch">
                       <input type="checkbox" id="topicUseRag" checked />
-                      Tham khảo ngân hàng câu hỏi (RAG)
+                      <span class="toggle-slider"></span>
+                      Tham khảo ngân hàng (RAG)
                     </label>
                   </div>
                   <button id="topicGenerate" type="button">Tạo theo chủ đề</button>
@@ -224,6 +232,10 @@
                 <div class="answers-section" id="topicAnswers" hidden>
                   <button class="toggle-answers" id="toggleAnswers">Hiện đáp án</button>
                   <div class="answers-content" id="answersContent" hidden></div>
+                </div>
+                <div class="answers-section" id="topicExplanations" hidden>
+                  <button class="toggle-answers" id="toggleExplanations">Hiện lời giải</button>
+                  <div class="answers-content" id="explanationsContent" hidden></div>
                 </div>
               </div>
             </div><!-- end content-scroll -->
@@ -336,6 +348,9 @@
                         <option value="hoc247">Hoc247.net</option>
                         <option value="tracnghiem_net">TracNghiem.net (2M+ câu)</option>
                         <option value="opentdb">Open Trivia DB (Quốc tế)</option>
+                        <option value="the_trivia_api">The Trivia API (Quốc tế)</option>
+                        <option value="quizapi">QuizAPI (IT/Tech)</option>
+                        <option value="api_ninjas">API Ninjas (100K+ câu)</option>
                       </select>
                     </div>
                     <div>
@@ -1846,14 +1861,24 @@
         btn.textContent = content.hidden ? 'Hiện đáp án' : 'Ẩn đáp án';
       });
 
+      /* ---- Toggle Explanations ---- */
+      document.getElementById('toggleExplanations').addEventListener('click', () => {
+        const content = document.getElementById('explanationsContent');
+        const btn = document.getElementById('toggleExplanations');
+        content.hidden = !content.hidden;
+        btn.textContent = content.hidden ? 'Hiện lời giải' : 'Ẩn lời giải';
+      });
+
       /* ---- Topic Generate ---- */
       document.getElementById('topicGenerate').addEventListener('click', async () => {
         const statusEl = document.getElementById('topicStatus');
         const outputEl = document.getElementById('topicOutput');
         const resultPanel = document.getElementById('topicResult');
+        const genBtn = document.getElementById('topicGenerate');
+        btnLoading(genBtn, true);
         statusEl.textContent = 'Đang tạo...';
         resultPanel.hidden = false;
-        outputEl.innerHTML = '';
+        outputEl.innerHTML = '<div class="skeleton skeleton-card"></div><div class="skeleton skeleton-card"></div><div class="skeleton skeleton-card"></div>';
 
         try {
           const formData = new FormData();
@@ -1890,6 +1915,17 @@
           } else {
             answersSection.hidden = true;
           }
+          // Show explanations if available
+          const explSection = document.getElementById('topicExplanations');
+          const explContent = document.getElementById('explanationsContent');
+          if (data.explanations && explSection && explContent) {
+            explContent.textContent = data.explanations;
+            explContent.hidden = true;
+            explSection.hidden = false;
+            document.getElementById('toggleExplanations').textContent = 'Hiện lời giải';
+          } else if (explSection) {
+            explSection.hidden = true;
+          }
           // Save to history
           if (data.questions && data.questions.length) {
             const subjectLabel = topicSubject.options[topicSubject.selectedIndex]?.text || topicSubject.value;
@@ -1905,9 +1941,15 @@
               answers: data.answers || '',
               timestamp: new Date().toISOString(),
             });
+          if (data.questions && data.questions.length) {
+              showToast(`Đã tạo ${data.questions.length} câu hỏi`, 'success');
+            }
           }
         } catch (err) {
           statusEl.textContent = 'Lỗi: ' + err.message;
+          showToast('Lỗi: ' + err.message, 'error');
+        } finally {
+          btnLoading(genBtn, false);
         }
       });
 
@@ -3320,23 +3362,32 @@
         vietjack: [],
         hoc247: [],
         tracnghiem_net: [],
-        opentdb: []
+        opentdb: [],
+        the_trivia_api: [],
+        quizapi: [],
+        api_ninjas: []
       };
 
       async function loadScraperCategories() {
         try {
-          const [tvhlRes, vjRes, hoc247Res, tnRes, opentdbRes] = await Promise.all([
+          const [tvhlRes, vjRes, hoc247Res, tnRes, opentdbRes, triviaRes, quizapiRes, ninjasRes] = await Promise.all([
             fetch('/api/crawler/thuvienhoclieu/categories'),
             fetch('/api/crawler/vietjack/categories'),
             fetch('/api/crawler/hoc247/categories'),
             fetch('/api/crawler/tracnghiem-net/categories'),
-            fetch('/api/crawler/opentdb/categories')
+            fetch('/api/crawler/opentdb/categories'),
+            fetch('/api/crawler/the-trivia-api/categories'),
+            fetch('/api/crawler/quizapi/categories'),
+            fetch('/api/crawler/api-ninjas/categories')
           ]);
           const tvhlData = await tvhlRes.json();
           const vjData = await vjRes.json();
           const hoc247Data = await hoc247Res.json();
           const tnData = await tnRes.json();
           const opentdbData = await opentdbRes.json();
+          const triviaData = await triviaRes.json();
+          const quizapiData = await quizapiRes.json();
+          const ninjasData = await ninjasRes.json();
           scraperCategories.thuvienhoclieu = tvhlData.categories || [];
           scraperCategories.vietjack = vjData.categories || [];
           scraperCategories.hoc247 = hoc247Data.categories || [];
@@ -3344,7 +3395,22 @@
           // OpenTDB has id instead of url, convert format
           scraperCategories.opentdb = (opentdbData.categories || []).map(c => ({
             name: c.name + ' (' + c.subject + ')',
-            url: c.id.toString()  // Use ID as "url" for form compatibility
+            url: c.id.toString()
+          }));
+          // The Trivia API
+          scraperCategories.the_trivia_api = (triviaData.categories || []).map(c => ({
+            name: c.name + ' (' + c.subject + ')',
+            url: c.id
+          }));
+          // QuizAPI (IT/Tech)
+          scraperCategories.quizapi = (quizapiData.categories || []).map(c => ({
+            name: c.name,
+            url: c.id
+          }));
+          // API Ninjas
+          scraperCategories.api_ninjas = (ninjasData.categories || []).map(c => ({
+            name: c.name + ' (' + c.subject + ')',
+            url: c.id
           }));
           updateScraperCategoryDropdown();
         } catch (err) { /* ignore */ }
@@ -3363,7 +3429,10 @@
           vietjack: 'https://vietjack.com/de-kiem-tra-lop-12/...',
           hoc247: 'https://hoc247.net/trac-nghiem-toan-12-...',
           tracnghiem_net: 'https://tracnghiem.net/tnthpt/...',
-          opentdb: 'Chọn danh mục hoặc để trống để lấy tất cả'
+          opentdb: 'Chọn danh mục hoặc để trống để lấy tất cả',
+          the_trivia_api: 'Chọn danh mục hoặc để trống (không cần API key)',
+          quizapi: 'Câu hỏi IT/Tech (Linux, Docker, SQL...)',
+          api_ninjas: 'Câu hỏi dạng trả lời ngắn (100K+ câu)'
         };
         urlInput.placeholder = placeholders[source] || '';
       }
@@ -3391,9 +3460,8 @@
           return;
         }
 
-        btn.disabled = true;
-        btn.textContent = 'Đang scrape...';
-        const sourceNames = { thuvienhoclieu: 'thuvienhoclieu.com', vietjack: 'vietjack.com', hoc247: 'hoc247.net', tracnghiem_net: 'tracnghiem.net', opentdb: 'opentdb.com' };
+        btnLoading(btn, true);
+        const sourceNames = { thuvienhoclieu: 'thuvienhoclieu.com', vietjack: 'vietjack.com', hoc247: 'hoc247.net', tracnghiem_net: 'tracnghiem.net', opentdb: 'opentdb.com', the_trivia_api: 'the-trivia-api.com', quizapi: 'quizapi.io', api_ninjas: 'api-ninjas.com' };
         const scrapeAllMsg = !categoryUrl && !customUrl ? ` (tất cả ${urlsToScrape.length} danh mục)` : '';
         statusEl.innerHTML = `<strong>Đang quét dữ liệu từ ${sourceNames[source]}${scrapeAllMsg}...</strong><br>Quá trình này có thể mất vài phút.`;
         resultsEl.hidden = true;
@@ -3403,7 +3471,10 @@
           vietjack: '/api/crawler/vietjack/scrape',
           hoc247: '/api/crawler/hoc247/scrape',
           tracnghiem_net: '/api/crawler/tracnghiem-net/scrape',
-          opentdb: '/api/crawler/opentdb/scrape'
+          opentdb: '/api/crawler/opentdb/scrape',
+          the_trivia_api: '/api/crawler/the-trivia-api/scrape',
+          quizapi: '/api/crawler/quizapi/scrape',
+          api_ninjas: '/api/crawler/api-ninjas/scrape'
         };
         const endpoint = endpoints[source];
 
@@ -3417,14 +3488,22 @@
 
             const formData = new FormData();
             formData.append('save_to_db', 'true');
-            // OpenTDB uses category_id instead of category_url
+            // Handle different API formats
             if (source === 'opentdb') {
-              if (url) formData.append('category_id', url);  // url is actually category ID
+              if (url) formData.append('category_id', url);
               formData.append('amount', '50');
+            } else if (source === 'the_trivia_api') {
+              if (url) formData.append('category_id', url);
+              formData.append('amount', '50');
+            } else if (source === 'quizapi') {
+              if (url) formData.append('tag', url);
+              formData.append('amount', '20');
+            } else if (source === 'api_ninjas') {
+              if (url) formData.append('category', url);
+              formData.append('amount', '20');
             } else {
               formData.append('category_url', url);
               formData.append('custom_url', '');
-              // Khi scrape nhiều danh mục, vẫn giữ số lượng đủ lớn cho mỗi danh mục
               if (source === 'thuvienhoclieu') {
                 formData.append('max_quizzes', urlsToScrape.length > 1 ? 20 : maxItems);
               } else {
@@ -3452,6 +3531,9 @@
           if (totalSkipped) html += `<br><em>Bỏ qua ${totalSkipped} câu trùng lặp</em>`;
           statusEl.innerHTML = html;
 
+          if (totalSaved > 0) showToast(`Đã lưu ${totalSaved} câu hỏi từ ${sourceNames[source]}`, 'success');
+          else if (totalQuestions === 0) showToast('Không tìm thấy câu hỏi nào', 'warning');
+
           if (allErrors.length) {
             listEl.innerHTML = '<strong>Lỗi:</strong>' +
               allErrors.slice(0, 10).map(e => {
@@ -3465,9 +3547,9 @@
           if (typeof loadBankQuestions === 'function') loadBankQuestions();
         } catch (err) {
           statusEl.textContent = 'Lỗi: ' + err.message;
+          showToast('Lỗi: ' + err.message, 'error');
         } finally {
-          btn.disabled = false;
-          btn.textContent = 'Bắt đầu Scrape';
+          btnLoading(btn, false);
         }
       });
 
@@ -4119,7 +4201,76 @@
     </div>
 
     <script>
-      // Chat is ready - no additional init needed since we use inline handlers
+      // Initialize Lucide icons
+      if (window.lucide) lucide.createIcons();
+
+      // ---- Toast Notification System ----
+      window.showToast = function(message, type = 'info', duration = 4000) {
+        const container = document.getElementById('toastContainer');
+        const toast = document.createElement('div');
+        toast.className = `toast toast-${type}`;
+
+        const icons = {
+          success: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6 9 17l-5-5"/></svg>',
+          error: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6M9 9l6 6"/></svg>',
+          info: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>',
+          warning: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4M12 17h.01"/></svg>',
+        };
+
+        toast.innerHTML = `
+          ${icons[type] || icons.info}
+          <span>${message}</span>
+          <button class="toast-close" onclick="this.parentElement.classList.add('removing');setTimeout(()=>this.parentElement.remove(),300)">✕</button>
+        `;
+
+        container.appendChild(toast);
+        setTimeout(() => {
+          if (toast.parentElement) {
+            toast.classList.add('removing');
+            setTimeout(() => toast.remove(), 300);
+          }
+        }, duration);
+      };
+
+      // ---- Dark Mode Toggle ----
+      (function() {
+        const toggle = document.getElementById('themeToggle');
+        const moonIcon = document.getElementById('themeIconMoon');
+        const sunIcon = document.getElementById('themeIconSun');
+        const saved = localStorage.getItem('theme');
+
+        function setTheme(dark) {
+          document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
+          localStorage.setItem('theme', dark ? 'dark' : 'light');
+          if (moonIcon && sunIcon) {
+            moonIcon.style.display = dark ? 'none' : '';
+            sunIcon.style.display = dark ? '' : 'none';
+          }
+        }
+
+        // Apply saved or system preference
+        if (saved === 'dark') setTheme(true);
+        else if (saved === 'light') setTheme(false);
+        else if (window.matchMedia('(prefers-color-scheme: dark)').matches) setTheme(true);
+
+        toggle.addEventListener('click', () => {
+          const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+          setTheme(!isDark);
+        });
+      })();
+
+      // ---- Button Loading Helper ----
+      window.btnLoading = function(btn, loading) {
+        if (loading) {
+          btn.dataset.originalText = btn.textContent;
+          btn.classList.add('btn-loading');
+          btn.disabled = true;
+        } else {
+          btn.classList.remove('btn-loading');
+          btn.disabled = false;
+          if (btn.dataset.originalText) btn.textContent = btn.dataset.originalText;
+        }
+      };
     </script>
   </body>
 </html>
