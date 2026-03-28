@@ -7,6 +7,13 @@ import unicodedata
 from pathlib import Path
 from typing import List, Optional, Tuple
 
+# Load environment variables from .env file
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass  # dotenv not installed, use system env vars
+
 import httpx
 from fastapi import FastAPI, Form, Request, UploadFile, Depends, HTTPException
 from fastapi.responses import FileResponse, HTMLResponse, StreamingResponse

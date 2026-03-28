@@ -440,6 +440,24 @@ def get_suggested_sources() -> dict:
             "description": "API câu hỏi quốc tế (tiếng Anh) - Science, Math, History, Geography",
             "subjects": ["science", "math", "history", "geography", "informatics", "biology"],
         },
+        {
+            "name": "The Trivia API",
+            "url": "https://the-trivia-api.com",
+            "description": "API câu hỏi quốc tế - 10 categories, không cần API key",
+            "subjects": ["science", "history", "geography", "literature", "music", "sports"],
+        },
+        {
+            "name": "QuizAPI",
+            "url": "https://quizapi.io",
+            "description": "API câu hỏi IT/Tech - Linux, DevOps, Docker, SQL (cần API key miễn phí)",
+            "subjects": ["informatics"],
+        },
+        {
+            "name": "API Ninjas Trivia",
+            "url": "https://api-ninjas.com/api/trivia",
+            "description": "100K+ câu hỏi - Short answer format (cần API key miễn phí)",
+            "subjects": ["science", "math", "history", "geography", "literature", "music"],
+        },
     ]
 
     return {"sources": sources}
@@ -908,4 +926,280 @@ def scrape_tracnghiem_net(
         "skipped_count": skipped_count,
         "images_count": images_count,
         "errors": errors if errors else [],
+    }
+
+
+# ============================================================================
+# The Trivia API Scraper (International)
+# ============================================================================
+
+# Load The Trivia API scraper module
+_trivia_api_path = os.path.join(_crawler_dir, "the-trivia-api-scraper.py")
+_trivia_api_spec = importlib.util.spec_from_file_location("the_trivia_api_scraper", _trivia_api_path)
+_trivia_api = importlib.util.module_from_spec(_trivia_api_spec)
+_trivia_api_spec.loader.exec_module(_trivia_api)
+
+
+THE_TRIVIA_API_CATEGORIES = [
+    {"name": "Arts & Literature", "id": "arts_and_literature", "subject": "literature"},
+    {"name": "Film & TV", "id": "film_and_tv", "subject": "entertainment"},
+    {"name": "Food & Drink", "id": "food_and_drink", "subject": "general"},
+    {"name": "General Knowledge", "id": "general_knowledge", "subject": "general"},
+    {"name": "Geography", "id": "geography", "subject": "geography"},
+    {"name": "History", "id": "history", "subject": "history"},
+    {"name": "Music", "id": "music", "subject": "music"},
+    {"name": "Science", "id": "science", "subject": "science"},
+    {"name": "Society & Culture", "id": "society_and_culture", "subject": "general"},
+    {"name": "Sport & Leisure", "id": "sport_and_leisure", "subject": "sports"},
+]
+
+
+@router.get("/the-trivia-api/categories")
+def get_the_trivia_api_categories() -> dict:
+    """Get available categories from The Trivia API."""
+    return {"categories": THE_TRIVIA_API_CATEGORIES}
+
+
+@router.post("/the-trivia-api/scrape")
+def scrape_the_trivia_api(
+    category_id: str = Form(""),
+    difficulty: str = Form(""),
+    amount: int = Form(20),
+    save_to_db: bool = Form(True),
+) -> dict:
+    """
+    Scrape questions from The Trivia API.
+
+    - category_id: Optional category (see /the-trivia-api/categories)
+    - difficulty: easy, medium, hard, or empty for all
+    - amount: Number of questions to fetch (max 50 per request)
+    """
+    categories = [category_id] if category_id else None
+    questions, error = _trivia_api.fetch_questions(
+        categories=categories,
+        limit=min(amount, 50),
+        difficulty=difficulty if difficulty else None,
+    )
+
+    if error:
+        return {"success": False, "error": error}
+
+    # Convert questions format for saving
+    formatted_questions = []
+    for q in questions:
+        formatted_questions.append({
+            "content": q["question"],
+            "options": json.dumps(q["options"], ensure_ascii=False) if q["options"] else None,
+            "answer": q.get("answer", ""),
+            "subject": q.get("subject", "general"),
+            "grade": q.get("grade", "international"),
+            "source": "the-trivia-api.com",
+            "difficulty": q.get("difficulty", "medium"),
+            "question_type": "mcq",
+        })
+
+    saved_count = 0
+    skipped_count = 0
+    if save_to_db and formatted_questions:
+        db = SessionLocal()
+        try:
+            r = _save_questions(db, formatted_questions, "", "medium", "the-trivia-api.com")
+            saved_count = r["saved"]
+            skipped_count = r["skipped"]
+        finally:
+            db.close()
+
+    return {
+        "success": True,
+        "question_count": len(questions),
+        "saved_count": saved_count,
+        "skipped_count": skipped_count,
+    }
+
+
+# ============================================================================
+# QuizAPI Scraper (IT/Tech - International)
+# ============================================================================
+
+# Load QuizAPI scraper module
+_quizapi_path = os.path.join(_crawler_dir, "quizapi-tech-questions-scraper.py")
+_quizapi_spec = importlib.util.spec_from_file_location("quizapi_tech_scraper", _quizapi_path)
+_quizapi = importlib.util.module_from_spec(_quizapi_spec)
+_quizapi_spec.loader.exec_module(_quizapi)
+
+
+QUIZAPI_CATEGORIES = [
+    {"name": "Linux", "id": "linux", "subject": "informatics"},
+    {"name": "DevOps", "id": "devops", "subject": "informatics"},
+    {"name": "Docker", "id": "docker", "subject": "informatics"},
+    {"name": "SQL", "id": "sql", "subject": "informatics"},
+    {"name": "Bash", "id": "bash", "subject": "informatics"},
+    {"name": "Kubernetes", "id": "kubernetes", "subject": "informatics"},
+    {"name": "PHP", "id": "php", "subject": "informatics"},
+    {"name": "JavaScript", "id": "javascript", "subject": "informatics"},
+]
+
+
+@router.get("/quizapi/categories")
+def get_quizapi_categories() -> dict:
+    """Get available categories from QuizAPI (requires API key)."""
+    return {
+        "categories": QUIZAPI_CATEGORIES,
+        "note": "Requires QUIZAPI_KEY environment variable. Get free key at https://quizapi.io/",
+    }
+
+
+@router.post("/quizapi/scrape")
+def scrape_quizapi(
+    tag: str = Form(""),
+    difficulty: str = Form(""),
+    amount: int = Form(20),
+    api_key: str = Form(""),
+    save_to_db: bool = Form(True),
+) -> dict:
+    """
+    Scrape questions from QuizAPI (IT/Tech focused).
+
+    - tag: Category tag (linux, devops, docker, sql, etc.)
+    - difficulty: Easy, Medium, Hard, or empty for all
+    - amount: Number of questions (max 20 per request for free tier)
+    - api_key: Optional API key (or set QUIZAPI_KEY env var)
+    """
+    questions, error = _quizapi.fetch_questions(
+        tag=tag if tag else None,
+        limit=min(amount, 20),
+        difficulty=difficulty if difficulty else None,
+        api_key=api_key if api_key else None,
+    )
+
+    if error:
+        return {"success": False, "error": error}
+
+    # Convert questions format for saving
+    formatted_questions = []
+    for q in questions:
+        formatted_questions.append({
+            "content": q["question"],
+            "options": json.dumps(q["options"], ensure_ascii=False) if q["options"] else None,
+            "answer": q.get("answer", ""),
+            "subject": q.get("subject", "informatics"),
+            "grade": q.get("grade", "international"),
+            "source": "quizapi.io",
+            "difficulty": q.get("difficulty", "medium"),
+            "question_type": "mcq",
+        })
+
+    saved_count = 0
+    skipped_count = 0
+    if save_to_db and formatted_questions:
+        db = SessionLocal()
+        try:
+            r = _save_questions(db, formatted_questions, "", "medium", "quizapi.io")
+            saved_count = r["saved"]
+            skipped_count = r["skipped"]
+        finally:
+            db.close()
+
+    return {
+        "success": True,
+        "question_count": len(questions),
+        "saved_count": saved_count,
+        "skipped_count": skipped_count,
+    }
+
+
+# ============================================================================
+# API Ninjas Trivia Scraper (International)
+# ============================================================================
+
+# Load API Ninjas scraper module
+_api_ninjas_path = os.path.join(_crawler_dir, "api-ninjas-trivia-scraper.py")
+_api_ninjas_spec = importlib.util.spec_from_file_location("api_ninjas_trivia_scraper", _api_ninjas_path)
+_api_ninjas = importlib.util.module_from_spec(_api_ninjas_spec)
+_api_ninjas_spec.loader.exec_module(_api_ninjas)
+
+
+API_NINJAS_CATEGORIES = [
+    {"name": "Art & Literature", "id": "artliterature", "subject": "literature"},
+    {"name": "Language", "id": "language", "subject": "literature"},
+    {"name": "Science & Nature", "id": "sciencenature", "subject": "science"},
+    {"name": "General", "id": "general", "subject": "general"},
+    {"name": "Food & Drink", "id": "fooddrink", "subject": "general"},
+    {"name": "People & Places", "id": "peopleplaces", "subject": "geography"},
+    {"name": "Geography", "id": "geography", "subject": "geography"},
+    {"name": "History & Holidays", "id": "historyholidays", "subject": "history"},
+    {"name": "Entertainment", "id": "entertainment", "subject": "entertainment"},
+    {"name": "Toys & Games", "id": "toysgames", "subject": "entertainment"},
+    {"name": "Music", "id": "music", "subject": "music"},
+    {"name": "Mathematics", "id": "mathematics", "subject": "math"},
+    {"name": "Religion & Mythology", "id": "religionmythology", "subject": "history"},
+    {"name": "Sports & Leisure", "id": "sportsleisure", "subject": "sports"},
+]
+
+
+@router.get("/api-ninjas/categories")
+def get_api_ninjas_categories() -> dict:
+    """Get available categories from API Ninjas Trivia (requires API key)."""
+    return {
+        "categories": API_NINJAS_CATEGORIES,
+        "note": "Requires API_NINJAS_KEY environment variable. Get free key at https://api-ninjas.com/",
+    }
+
+
+@router.post("/api-ninjas/scrape")
+def scrape_api_ninjas(
+    category: str = Form(""),
+    amount: int = Form(10),
+    api_key: str = Form(""),
+    save_to_db: bool = Form(True),
+) -> dict:
+    """
+    Scrape questions from API Ninjas Trivia.
+
+    - category: Category name (see /api-ninjas/categories)
+    - amount: Number of questions (1 request per question, max 20 recommended)
+    - api_key: Optional API key (or set API_NINJAS_KEY env var)
+
+    Note: Returns short-answer questions (no multiple choice options).
+    """
+    questions, error = _api_ninjas.fetch_questions(
+        category=category if category else None,
+        limit=min(amount, 20),
+        api_key=api_key if api_key else None,
+    )
+
+    if error:
+        return {"success": False, "error": error}
+
+    # Convert questions format for saving
+    formatted_questions = []
+    for q in questions:
+        formatted_questions.append({
+            "content": q["question"],
+            "options": None,  # Short answer - no options
+            "answer": q.get("answer", ""),
+            "subject": q.get("subject", "general"),
+            "grade": q.get("grade", "international"),
+            "source": "api-ninjas.com",
+            "difficulty": q.get("difficulty", "medium"),
+            "question_type": "short_answer",
+        })
+
+    saved_count = 0
+    skipped_count = 0
+    if save_to_db and formatted_questions:
+        db = SessionLocal()
+        try:
+            r = _save_questions(db, formatted_questions, "", "medium", "api-ninjas.com")
+            saved_count = r["saved"]
+            skipped_count = r["skipped"]
+        finally:
+            db.close()
+
+    return {
+        "success": True,
+        "question_count": len(questions),
+        "saved_count": saved_count,
+        "skipped_count": skipped_count,
+        "note": "Questions are short-answer format (no multiple choice)",
     }
