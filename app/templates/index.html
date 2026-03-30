@@ -48,6 +48,9 @@
             <button class="nav-item" data-tab="tab-topic">
               <i data-lucide="sparkles"></i>Theo chủ đề (AI)
             </button>
+            <button class="nav-item" data-tab="tab-matrix">
+              <i data-lucide="grid-3x3"></i>Ma trận đề thi
+            </button>
           </div>
           <div class="sidebar-section">
             <div class="sidebar-section-title">Công cụ</div>
@@ -236,6 +239,109 @@
                 <div class="answers-section" id="topicExplanations" hidden>
                   <button class="toggle-answers" id="toggleExplanations">Hiện lời giải</button>
                   <div class="answers-content" id="explanationsContent" hidden></div>
+                </div>
+              </div>
+            </div><!-- end content-scroll -->
+          </section>
+
+          <!-- Tab: Ma trận đề thi -->
+          <section class="tab-panel" id="tab-matrix">
+            <div class="content-scroll">
+              <div class="panel">
+                <h2>Tạo đề theo ma trận</h2>
+                <p>Phân phối câu hỏi theo chủ đề và mức độ khó, phù hợp với ma trận đề thi chuẩn.</p>
+
+                <div class="auto-grid" style="margin-bottom: 16px;">
+                  <div>
+                    <label for="matrixSubject">Môn học</label>
+                    <select id="matrixSubject"></select>
+                  </div>
+                  <div>
+                    <label for="matrixGrade">Lớp</label>
+                    <select id="matrixGrade"></select>
+                  </div>
+                  <div>
+                    <label for="matrixType">Dạng câu hỏi</label>
+                    <select id="matrixType"></select>
+                  </div>
+                  <div>
+                    <label for="matrixLanguage">Ngôn ngữ</label>
+                    <select id="matrixLanguage">
+                      <option value="vi">Tiếng Việt</option>
+                      <option value="en">Tiếng Anh</option>
+                      <option value="bilingual">Song ngữ</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label for="matrixEngine">AI Engine</label>
+                    <select id="matrixEngine"></select>
+                  </div>
+                  <div class="checkbox-group">
+                    <label class="toggle-switch">
+                      <input type="checkbox" id="matrixUseRag" checked />
+                      <span class="toggle-slider"></span>
+                      Tham khảo ngân hàng (RAG)
+                    </label>
+                  </div>
+                </div>
+
+                <!-- Matrix Table -->
+                <div style="margin-top: 16px;">
+                  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                    <h3 style="margin: 0;">Ma trận phân phối câu hỏi</h3>
+                    <button id="matrixAddRow" type="button" class="btn-sm" style="font-size: 12px;">+ Thêm chủ đề</button>
+                  </div>
+                  <div style="overflow-x: auto;">
+                    <table id="matrixTable" style="width: 100%;">
+                      <thead>
+                        <tr>
+                          <th style="min-width: 200px;">Chủ đề</th>
+                          <th style="width: 100px; text-align: center;">Dễ</th>
+                          <th style="width: 100px; text-align: center;">Trung bình</th>
+                          <th style="width: 100px; text-align: center;">Khó</th>
+                          <th style="width: 80px; text-align: center;">Tổng</th>
+                          <th style="width: 50px;"></th>
+                        </tr>
+                      </thead>
+                      <tbody id="matrixBody">
+                      </tbody>
+                      <tfoot>
+                        <tr style="font-weight: 700;">
+                          <td>Tổng cộng</td>
+                          <td style="text-align: center;" id="matrixTotalEasy">0</td>
+                          <td style="text-align: center;" id="matrixTotalMedium">0</td>
+                          <td style="text-align: center;" id="matrixTotalHard">0</td>
+                          <td style="text-align: center;" id="matrixTotalAll">0</td>
+                          <td></td>
+                        </tr>
+                      </tfoot>
+                    </table>
+                  </div>
+                </div>
+
+                <div style="margin-top: 16px; display: flex; gap: 12px; align-items: center;">
+                  <button id="matrixGenerateBtn" type="button">Tạo đề theo ma trận</button>
+                  <span id="matrixProgressText" style="font-size: 13px; color: var(--ink-light);"></span>
+                </div>
+              </div>
+
+              <!-- Matrix Results -->
+              <div class="panel result-panel" id="matrixResult" hidden>
+                <div class="output-header">
+                  <h2>Kết quả (<span id="matrixResultCount">0</span> câu)</h2>
+                  <div class="actions">
+                    <button data-matrix-export="docx">Xuất DOCX</button>
+                    <button data-matrix-export="pdf">Xuất PDF</button>
+                  </div>
+                </div>
+                <div id="matrixOutput"></div>
+                <div class="answers-section" id="matrixAnswersSection" hidden>
+                  <button class="toggle-answers" id="matrixToggleAnswers">Hiện đáp án</button>
+                  <div class="answers-content" id="matrixAnswersContent" hidden></div>
+                </div>
+                <div class="answers-section" id="matrixExplSection" hidden>
+                  <button class="toggle-answers" id="matrixToggleExpl">Hiện lời giải</button>
+                  <div class="answers-content" id="matrixExplContent" hidden></div>
                 </div>
               </div>
             </div><!-- end content-scroll -->
@@ -1952,6 +2058,244 @@
           btnLoading(genBtn, false);
         }
       });
+
+      /* ---- Matrix Generation ---- */
+      (function() {
+        const subjectSel = document.getElementById('matrixSubject');
+        const gradeSel = document.getElementById('matrixGrade');
+        const typeSel = document.getElementById('matrixType');
+        const engineSel = document.getElementById('matrixEngine');
+        const tbody = document.getElementById('matrixBody');
+
+        // Clone options from topic tab selects
+        function cloneOptions(src, dst) {
+          if (!src || !dst) return;
+          dst.innerHTML = src.innerHTML;
+          dst.value = src.value;
+        }
+
+        // Init selects after page load
+        setTimeout(() => {
+          cloneOptions(document.getElementById('topicSubject'), subjectSel);
+          cloneOptions(document.getElementById('topicGrade'), gradeSel);
+          cloneOptions(document.getElementById('topicType'), typeSel);
+          cloneOptions(document.getElementById('topicEngine'), engineSel);
+          // Load topics for initial subject
+          updateMatrixTopics();
+          addMatrixRow();
+        }, 500);
+
+        let matrixTopics = [];
+
+        function updateMatrixTopics() {
+          const subject = subjectSel.value;
+          // Use subjectTopics from loadSubjects() (already loaded globally)
+          matrixTopics = (typeof subjectTopics !== 'undefined' && subjectTopics[subject]) || [];
+          // Update all existing row selects
+          tbody.querySelectorAll('.matrix-topic-select').forEach(sel => {
+            const current = sel.value;
+            sel.innerHTML = '<option value="">-- Chọn chủ đề --</option>' +
+              matrixTopics.map(t => `<option value="${t.key}">${t.label}</option>`).join('');
+            if (current) sel.value = current;
+          });
+        }
+
+        subjectSel.addEventListener('change', updateMatrixTopics);
+
+        function addMatrixRow(topicKey, topicLabel, easy, medium, hard) {
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td>
+              <select class="matrix-topic-select" style="width:100%;">
+                <option value="">-- Chọn chủ đề --</option>
+                ${matrixTopics.map(t => `<option value="${t.key}" ${t.key === topicKey ? 'selected' : ''}>${t.label}</option>`).join('')}
+              </select>
+            </td>
+            <td><input type="number" class="matrix-cell" data-diff="easy" min="0" max="15" value="${easy || 0}" style="width:70px;text-align:center;margin:0 auto;display:block;" /></td>
+            <td><input type="number" class="matrix-cell" data-diff="medium" min="0" max="15" value="${medium || 0}" style="width:70px;text-align:center;margin:0 auto;display:block;" /></td>
+            <td><input type="number" class="matrix-cell" data-diff="hard" min="0" max="15" value="${hard || 0}" style="width:70px;text-align:center;margin:0 auto;display:block;" /></td>
+            <td class="row-total" style="text-align:center;font-weight:600;">${(easy||0)+(medium||0)+(hard||0)}</td>
+            <td><button type="button" class="btn-sm matrix-remove-row" style="background:#ef4444;color:#fff;padding:4px 8px;font-size:11px;">✕</button></td>
+          `;
+          tbody.appendChild(tr);
+
+          // Row events
+          tr.querySelectorAll('.matrix-cell').forEach(input => {
+            input.addEventListener('input', () => { updateRowTotal(tr); updateMatrixTotals(); });
+          });
+          tr.querySelector('.matrix-remove-row').addEventListener('click', () => {
+            tr.remove();
+            updateMatrixTotals();
+          });
+
+          updateMatrixTotals();
+        }
+
+        function updateRowTotal(tr) {
+          let sum = 0;
+          tr.querySelectorAll('.matrix-cell').forEach(input => {
+            sum += parseInt(input.value) || 0;
+          });
+          tr.querySelector('.row-total').textContent = sum;
+        }
+
+        function updateMatrixTotals() {
+          let totals = { easy: 0, medium: 0, hard: 0 };
+          tbody.querySelectorAll('tr').forEach(tr => {
+            tr.querySelectorAll('.matrix-cell').forEach(input => {
+              const diff = input.dataset.diff;
+              totals[diff] = (totals[diff] || 0) + (parseInt(input.value) || 0);
+            });
+          });
+          document.getElementById('matrixTotalEasy').textContent = totals.easy;
+          document.getElementById('matrixTotalMedium').textContent = totals.medium;
+          document.getElementById('matrixTotalHard').textContent = totals.hard;
+          document.getElementById('matrixTotalAll').textContent = totals.easy + totals.medium + totals.hard;
+        }
+
+        document.getElementById('matrixAddRow').addEventListener('click', () => addMatrixRow());
+
+        // Generate button
+        document.getElementById('matrixGenerateBtn').addEventListener('click', async () => {
+          const btn = document.getElementById('matrixGenerateBtn');
+          const progressText = document.getElementById('matrixProgressText');
+          const resultPanel = document.getElementById('matrixResult');
+          const output = document.getElementById('matrixOutput');
+
+          // Build matrix data
+          const matrixData = [];
+          let totalCount = 0;
+          tbody.querySelectorAll('tr').forEach(tr => {
+            const topicSel = tr.querySelector('.matrix-topic-select');
+            if (!topicSel || !topicSel.value) return;
+            const row = {
+              topic: topicSel.value,
+              topic_label: topicSel.options[topicSel.selectedIndex].text,
+              easy: parseInt(tr.querySelector('[data-diff="easy"]').value) || 0,
+              medium: parseInt(tr.querySelector('[data-diff="medium"]').value) || 0,
+              hard: parseInt(tr.querySelector('[data-diff="hard"]').value) || 0,
+            };
+            if (row.easy + row.medium + row.hard > 0) {
+              totalCount += row.easy + row.medium + row.hard;
+              matrixData.push(row);
+            }
+          });
+
+          if (matrixData.length === 0) {
+            showToast('Vui lòng thêm ít nhất 1 chủ đề với số câu > 0', 'warning');
+            return;
+          }
+          if (totalCount > 50) {
+            showToast('Tổng số câu không được vượt quá 50', 'warning');
+            return;
+          }
+
+          btnLoading(btn, true);
+          progressText.textContent = `Đang tạo ${totalCount} câu hỏi...`;
+          resultPanel.hidden = true;
+          output.innerHTML = '<div class="skeleton skeleton-card"></div>'.repeat(3);
+          resultPanel.hidden = false;
+
+          try {
+            const formData = new FormData();
+            formData.append('subject', subjectSel.value);
+            formData.append('grade', gradeSel.value);
+            formData.append('qtype', typeSel.value);
+            formData.append('ai_engine', engineSel.value);
+            formData.append('language', document.getElementById('matrixLanguage').value);
+            formData.append('use_rag', document.getElementById('matrixUseRag').checked);
+            formData.append('matrix_json', JSON.stringify(matrixData));
+
+            const res = await fetch('/generate-matrix', { method: 'POST', body: formData });
+            const data = await res.json();
+
+            if (!data.success) {
+              output.innerHTML = `<p style="color:var(--danger);">${data.message}</p>`;
+              showToast(data.message, 'error');
+              return;
+            }
+
+            // Render sections
+            let html = '';
+            let qNum = 0;
+            (data.sections || []).forEach(sec => {
+              html += `<div style="margin-bottom:20px;">`;
+              html += `<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">`;
+              html += `<strong>${sec.topic_label}</strong>`;
+              html += `<span class="difficulty-${sec.difficulty}" style="font-size:10px;">${sec.difficulty_label}</span>`;
+              html += `</div>`;
+              sec.questions.forEach(q => {
+                qNum++;
+                html += `<div class="created-question">`;
+                html += `<div class="q-header"><span class="q-number">Câu ${qNum}</span></div>`;
+                html += `<div class="q-display"><div class="q-text">${q}</div></div>`;
+                html += `</div>`;
+              });
+              html += `</div>`;
+            });
+
+            output.innerHTML = html;
+            document.getElementById('matrixResultCount').textContent = data.total_questions;
+            progressText.textContent = `Hoàn tất: ${data.total_questions} câu hỏi`;
+
+            // Show answers
+            const ansSection = document.getElementById('matrixAnswersSection');
+            const ansContent = document.getElementById('matrixAnswersContent');
+            if (data.answers) {
+              ansContent.textContent = data.answers;
+              ansContent.hidden = true;
+              ansSection.hidden = false;
+            } else {
+              ansSection.hidden = true;
+            }
+
+            // Show explanations
+            const explSection = document.getElementById('matrixExplSection');
+            const explContent = document.getElementById('matrixExplContent');
+            if (data.explanations) {
+              explContent.textContent = data.explanations;
+              explContent.hidden = true;
+              explSection.hidden = false;
+            } else {
+              explSection.hidden = true;
+            }
+
+            if (data.errors && data.errors.length) {
+              data.errors.forEach(e => showToast(e, 'warning', 6000));
+            }
+
+            showToast(`Đã tạo ${data.total_questions} câu hỏi theo ma trận`, 'success');
+
+            // Render KaTeX if available
+            if (window.renderMathInElement) {
+              renderMathInElement(output, { delimiters: [
+                {left: '$$', right: '$$', display: true},
+                {left: '$', right: '$', display: false},
+              ]});
+            }
+
+          } catch (err) {
+            output.innerHTML = `<p style="color:var(--danger);">Lỗi: ${err.message}</p>`;
+            showToast('Lỗi: ' + err.message, 'error');
+          } finally {
+            btnLoading(btn, false);
+          }
+        });
+
+        // Toggle answers/explanations for matrix
+        document.getElementById('matrixToggleAnswers').addEventListener('click', () => {
+          const c = document.getElementById('matrixAnswersContent');
+          const b = document.getElementById('matrixToggleAnswers');
+          c.hidden = !c.hidden;
+          b.textContent = c.hidden ? 'Hiện đáp án' : 'Ẩn đáp án';
+        });
+        document.getElementById('matrixToggleExpl').addEventListener('click', () => {
+          const c = document.getElementById('matrixExplContent');
+          const b = document.getElementById('matrixToggleExpl');
+          c.hidden = !c.hidden;
+          b.textContent = c.hidden ? 'Hiện lời giải' : 'Ẩn lời giải';
+        });
+      })();
 
       /* ---- Blob Manager ---- */
       function humanSize(bytes) {

@@ -29,5 +29,6 @@ def _load_router(filename: str) -> APIRouter:
 
 # Include all sub-routers
 router.include_router(_load_router("question-generation-endpoints.py"))
+router.include_router(_load_router("matrix-generation-handler.py"))
 router.include_router(_load_router("export-to-file-endpoints.py"))
 router.include_router(_load_router("sample-file-endpoints.py"))
