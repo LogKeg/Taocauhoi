@@ -683,6 +683,20 @@ button, .btn {
   display: none;
 }
 
+.modal-content {
+  background: var(--bg-panel);
+  border-radius: var(--radius-lg);
+  padding: 24px;
+  width: 90%;
+  box-shadow: 0 25px 50px rgba(0, 0, 0, 0.25);
+  animation: modalSlideIn 0.25s ease;
+}
+
+@keyframes modalSlideIn {
+  from { opacity: 0; transform: translateY(20px) scale(0.97); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
 @keyframes fadeIn {
   from { opacity: 0; }
   to { opacity: 1; }
@@ -2551,9 +2565,55 @@ table tbody tr:hover {
    UI POLISH - Phase 4: Responsive / Mobile
    ============================================================================ */
 
+/* Hamburger button - hidden on desktop */
+.hamburger {
+  display: none !important;
+  background: none !important;
+  border: none !important;
+  color: rgba(255,255,255,0.8) !important;
+  box-shadow: none !important;
+  padding: 6px !important;
+  cursor: pointer;
+}
+
+.hamburger:hover {
+  color: #fff !important;
+  transform: none !important;
+}
+
+/* Sidebar overlay - only on mobile */
+.sidebar-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.5);
+  z-index: 199;
+  backdrop-filter: blur(2px);
+}
+
+.sidebar-overlay.active {
+  display: block;
+  animation: fadeIn 0.2s ease;
+}
+
 @media (max-width: 768px) {
+  .hamburger {
+    display: inline-flex !important;
+  }
+
   .sidebar {
-    display: none;
+    position: fixed;
+    top: 0;
+    left: -260px;
+    height: 100vh;
+    z-index: 200;
+    transition: left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: none;
+  }
+
+  .sidebar.open {
+    left: 0;
+    box-shadow: 4px 0 24px rgba(0,0,0,0.3);
   }
 
   .content-scroll {
@@ -2579,6 +2639,14 @@ table tbody tr:hover {
 
   .app-header .logo h1 {
     font-size: 15px;
+  }
+
+  /* Dashboard responsive */
+  #tab-dashboard .content-scroll > div[style*="grid-template-columns: 2fr"] {
+    grid-template-columns: 1fr !important;
+  }
+  #tab-dashboard .content-scroll > div[style*="grid-template-columns: 1fr 1fr"] {
+    grid-template-columns: 1fr !important;
   }
 }
 

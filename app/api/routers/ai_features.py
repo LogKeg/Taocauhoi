@@ -230,6 +230,12 @@ class ChatRequest(BaseModel):
     grade: Optional[int] = None  # Grade for curriculum context
 
 
+class FillAnswersRequest(BaseModel):
+    ai_engine: str = "gemini"
+    subject: Optional[str] = None  # Filter by subject
+    limit: int = 10  # Number of questions to process per batch
+
+
 def _get_curriculum_context(subject: str, grade: int) -> str:
     """Get curriculum context for AI chat."""
     from app.database import SessionLocal, CurriculumCRUD
@@ -384,3 +390,154 @@ CÔNG THỨC TOÁN HỌC - LUÔN dùng LaTeX:
         return {"ok": False, "error": f"API Error: {e.response.status_code}"}
     except Exception as e:
         return {"ok": False, "error": str(e)}
+
+
+@router.get("/questions-without-answers")
+async def get_questions_without_answers(
+    subject: Optional[str] = None,
+    limit: int = 100,
+):
+    """Get statistics and sample of questions without answers."""
+    from app.database import SessionLocal
+    from app.database.models import Question
+
+    db = SessionLocal()
+    try:
+        query = db.query(Question).filter(
+            (Question.answer == None) | (Question.answer == "")
+        )
+
+        if subject:
+            query = query.filter(Question.subject == subject)
+
+        total_missing = query.count()
+
+        # Get by subject breakdown
+        from sqlalchemy import func
+        breakdown = db.query(
+            Question.subject,
+            func.count(Question.id).label("count")
+        ).filter(
+            (Question.answer == None) | (Question.answer == "")
+        ).group_by(Question.subject).all()
+
+        subject_stats = {s: c for s, c in breakdown}
+
+        # Sample questions
+        samples = query.limit(limit).all()
+        sample_questions = [
+            {
+                "id": q.id,
+                "content": q.content[:200] + "..." if len(q.content) > 200 else q.content,
+                "options": q.options,
+                "subject": q.subject,
+                "source": q.source,
+            }
+            for q in samples
+        ]
+
+        return {
+            "ok": True,
+            "total_missing": total_missing,
+            "by_subject": subject_stats,
+            "samples": sample_questions,
+        }
+    finally:
+        db.close()
+
+
+@router.post("/fill-answers")
+async def ai_fill_answers(data: FillAnswersRequest):
+    """
+    Use AI to fill in missing answers for questions in the bank.
+    Processes a batch of questions and updates them with AI-generated answers.
+    """
+    from app.database import SessionLocal
+    from app.database.models import Question
+
+    settings = _load_ai_settings()
+    engine = data.ai_engine
+
+    db = SessionLocal()
+    try:
+        # Get questions without answers
+        query = db.query(Question).filter(
+            (Question.answer == None) | (Question.answer == "")
+        )
+
+        if data.subject:
+            query = query.filter(Question.subject == data.subject)
+
+        # Get batch of questions
+        questions = query.limit(data.limit).all()
+
+        if not questions:
+            return {
+                "ok": True,
+                "processed": 0,
+                "message": "Không còn câu hỏi nào cần bổ sung đáp án"
+            }
+
+        # Process questions
+        updated = 0
+        errors = []
+
+        for q in questions:
+            try:
+                # Build prompt for AI
+                options_text = ""
+                if q.options:
+                    try:
+                        opts = json.loads(q.options) if isinstance(q.options, str) else q.options
+                        for i, opt in enumerate(opts):
+                            label = chr(65 + i)  # A, B, C, D
+                            options_text += f"\n{label}. {opt}"
+                    except:
+                        options_text = str(q.options)
+
+                prompt = f"""Phân tích câu hỏi trắc nghiệm sau và xác định đáp án đúng.
+
+Câu hỏi: {q.content}
+
+Các lựa chọn:{options_text}
+
+Môn học: {q.subject}
+
+Hãy xác định đáp án đúng (A, B, C hoặc D) dựa trên phân tích logic và kiến thức.
+CHỈ trả về MỘT chữ cái (A, B, C hoặc D) là đáp án đúng, KHÔNG giải thích."""
+
+                # Call AI
+                response = await _call_ai_engine(engine, prompt, settings)
+
+                # Extract answer (A, B, C, or D)
+                answer_match = re.search(r'\b([A-D])\b', response.upper())
+                if answer_match:
+                    answer = answer_match.group(1)
+                    # Update question
+                    q.answer = answer
+                    db.commit()
+                    updated += 1
+                else:
+                    errors.append(f"ID {q.id}: Không thể trích xuất đáp án từ phản hồi AI")
+
+            except Exception as e:
+                errors.append(f"ID {q.id}: {str(e)}")
+
+        # Get remaining count
+        remaining = db.query(Question).filter(
+            (Question.answer == None) | (Question.answer == "")
+        ).count()
+
+        return {
+            "ok": True,
+            "processed": len(questions),
+            "updated": updated,
+            "errors": errors[:10] if errors else [],
+            "remaining": remaining,
+            "message": f"Đã bổ sung đáp án cho {updated}/{len(questions)} câu hỏi. Còn lại: {remaining}"
+        }
+
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
+    finally:
+        db.close()
