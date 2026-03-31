@@ -8,6 +8,8 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/static/styles.css" />
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
     <!-- Lucide Icons -->
     <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
     <!-- KaTeX for math rendering -->
@@ -17,10 +19,76 @@
   </head>
   <body>
     <div class="toast-container" id="toastContainer"></div>
+
+    <!-- Modal: Professional Exam Export -->
+    <div id="examExportModal" class="modal-overlay" hidden>
+      <div class="modal-content" style="max-width: 520px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+          <h3 style="margin:0;">Xuất đề thi chuyên nghiệp</h3>
+          <button onclick="document.getElementById('examExportModal').hidden=true" style="background:none!important;color:var(--ink-light)!important;box-shadow:none!important;font-size:18px;padding:4px 8px!important;">✕</button>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+          <div>
+            <label>Tên trường</label>
+            <input type="text" id="examSchool" placeholder="TRƯỜNG THPT ABC" />
+          </div>
+          <div>
+            <label>Tổ bộ môn</label>
+            <input type="text" id="examDept" placeholder="TỔ TOÁN - TIN" />
+          </div>
+          <div style="grid-column:1/-1;">
+            <label>Tiêu đề đề thi</label>
+            <input type="text" id="examTitle" value="ĐỀ KIỂM TRA GIỮA KỲ 1" />
+          </div>
+          <div>
+            <label>Môn học</label>
+            <input type="text" id="examSubjectName" placeholder="Toán" />
+          </div>
+          <div>
+            <label>Lớp</label>
+            <input type="text" id="examGradeName" placeholder="12" />
+          </div>
+          <div>
+            <label>Thời gian (phút)</label>
+            <input type="number" id="examDuration" value="45" />
+          </div>
+          <div>
+            <label>Mã đề</label>
+            <input type="text" id="examCode" placeholder="132" />
+          </div>
+          <div style="grid-column:1/-1;">
+            <label>Năm học / Ngày thi</label>
+            <input type="text" id="examDate" placeholder="Năm học 2025-2026" />
+          </div>
+          <div>
+            <label class="toggle-switch" style="margin-top:8px;">
+              <input type="checkbox" id="examIncludeSheet" checked />
+              <span class="toggle-slider"></span>
+              Phiếu trả lời
+            </label>
+          </div>
+          <div>
+            <label class="toggle-switch" style="margin-top:8px;">
+              <input type="checkbox" id="examIncludeKey" checked />
+              <span class="toggle-slider"></span>
+              Đáp án trang cuối
+            </label>
+          </div>
+        </div>
+        <div style="display:flex;gap:10px;margin-top:20px;">
+          <button id="examExportPdfBtn" type="button" style="flex:1;">Xuất PDF</button>
+          <button id="examExportDocxBtn" type="button" style="flex:1;background:linear-gradient(135deg,#0ea5e9,#0284c7);box-shadow:0 2px 8px rgba(14,165,233,0.3);">Xuất DOCX</button>
+        </div>
+      </div>
+    </div>
+
     <div class="app-container">
       <!-- App Header -->
       <header class="app-header">
         <div class="logo">
+          <button class="hamburger" id="hamburgerBtn" title="Menu">
+            <i data-lucide="menu" style="width:22px;height:22px;"></i>
+          </button>
           <div class="logo-icon"><i data-lucide="graduation-cap" style="width:20px;height:20px;stroke-width:2;"></i></div>
           <h1>Tạo đề online</h1>
         </div>
@@ -39,7 +107,8 @@
 
       <!-- App Body: Sidebar + Main Content -->
       <div class="app-body">
-        <nav class="sidebar">
+        <div class="sidebar-overlay" id="sidebarOverlay"></div>
+        <nav class="sidebar" id="sidebar">
           <div class="sidebar-section">
             <div class="sidebar-section-title">Tạo đề</div>
             <button class="nav-item active" data-tab="tab-create">
@@ -49,7 +118,10 @@
               <i data-lucide="sparkles"></i>Theo chủ đề (AI)
             </button>
             <button class="nav-item" data-tab="tab-matrix">
-              <i data-lucide="grid-3x3"></i>Ma trận đề thi
+              <i data-lucide="grid-3x3"></i>Ma trận đề thi (AI)
+            </button>
+            <button class="nav-item" data-tab="tab-bank-exam">
+              <i data-lucide="shuffle"></i>Lấy từ ngân hàng
             </button>
           </div>
           <div class="sidebar-section">
@@ -81,6 +153,9 @@
           </div>
           <div class="sidebar-section">
             <div class="sidebar-section-title">Khác</div>
+            <button class="nav-item" data-tab="tab-dashboard">
+              <i data-lucide="bar-chart-3"></i>Dashboard
+            </button>
             <button class="nav-item" data-tab="tab-history">
               <i data-lucide="clock"></i>Lịch sử
             </button>
@@ -228,6 +303,7 @@
                     <button data-export="csv">Xuất CSV</button>
                     <button data-export="docx">Xuất DOCX</button>
                     <button data-export="pdf">Xuất PDF</button>
+                    <button id="topicExportPro" style="background:linear-gradient(135deg,#059669,#10b981);box-shadow:0 2px 8px rgba(16,185,129,0.3);">Xuất đề chuyên nghiệp</button>
                   </div>
                 </div>
                 <div class="gen-status" id="topicStatus"></div>
@@ -332,6 +408,7 @@
                   <div class="actions">
                     <button data-matrix-export="docx">Xuất DOCX</button>
                     <button data-matrix-export="pdf">Xuất PDF</button>
+                    <button id="matrixExportPro" style="background:linear-gradient(135deg,#059669,#10b981);box-shadow:0 2px 8px rgba(16,185,129,0.3);">Xuất đề chuyên nghiệp</button>
                   </div>
                 </div>
                 <div id="matrixOutput"></div>
@@ -345,6 +422,119 @@
                 </div>
               </div>
             </div><!-- end content-scroll -->
+          </section>
+
+          <!-- Tab: Lấy từ ngân hàng -->
+          <section class="tab-panel" id="tab-bank-exam">
+            <div class="content-scroll">
+              <div class="panel">
+                <h2>Tạo đề từ ngân hàng câu hỏi</h2>
+                <p>Chọn ngẫu nhiên câu hỏi từ ngân hàng theo ma trận. Ưu tiên câu ít được sử dụng nhất.</p>
+
+                <div class="auto-grid" style="margin-bottom: 16px;">
+                  <div>
+                    <label for="bankExamSubject">Môn học</label>
+                    <select id="bankExamSubject"></select>
+                  </div>
+                  <div>
+                    <label for="bankExamGrade">Lớp</label>
+                    <select id="bankExamGrade">
+                      <option value="">Tất cả lớp</option>
+                      <option value="1">Lớp 1</option>
+                      <option value="2">Lớp 2</option>
+                      <option value="3">Lớp 3</option>
+                      <option value="4">Lớp 4</option>
+                      <option value="5">Lớp 5</option>
+                      <option value="6">Lớp 6</option>
+                      <option value="7">Lớp 7</option>
+                      <option value="8">Lớp 8</option>
+                      <option value="9">Lớp 9</option>
+                      <option value="10">Lớp 10</option>
+                      <option value="11">Lớp 11</option>
+                      <option value="12">Lớp 12</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label for="bankExamType">Dạng câu hỏi</label>
+                    <select id="bankExamType">
+                      <option value="mcq">Trắc nghiệm</option>
+                      <option value="blank">Điền khuyết</option>
+                      <option value="essay">Tự luận</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label class="toggle-switch" style="margin-top: 20px;">
+                      <input type="checkbox" id="bankExamShuffle" checked />
+                      <span class="toggle-slider"></span>
+                      Xáo trộn câu hỏi
+                    </label>
+                  </div>
+                  <div>
+                    <label class="toggle-switch" style="margin-top: 20px;">
+                      <input type="checkbox" id="bankExamShuffleOpts" />
+                      <span class="toggle-slider"></span>
+                      Xáo trộn đáp án
+                    </label>
+                  </div>
+                </div>
+
+                <!-- Availability info -->
+                <div id="bankExamAvail" style="margin-bottom: 16px; padding: 12px 16px; background: var(--accent-subtle); border-radius: 10px; font-size: 13px; color: var(--accent-dark);">
+                  Chọn môn học để xem số câu hỏi có sẵn.
+                </div>
+
+                <!-- Matrix Table -->
+                <div style="margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center;">
+                  <h3 style="margin: 0;">Ma trận chọn câu hỏi</h3>
+                  <button id="bankExamAddRow" type="button" class="btn-sm" style="font-size: 12px;">+ Thêm chủ đề</button>
+                </div>
+                <div style="overflow-x: auto;">
+                  <table id="bankExamTable" style="width: 100%;">
+                    <thead>
+                      <tr>
+                        <th style="min-width: 200px;">Chủ đề</th>
+                        <th style="width: 120px; text-align: center;">Dễ</th>
+                        <th style="width: 120px; text-align: center;">Trung bình</th>
+                        <th style="width: 120px; text-align: center;">Khó</th>
+                        <th style="width: 80px; text-align: center;">Tổng</th>
+                        <th style="width: 50px;"></th>
+                      </tr>
+                    </thead>
+                    <tbody id="bankExamBody"></tbody>
+                    <tfoot>
+                      <tr style="font-weight: 700;">
+                        <td>Tổng cộng</td>
+                        <td style="text-align: center;" id="beTotal_easy">0</td>
+                        <td style="text-align: center;" id="beTotal_medium">0</td>
+                        <td style="text-align: center;" id="beTotal_hard">0</td>
+                        <td style="text-align: center;" id="beTotal_all">0</td>
+                        <td></td>
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
+
+                <div style="margin-top: 16px; display: flex; gap: 12px; align-items: center;">
+                  <button id="bankExamGenBtn" type="button">Tạo đề từ ngân hàng</button>
+                  <span id="bankExamProgress" style="font-size: 13px; color: var(--ink-light);"></span>
+                </div>
+              </div>
+
+              <!-- Results -->
+              <div class="panel result-panel" id="bankExamResult" hidden>
+                <div class="output-header">
+                  <h2>Đề thi (<span id="bankExamCount">0</span> câu)</h2>
+                  <div class="actions">
+                    <button id="bankExamExportPro" style="background:linear-gradient(135deg,#059669,#10b981);box-shadow:0 2px 8px rgba(16,185,129,0.3);">Xuất đề chuyên nghiệp</button>
+                  </div>
+                </div>
+                <div id="bankExamOutput"></div>
+                <div class="answers-section" id="bankExamAnsSection" hidden>
+                  <button class="toggle-answers" id="bankExamToggleAns">Hiện đáp án</button>
+                  <div class="answers-content" id="bankExamAnsContent" hidden></div>
+                </div>
+              </div>
+            </div>
           </section>
 
           <!-- Tab: Word to Excel -->
@@ -419,6 +609,40 @@
                   <button id="bankRefreshBtn">Làm mới</button>
                 </div>
                 <div class="bank-stats" id="bankStats"></div>
+
+                <!-- AI Fill Answers Panel -->
+                <div id="fillAnswersPanel" style="margin-top: 16px; padding: 16px; background: linear-gradient(135deg, #fef3c7 0%, #fef9c3 100%); border: 1px solid #fbbf24; border-radius: 12px;">
+                  <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px;">
+                    <div>
+                      <strong style="color: #92400e;">Câu hỏi chưa có đáp án: <span id="fillMissingCount">0</span></strong>
+                      <div id="fillMissingBreakdown" style="font-size: 12px; color: #a16207; margin-top: 4px;"></div>
+                    </div>
+                    <div style="display: flex; gap: 8px; align-items: center;">
+                      <select id="fillEngine" style="width: auto; min-width: 120px; font-size: 13px; padding: 8px 12px;">
+                        <option value="ollama">Ollama</option>
+                        <option value="gemini">Gemini</option>
+                        <option value="openai">OpenAI</option>
+                        <option value="claude">Claude</option>
+                      </select>
+                      <select id="fillSubject" style="width: auto; min-width: 120px; font-size: 13px; padding: 8px 12px;">
+                        <option value="">Tất cả môn</option>
+                      </select>
+                      <select id="fillBatch" style="width: auto; font-size: 13px; padding: 8px 12px;">
+                        <option value="10">10 câu</option>
+                        <option value="25">25 câu</option>
+                        <option value="50" selected>50 câu</option>
+                        <option value="100">100 câu</option>
+                      </select>
+                      <button id="fillAnswersBtn" type="button" style="white-space: nowrap;">Bổ sung đáp án (AI)</button>
+                    </div>
+                  </div>
+                  <div id="fillProgress" style="margin-top: 10px; font-size: 13px; color: #92400e;" hidden>
+                    <div style="background: #fde68a; border-radius: 8px; height: 6px; overflow: hidden; margin-bottom: 6px;">
+                      <div id="fillProgressBar" style="background: linear-gradient(90deg, #f59e0b, #d97706); height: 100%; width: 0%; transition: width 0.3s ease; border-radius: 8px;"></div>
+                    </div>
+                    <span id="fillProgressText"></span>
+                  </div>
+                </div>
               </div>
               <div class="panel">
                 <div class="output-header">
@@ -739,6 +963,51 @@
                 </div>
               </div>
             </div><!-- end content-scroll -->
+          </section>
+
+          <!-- Tab: Dashboard -->
+          <section class="tab-panel" id="tab-dashboard">
+            <div class="content-scroll">
+              <!-- Overview Cards -->
+              <div id="dashboardOverview" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:14px;margin-bottom:20px;">
+              </div>
+
+              <!-- Charts Row 1: Subject + Difficulty -->
+              <div style="display:grid;grid-template-columns:2fr 1fr;gap:16px;margin-bottom:20px;">
+                <div class="panel" style="margin-bottom:0;">
+                  <h3 style="margin-bottom:12px;">Phân bố theo môn học</h3>
+                  <div style="height:300px;"><canvas id="chartSubject"></canvas></div>
+                </div>
+                <div class="panel" style="margin-bottom:0;">
+                  <h3 style="margin-bottom:12px;">Độ khó</h3>
+                  <div style="height:300px;"><canvas id="chartDifficulty"></canvas></div>
+                </div>
+              </div>
+
+              <!-- Charts Row 2: Answer coverage + Daily activity -->
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px;">
+                <div class="panel" style="margin-bottom:0;">
+                  <h3 style="margin-bottom:12px;">Tỷ lệ có đáp án theo môn</h3>
+                  <div style="height:280px;"><canvas id="chartAnswerCoverage"></canvas></div>
+                </div>
+                <div class="panel" style="margin-bottom:0;">
+                  <h3 style="margin-bottom:12px;">Hoạt động 14 ngày qua</h3>
+                  <div style="height:280px;"><canvas id="chartDaily"></canvas></div>
+                </div>
+              </div>
+
+              <!-- Charts Row 3: Grade + Source -->
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px;">
+                <div class="panel" style="margin-bottom:0;">
+                  <h3 style="margin-bottom:12px;">Phân bố theo lớp</h3>
+                  <div style="height:280px;"><canvas id="chartGrade"></canvas></div>
+                </div>
+                <div class="panel" style="margin-bottom:0;">
+                  <h3 style="margin-bottom:12px;">Nguồn câu hỏi (Top 10)</h3>
+                  <div style="height:280px;"><canvas id="chartSource"></canvas></div>
+                </div>
+              </div>
+            </div>
           </section>
 
           <!-- Tab: Lịch sử sử dụng -->
@@ -2236,6 +2505,8 @@
 
             output.innerHTML = html;
             document.getElementById('matrixResultCount').textContent = data.total_questions;
+            // Store for professional export
+            window._lastMatrixResult = { sections: data.sections, answers: data.answers, questions: [] };
             progressText.textContent = `Hoàn tất: ${data.total_questions} câu hỏi`;
 
             // Show answers
@@ -2455,9 +2726,10 @@
               ${q.image_url ? `<div class="bank-item-image"><img src="/uploads/${q.image_url}" alt="Hình" loading="lazy" /></div>` : ''}
               <div class="bank-item-content">
                 <span class="bank-item-id">#${q.id}</span>
-                <strong>${q.subject || 'N/A'}</strong> -
+                <strong>${q.subject || 'N/A'}</strong>
+                ${q.grade ? `<span style="color:#6b7280;font-size:0.85em;margin-left:2px;">${q.grade === 'international' ? '(Quốc tế)' : '(Lớp ' + q.grade + ')'}</span>` : ''}
                 <span class="difficulty-${q.difficulty || 'medium'}">${q.difficulty || 'medium'}</span>
-                ${q.grade ? `<span style="color:#6b7280;font-size:0.85em;">(Lớp ${q.grade})</span>` : ''}
+                ${q.times_used > 0 ? `<span style="font-size:10px;padding:1px 6px;border-radius:8px;background:#fef3c7;color:#92400e;">Dùng ${q.times_used}x</span>` : ''}
                 ${q.image_url ? '<span style="color:#6366f1;font-size:0.75em;margin-left:4px;">📷</span>' : ''}
                 <p>${escapeHtml((q.content || '').substring(0, 150))}${(q.content||'').length > 150 ? '...' : ''}</p>
               </div>
@@ -3698,6 +3970,677 @@
         }
       });
 
+      /* ---- Dashboard ---- */
+      (function() {
+        const COLORS = [
+          '#6366f1','#8b5cf6','#ec4899','#ef4444','#f59e0b',
+          '#10b981','#06b6d4','#3b82f6','#f97316','#84cc16',
+          '#14b8a6','#a855f7','#e11d48',
+        ];
+
+        let dashboardLoaded = false;
+        const chartInstances = {};
+
+        function destroyChart(id) {
+          if (chartInstances[id]) { chartInstances[id].destroy(); delete chartInstances[id]; }
+        }
+
+        window.loadDashboard = async function() {
+          try {
+            const res = await fetch('/api/questions/dashboard');
+            const data = await res.json();
+            const ov = data.overview;
+
+            // Overview cards
+            const cards = [
+              { label: 'Tổng câu hỏi', value: ov.total.toLocaleString(), color: '#6366f1', icon: 'library' },
+              { label: 'Có đáp án', value: `${ov.with_answer.toLocaleString()} (${ov.answer_rate}%)`, color: '#10b981', icon: 'check-circle' },
+              { label: 'Chưa có đáp án', value: ov.without_answer.toLocaleString(), color: '#ef4444', icon: 'alert-circle' },
+              { label: 'Có lời giải', value: ov.with_explanation.toLocaleString(), color: '#8b5cf6', icon: 'book-open' },
+              { label: 'Có hình ảnh', value: ov.with_image.toLocaleString(), color: '#06b6d4', icon: 'image' },
+              { label: 'Đã sử dụng', value: ov.total_used.toLocaleString(), color: '#f59e0b', icon: 'refresh-cw' },
+            ];
+
+            document.getElementById('dashboardOverview').innerHTML = cards.map(c => `
+              <div class="panel" style="margin-bottom:0;padding:16px;border-left:4px solid ${c.color};">
+                <div style="font-size:12px;color:var(--ink-light);text-transform:uppercase;letter-spacing:0.3px;">${c.label}</div>
+                <div style="font-size:24px;font-weight:700;color:${c.color};margin-top:4px;">${c.value}</div>
+              </div>
+            `).join('');
+
+            // Chart defaults
+            const defaultOpts = {
+              responsive: true,
+              maintainAspectRatio: false,
+              plugins: { legend: { labels: { font: { size: 11 }, padding: 12 } } },
+            };
+
+            // 1. Subject bar chart
+            const subjects = data.by_subject || [];
+            destroyChart('chartSubject');
+            chartInstances.chartSubject = new Chart(document.getElementById('chartSubject'), {
+              type: 'bar',
+              data: {
+                labels: subjects.map(s => s.subject),
+                datasets: [{
+                  label: 'Số câu hỏi',
+                  data: subjects.map(s => s.total),
+                  backgroundColor: subjects.map((_, i) => COLORS[i % COLORS.length]),
+                  borderRadius: 6,
+                  borderSkipped: false,
+                }],
+              },
+              options: { ...defaultOpts, plugins: { ...defaultOpts.plugins, legend: { display: false } }, scales: { y: { beginAtZero: true } } },
+            });
+
+            // 2. Difficulty doughnut
+            const diff = data.by_difficulty || {};
+            destroyChart('chartDifficulty');
+            chartInstances.chartDifficulty = new Chart(document.getElementById('chartDifficulty'), {
+              type: 'doughnut',
+              data: {
+                labels: ['Dễ', 'Trung bình', 'Khó'],
+                datasets: [{
+                  data: [diff.easy || 0, diff.medium || 0, diff.hard || 0],
+                  backgroundColor: ['#10b981', '#f59e0b', '#ef4444'],
+                  borderWidth: 0,
+                }],
+              },
+              options: { ...defaultOpts, cutout: '60%' },
+            });
+
+            // 3. Answer coverage (stacked bar)
+            destroyChart('chartAnswerCoverage');
+            chartInstances.chartAnswerCoverage = new Chart(document.getElementById('chartAnswerCoverage'), {
+              type: 'bar',
+              data: {
+                labels: subjects.map(s => s.subject),
+                datasets: [
+                  { label: 'Có đáp án', data: subjects.map(s => s.has_answer), backgroundColor: '#10b981', borderRadius: 4 },
+                  { label: 'Chưa có', data: subjects.map(s => s.total - s.has_answer), backgroundColor: '#e2e8f0', borderRadius: 4 },
+                ],
+              },
+              options: { ...defaultOpts, scales: { x: { stacked: true }, y: { stacked: true, beginAtZero: true } } },
+            });
+
+            // 4. Daily activity line chart
+            const daily = data.daily_activity || [];
+            destroyChart('chartDaily');
+            chartInstances.chartDaily = new Chart(document.getElementById('chartDaily'), {
+              type: 'line',
+              data: {
+                labels: daily.map(d => d.date.substring(5)),
+                datasets: [{
+                  label: 'Câu hỏi mới',
+                  data: daily.map(d => d.count),
+                  borderColor: '#6366f1',
+                  backgroundColor: 'rgba(99,102,241,0.1)',
+                  fill: true,
+                  tension: 0.4,
+                  pointRadius: 4,
+                  pointBackgroundColor: '#6366f1',
+                }],
+              },
+              options: { ...defaultOpts, scales: { y: { beginAtZero: true } } },
+            });
+
+            // 5. Grade bar chart
+            const grades = data.by_grade || [];
+            destroyChart('chartGrade');
+            chartInstances.chartGrade = new Chart(document.getElementById('chartGrade'), {
+              type: 'bar',
+              data: {
+                labels: grades.map(g => g.grade === 'international' ? 'Quốc tế' : `Lớp ${g.grade}`),
+                datasets: [{
+                  label: 'Số câu',
+                  data: grades.map(g => g.count),
+                  backgroundColor: '#3b82f6',
+                  borderRadius: 6,
+                }],
+              },
+              options: { ...defaultOpts, plugins: { ...defaultOpts.plugins, legend: { display: false } }, indexAxis: 'y' },
+            });
+
+            // 6. Source horizontal bar
+            const sources = data.by_source || [];
+            destroyChart('chartSource');
+            chartInstances.chartSource = new Chart(document.getElementById('chartSource'), {
+              type: 'bar',
+              data: {
+                labels: sources.map(s => {
+                  let name = s.source;
+                  if (name.startsWith('http')) { try { name = new URL(name).hostname; } catch(e) {} }
+                  return name.length > 25 ? name.substring(0, 25) + '...' : name;
+                }),
+                datasets: [{
+                  label: 'Số câu',
+                  data: sources.map(s => s.count),
+                  backgroundColor: '#8b5cf6',
+                  borderRadius: 6,
+                }],
+              },
+              options: { ...defaultOpts, plugins: { ...defaultOpts.plugins, legend: { display: false } }, indexAxis: 'y' },
+            });
+
+            dashboardLoaded = true;
+          } catch (err) {
+            console.error('Dashboard load error:', err);
+          }
+        };
+
+        // Load dashboard when tab is activated
+        const observer = new MutationObserver(() => {
+          const panel = document.getElementById('tab-dashboard');
+          if (panel && panel.classList.contains('active') && !dashboardLoaded) {
+            loadDashboard();
+          }
+        });
+        const panel = document.getElementById('tab-dashboard');
+        if (panel) observer.observe(panel, { attributes: true, attributeFilter: ['class'] });
+      })();
+
+      /* ---- Bank Exam (Random Pick) ---- */
+      (function() {
+        const subjectSel = document.getElementById('bankExamSubject');
+        const typeSel = document.getElementById('bankExamType');
+        const tbody = document.getElementById('bankExamBody');
+        const availEl = document.getElementById('bankExamAvail');
+
+        let beTopics = [];
+        let beAvailability = {};
+
+        // Init subjects from global
+        setTimeout(() => {
+          if (typeof subjectTopics !== 'undefined') {
+            const topicSubjectEl = document.getElementById('topicSubject');
+            if (topicSubjectEl) subjectSel.innerHTML = topicSubjectEl.innerHTML;
+          }
+          loadBankAvailability();
+          addBankExamRow();
+        }, 600);
+
+        subjectSel.addEventListener('change', loadBankAvailability);
+        typeSel.addEventListener('change', loadBankAvailability);
+        document.getElementById('bankExamGrade').addEventListener('change', loadBankAvailability);
+
+        async function loadBankAvailability() {
+          const subject = subjectSel.value;
+          beTopics = (typeof subjectTopics !== 'undefined' && subjectTopics[subject]) || [];
+
+          // Update row selects
+          tbody.querySelectorAll('.be-topic-select').forEach(sel => {
+            const cur = sel.value;
+            sel.innerHTML = '<option value="">-- Tất cả --</option>' +
+              beTopics.map(t => `<option value="${t.key}">${t.label}</option>`).join('');
+            if (cur) sel.value = cur;
+          });
+
+          try {
+            const grade = document.getElementById('bankExamGrade').value;
+            const res = await fetch(`/api/bank-availability?subject=${subject}&question_type=${typeSel.value}&grade=${grade}`);
+            const data = await res.json();
+            beAvailability = data.available || {};
+            const totals = data.total_by_difficulty || {};
+
+            const easyTotal = totals.easy || 0;
+            const medTotal = totals.medium || 0;
+            const hardTotal = totals.hard || 0;
+            const total = easyTotal + medTotal + hardTotal;
+
+            availEl.innerHTML = `<strong>Có sẵn trong ngân hàng:</strong> ${total} câu ` +
+              `(<span style="color:#059669">Dễ: ${easyTotal}</span> · ` +
+              `<span style="color:#d97706">TB: ${medTotal}</span> · ` +
+              `<span style="color:#dc2626">Khó: ${hardTotal}</span>)`;
+
+            // Update cell hints
+            updateCellHints();
+          } catch (e) {
+            availEl.textContent = 'Không thể tải thông tin.';
+          }
+        }
+
+        function updateCellHints() {
+          tbody.querySelectorAll('tr').forEach(tr => {
+            const topicSel = tr.querySelector('.be-topic-select');
+            const topic = topicSel ? topicSel.value : '';
+            tr.querySelectorAll('.be-cell').forEach(input => {
+              const diff = input.dataset.diff;
+              let avail = 0;
+              if (topic && beAvailability[topic]) {
+                avail = (beAvailability[topic][diff] || {}).count || 0;
+              } else {
+                // Sum all topics for this difficulty
+                Object.values(beAvailability).forEach(t => {
+                  avail += (t[diff] || {}).count || 0;
+                });
+              }
+              input.title = `Có sẵn: ${avail} câu`;
+              input.max = avail;
+              const hint = tr.querySelector(`.be-hint-${diff}`);
+              if (hint) hint.textContent = `/${avail}`;
+            });
+          });
+        }
+
+        function addBankExamRow() {
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td>
+              <select class="be-topic-select" style="width:100%;">
+                <option value="">-- Tất cả --</option>
+                ${beTopics.map(t => `<option value="${t.key}">${t.label}</option>`).join('')}
+              </select>
+            </td>
+            <td style="text-align:center;">
+              <div style="display:flex;align-items:center;justify-content:center;gap:2px;">
+                <input type="number" class="be-cell" data-diff="easy" min="0" value="0" style="width:50px;text-align:center;" />
+                <small class="be-hint-easy" style="color:var(--ink-light);font-size:10px;"></small>
+              </div>
+            </td>
+            <td style="text-align:center;">
+              <div style="display:flex;align-items:center;justify-content:center;gap:2px;">
+                <input type="number" class="be-cell" data-diff="medium" min="0" value="0" style="width:50px;text-align:center;" />
+                <small class="be-hint-medium" style="color:var(--ink-light);font-size:10px;"></small>
+              </div>
+            </td>
+            <td style="text-align:center;">
+              <div style="display:flex;align-items:center;justify-content:center;gap:2px;">
+                <input type="number" class="be-cell" data-diff="hard" min="0" value="0" style="width:50px;text-align:center;" />
+                <small class="be-hint-hard" style="color:var(--ink-light);font-size:10px;"></small>
+              </div>
+            </td>
+            <td class="be-row-total" style="text-align:center;font-weight:600;">0</td>
+            <td><button type="button" class="btn-sm be-remove" style="background:#ef4444;color:#fff;padding:4px 8px;font-size:11px;">✕</button></td>
+          `;
+          tbody.appendChild(tr);
+
+          tr.querySelectorAll('.be-cell').forEach(input => {
+            input.addEventListener('input', () => { updateBERowTotal(tr); updateBETotals(); });
+          });
+          tr.querySelector('.be-topic-select').addEventListener('change', updateCellHints);
+          tr.querySelector('.be-remove').addEventListener('click', () => { tr.remove(); updateBETotals(); });
+
+          updateCellHints();
+          updateBETotals();
+        }
+
+        function updateBERowTotal(tr) {
+          let sum = 0;
+          tr.querySelectorAll('.be-cell').forEach(i => sum += parseInt(i.value) || 0);
+          tr.querySelector('.be-row-total').textContent = sum;
+        }
+
+        function updateBETotals() {
+          let t = { easy: 0, medium: 0, hard: 0 };
+          tbody.querySelectorAll('tr').forEach(tr => {
+            tr.querySelectorAll('.be-cell').forEach(i => {
+              t[i.dataset.diff] = (t[i.dataset.diff] || 0) + (parseInt(i.value) || 0);
+            });
+          });
+          document.getElementById('beTotal_easy').textContent = t.easy;
+          document.getElementById('beTotal_medium').textContent = t.medium;
+          document.getElementById('beTotal_hard').textContent = t.hard;
+          document.getElementById('beTotal_all').textContent = t.easy + t.medium + t.hard;
+        }
+
+        document.getElementById('bankExamAddRow').addEventListener('click', () => addBankExamRow());
+
+        // Generate button
+        document.getElementById('bankExamGenBtn').addEventListener('click', async () => {
+          const btn = document.getElementById('bankExamGenBtn');
+          const progress = document.getElementById('bankExamProgress');
+          const resultPanel = document.getElementById('bankExamResult');
+          const output = document.getElementById('bankExamOutput');
+
+          // Build matrix
+          const matrix = [];
+          let totalCount = 0;
+          tbody.querySelectorAll('tr').forEach(tr => {
+            const topicSel = tr.querySelector('.be-topic-select');
+            const row = {
+              topic: topicSel.value,
+              topic_label: topicSel.options[topicSel.selectedIndex].text,
+              easy: parseInt(tr.querySelector('[data-diff="easy"]').value) || 0,
+              medium: parseInt(tr.querySelector('[data-diff="medium"]').value) || 0,
+              hard: parseInt(tr.querySelector('[data-diff="hard"]').value) || 0,
+            };
+            if (row.easy + row.medium + row.hard > 0) {
+              totalCount += row.easy + row.medium + row.hard;
+              matrix.push(row);
+            }
+          });
+
+          if (matrix.length === 0) {
+            showToast('Vui lòng thêm ít nhất 1 chủ đề với số câu > 0', 'warning');
+            return;
+          }
+
+          btnLoading(btn, true);
+          progress.textContent = `Đang chọn ${totalCount} câu...`;
+
+          try {
+            const res = await fetch('/generate-from-bank', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                subject: subjectSel.value,
+                question_type: typeSel.value,
+                grade: document.getElementById('bankExamGrade').value,
+                matrix: matrix,
+                shuffle_questions: document.getElementById('bankExamShuffle').checked,
+                shuffle_options: document.getElementById('bankExamShuffleOpts').checked,
+              }),
+            });
+            const data = await res.json();
+
+            if (!data.success) {
+              output.innerHTML = `<p style="color:var(--danger);">${data.error}</p>`;
+              showToast(data.error, 'error');
+              return;
+            }
+
+            // Render sections
+            let html = '';
+            let qNum = 0;
+            (data.sections || []).forEach(sec => {
+              html += `<div style="margin-bottom:20px;">`;
+              html += `<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">`;
+              html += `<strong>${sec.topic_label}</strong>`;
+              html += `<span class="difficulty-${sec.difficulty}">${sec.difficulty_label}</span>`;
+              if (sec.picked < sec.requested) {
+                html += `<span style="color:var(--warning);font-size:12px;">(${sec.picked}/${sec.requested} câu)</span>`;
+              }
+              html += `</div>`;
+
+              sec.questions.forEach(q => {
+                qNum++;
+                const usedBadge = q.times_used > 0
+                  ? `<span style="font-size:10px;padding:2px 8px;border-radius:10px;background:#fef3c7;color:#92400e;">Đã dùng ${q.times_used} lần</span>`
+                  : `<span style="font-size:10px;padding:2px 8px;border-radius:10px;background:#ecfdf5;color:#065f46;">Chưa dùng</span>`;
+
+                html += `<div class="created-question">`;
+                html += `<div class="q-header"><span class="q-number">Câu ${qNum}</span> ${usedBadge} <small style="color:var(--ink-light);">#${q.id}</small></div>`;
+                html += `<div class="q-display"><div class="q-text">${q.content}</div>`;
+
+                if (q.options && q.options.length) {
+                  html += `<div style="margin-top:8px;padding-left:16px;">`;
+                  q.options.forEach((opt, idx) => {
+                    const label = String.fromCharCode(65 + idx);
+                    const isCorrect = q.answer === label;
+                    html += `<div style="margin:3px 0;${isCorrect ? 'font-weight:600;color:var(--success);' : ''}">${label}) ${opt}</div>`;
+                  });
+                  html += `</div>`;
+                }
+                html += `</div></div>`;
+              });
+              html += `</div>`;
+            });
+
+            output.innerHTML = html;
+            document.getElementById('bankExamCount').textContent = data.total_picked;
+            resultPanel.hidden = false;
+
+            // Shortfalls warning
+            if (data.shortfalls && data.shortfalls.length) {
+              data.shortfalls.forEach(s => showToast(s, 'warning', 6000));
+            }
+
+            progress.textContent = `Đã chọn ${data.total_picked}/${data.total_requested} câu`;
+            showToast(`Đã tạo đề ${data.total_picked} câu từ ngân hàng`, 'success');
+
+            // Answers
+            const ansSection = document.getElementById('bankExamAnsSection');
+            const ansContent = document.getElementById('bankExamAnsContent');
+            if (data.answers) {
+              ansContent.textContent = data.answers;
+              ansContent.hidden = true;
+              ansSection.hidden = false;
+            }
+
+            // Store for professional export
+            window._lastBankExamResult = {
+              sections: data.sections,
+              answers: data.answers,
+              questions: [],
+            };
+
+            // Refresh availability
+            loadBankAvailability();
+
+          } catch (err) {
+            output.innerHTML = `<p style="color:var(--danger);">Lỗi: ${err.message}</p>`;
+            showToast('Lỗi: ' + err.message, 'error');
+          } finally {
+            btnLoading(btn, false);
+          }
+        });
+
+        // Toggle answers
+        document.getElementById('bankExamToggleAns').addEventListener('click', () => {
+          const c = document.getElementById('bankExamAnsContent');
+          const b = document.getElementById('bankExamToggleAns');
+          c.hidden = !c.hidden;
+          b.textContent = c.hidden ? 'Hiện đáp án' : 'Ẩn đáp án';
+        });
+
+        // Export pro button
+        document.getElementById('bankExamExportPro').addEventListener('click', () => {
+          if (window._lastBankExamResult) {
+            openExamExport(window._lastBankExamResult);
+          } else {
+            showToast('Vui lòng tạo đề trước', 'warning');
+          }
+        });
+      })();
+
+      /* ---- Professional Exam Export ---- */
+      // Topic tab: export pro button
+      document.getElementById('topicExportPro').addEventListener('click', () => {
+        const questions = Array.from(document.querySelectorAll('#topicOutput .created-question .q-text, #topicOutput .q-display'))
+          .map(el => el.textContent.trim()).filter(Boolean);
+        const answers = document.getElementById('answersContent')?.textContent || '';
+        openExamExport({ questions, answers });
+      });
+
+      // Matrix tab: export pro button
+      document.getElementById('matrixExportPro').addEventListener('click', () => {
+        // Get from last matrix generation result stored globally
+        if (window._lastMatrixResult) {
+          openExamExport(window._lastMatrixResult);
+        } else {
+          showToast('Vui lòng tạo đề trước', 'warning');
+        }
+      });
+
+      (function() {
+        let pendingExportData = null;
+
+        // Open modal with data
+        window.openExamExport = function(data) {
+          pendingExportData = data;
+          document.getElementById('examExportModal').hidden = false;
+        };
+
+        async function doExport(fmt) {
+          if (!pendingExportData) return;
+          const info = {
+            school_name: document.getElementById('examSchool').value,
+            department: document.getElementById('examDept').value,
+            title: document.getElementById('examTitle').value,
+            subject: document.getElementById('examSubjectName').value,
+            grade: document.getElementById('examGradeName').value,
+            duration: document.getElementById('examDuration').value,
+            exam_code: document.getElementById('examCode').value,
+            date: document.getElementById('examDate').value,
+            include_answer_sheet: document.getElementById('examIncludeSheet').checked,
+            include_answer_key: document.getElementById('examIncludeKey').checked,
+          };
+
+          const btn = fmt === 'pdf' ? document.getElementById('examExportPdfBtn') : document.getElementById('examExportDocxBtn');
+          btnLoading(btn, true);
+
+          try {
+            const body = {
+              questions: pendingExportData.questions || [],
+              sections: pendingExportData.sections || [],
+              answers: pendingExportData.answers || '',
+              format: fmt,
+              exam_info: info,
+            };
+
+            const res = await fetch('/api/export-exam-pro', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(body),
+            });
+
+            if (!res.ok) throw new Error('Export failed');
+
+            const blob = await res.blob();
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `de_thi_${info.exam_code || 'export'}.${fmt}`;
+            a.click();
+            URL.revokeObjectURL(url);
+
+            showToast(`Đã xuất file ${fmt.toUpperCase()} thành công`, 'success');
+            document.getElementById('examExportModal').hidden = true;
+          } catch (err) {
+            showToast('Lỗi xuất file: ' + err.message, 'error');
+          } finally {
+            btnLoading(btn, false);
+          }
+        }
+
+        document.getElementById('examExportPdfBtn').addEventListener('click', () => doExport('pdf'));
+        document.getElementById('examExportDocxBtn').addEventListener('click', () => doExport('docx'));
+      })();
+
+      /* ---- AI Fill Missing Answers ---- */
+      (function() {
+        const fillBtn = document.getElementById('fillAnswersBtn');
+        const fillSubject = document.getElementById('fillSubject');
+
+        // Load missing answer stats
+        async function loadFillStats() {
+          try {
+            const res = await fetch('/api/ai/questions-without-answers');
+            const data = await res.json();
+            if (!data.ok) return;
+
+            document.getElementById('fillMissingCount').textContent = data.total_missing.toLocaleString();
+
+            // Breakdown by subject
+            const bd = data.by_subject || {};
+            const parts = Object.entries(bd)
+              .sort((a, b) => b[1] - a[1])
+              .map(([s, c]) => `${s}: ${c}`)
+              .join(' · ');
+            document.getElementById('fillMissingBreakdown').textContent = parts;
+
+            // Populate subject filter
+            const subjects = Object.keys(bd).sort();
+            fillSubject.innerHTML = '<option value="">Tất cả môn</option>' +
+              subjects.map(s => `<option value="${s}">${s} (${bd[s]})</option>`).join('');
+
+            // Show/hide panel based on missing count
+            const panel = document.getElementById('fillAnswersPanel');
+            if (data.total_missing === 0) {
+              panel.style.background = 'linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%)';
+              panel.style.borderColor = '#86efac';
+              document.getElementById('fillMissingCount').parentElement.innerHTML =
+                '<strong style="color:#065f46;">Tất cả câu hỏi đã có đáp án!</strong>';
+              fillBtn.hidden = true;
+            }
+          } catch (e) { /* ignore */ }
+        }
+
+        // Run fill answers
+        fillBtn.addEventListener('click', async () => {
+          const engine = document.getElementById('fillEngine').value;
+          const subject = fillSubject.value;
+          const batchSize = parseInt(document.getElementById('fillBatch').value);
+          const progressEl = document.getElementById('fillProgress');
+          const progressBar = document.getElementById('fillProgressBar');
+          const progressText = document.getElementById('fillProgressText');
+
+          btnLoading(fillBtn, true);
+          progressEl.hidden = false;
+          progressBar.style.width = '0%';
+          progressText.textContent = 'Đang bắt đầu...';
+
+          let totalProcessed = 0;
+          let totalUpdated = 0;
+          let allErrors = [];
+          let remaining = 99999;
+
+          try {
+            // Process in multiple batches until done or limit reached
+            const maxBatches = Math.ceil(batchSize / 10);
+            const perBatch = Math.min(10, batchSize);
+
+            for (let i = 0; i < maxBatches && remaining > 0; i++) {
+              progressText.textContent = `Đang xử lý batch ${i + 1}/${maxBatches}... (đã cập nhật ${totalUpdated} câu)`;
+              progressBar.style.width = `${((i + 1) / maxBatches * 100).toFixed(0)}%`;
+
+              const res = await fetch('/api/ai/fill-answers', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  ai_engine: engine,
+                  subject: subject || null,
+                  limit: perBatch,
+                }),
+              });
+              const data = await res.json();
+
+              if (!data.ok) {
+                showToast('Lỗi: ' + (data.error || 'Không xác định'), 'error');
+                break;
+              }
+
+              totalProcessed += data.processed || 0;
+              totalUpdated += data.updated || 0;
+              remaining = data.remaining || 0;
+              if (data.errors) allErrors.push(...data.errors);
+
+              // Stop if no more questions
+              if (data.processed === 0) break;
+            }
+
+            progressBar.style.width = '100%';
+            progressText.textContent = `Hoàn tất: ${totalUpdated}/${totalProcessed} câu đã bổ sung đáp án. Còn lại: ${remaining}`;
+
+            if (totalUpdated > 0) {
+              showToast(`Đã bổ sung đáp án cho ${totalUpdated} câu hỏi`, 'success');
+            } else {
+              showToast('Không bổ sung được câu nào', 'warning');
+            }
+
+            if (allErrors.length > 0) {
+              console.warn('Fill answers errors:', allErrors);
+            }
+
+            // Refresh stats
+            loadFillStats();
+            if (typeof loadBankQuestions === 'function') loadBankQuestions();
+
+          } catch (err) {
+            progressText.textContent = 'Lỗi: ' + err.message;
+            showToast('Lỗi: ' + err.message, 'error');
+          } finally {
+            btnLoading(fillBtn, false);
+          }
+        });
+
+        // Load stats on page load
+        setTimeout(loadFillStats, 1000);
+
+        // Expose for refresh after bank changes
+        window.loadFillStats = loadFillStats;
+      })();
+
       /* ---- Import Data Tab ---- */
 
       /* -- Unified Auto-Scraper -- */
@@ -4547,6 +5490,36 @@
     <script>
       // Initialize Lucide icons
       if (window.lucide) lucide.createIcons();
+
+      // Hamburger menu toggle
+      (function() {
+        const btn = document.getElementById('hamburgerBtn');
+        const sidebar = document.getElementById('sidebar');
+        const overlay = document.getElementById('sidebarOverlay');
+
+        function openSidebar() {
+          sidebar.classList.add('open');
+          overlay.classList.add('active');
+        }
+
+        function closeSidebar() {
+          sidebar.classList.remove('open');
+          overlay.classList.remove('active');
+        }
+
+        btn.addEventListener('click', () => {
+          sidebar.classList.contains('open') ? closeSidebar() : openSidebar();
+        });
+
+        overlay.addEventListener('click', closeSidebar);
+
+        // Close sidebar when nav item clicked on mobile
+        sidebar.querySelectorAll('.nav-item').forEach(item => {
+          item.addEventListener('click', () => {
+            if (window.innerWidth <= 768) closeSidebar();
+          });
+        });
+      })();
 
       // ---- Toast Notification System ----
       window.showToast = function(message, type = 'info', duration = 4000) {

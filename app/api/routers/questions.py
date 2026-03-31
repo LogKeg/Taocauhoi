@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 
 from app.api.dependencies import get_db
 from app.database import QuestionCRUD, HistoryCRUD
+from app.database.models import Question
 from app.core import QuestionCreate, QuestionUpdate, BulkSaveRequest
 from app.services.image import save_question_image, download_image_sync, delete_question_images
 
@@ -99,6 +100,85 @@ def clear_questions_cache():
     """Clear all question-related cache."""
     _db_cache.invalidate_on_question_change()
     return {"ok": True, "message": "Cache cleared"}
+
+
+@router.get("/questions/dashboard")
+def get_dashboard_stats(db: Session = Depends(get_db)):
+    """Comprehensive dashboard statistics for question bank."""
+    from sqlalchemy import func, case, or_
+
+    Q = Question
+
+    # Total counts
+    total = db.query(func.count(Q.id)).scalar()
+    with_answer = db.query(func.count(Q.id)).filter(Q.answer != None, Q.answer != "").scalar()
+    with_explanation = db.query(func.count(Q.id)).filter(Q.explanation != None, Q.explanation != "").scalar()
+    with_image = db.query(func.count(Q.id)).filter(Q.image_url != None, Q.image_url != "").scalar()
+    total_used = db.query(func.count(Q.id)).filter(Q.times_used > 0).scalar()
+
+    # By subject
+    by_subject = db.query(
+        Q.subject,
+        func.count(Q.id).label("total"),
+        func.sum(case((Q.answer != None, 1), else_=0)).label("has_answer"),
+        func.sum(Q.times_used).label("total_used"),
+    ).group_by(Q.subject).order_by(func.count(Q.id).desc()).all()
+
+    subject_data = [
+        {"subject": s, "total": t, "has_answer": int(a or 0), "total_used": int(u or 0)}
+        for s, t, a, u in by_subject
+    ]
+
+    # By difficulty
+    by_difficulty = db.query(
+        Q.difficulty, func.count(Q.id)
+    ).group_by(Q.difficulty).all()
+    difficulty_data = {d: c for d, c in by_difficulty}
+
+    # By grade
+    by_grade = db.query(
+        Q.grade, func.count(Q.id)
+    ).filter(Q.grade != None, Q.grade != "").group_by(Q.grade).order_by(func.count(Q.id).desc()).all()
+    grade_data = [{"grade": g, "count": c} for g, c in by_grade]
+
+    # By source (top 10)
+    by_source = db.query(
+        Q.source, func.count(Q.id)
+    ).filter(Q.source != None, Q.source != "").group_by(Q.source).order_by(func.count(Q.id).desc()).limit(10).all()
+    source_data = [{"source": s, "count": c} for s, c in by_source]
+
+    # By question type
+    by_type = db.query(
+        Q.question_type, func.count(Q.id)
+    ).group_by(Q.question_type).all()
+    type_data = {t: c for t, c in by_type}
+
+    # Recent activity (questions added per day, last 14 days)
+    from datetime import datetime, timedelta
+    fourteen_days_ago = datetime.utcnow() - timedelta(days=14)
+    daily = db.query(
+        func.date(Q.created_at).label("date"),
+        func.count(Q.id).label("count"),
+    ).filter(Q.created_at >= fourteen_days_ago).group_by(func.date(Q.created_at)).order_by("date").all()
+    daily_data = [{"date": str(d), "count": c} for d, c in daily]
+
+    return {
+        "overview": {
+            "total": total,
+            "with_answer": with_answer,
+            "without_answer": total - with_answer,
+            "with_explanation": with_explanation,
+            "with_image": with_image,
+            "total_used": total_used,
+            "answer_rate": round(with_answer / total * 100, 1) if total else 0,
+        },
+        "by_subject": subject_data,
+        "by_difficulty": difficulty_data,
+        "by_grade": grade_data,
+        "by_source": source_data,
+        "by_type": type_data,
+        "daily_activity": daily_data,
+    }
 
 
 @router.get("/questions/{question_id}")

@@ -31,4 +31,6 @@ def _load_router(filename: str) -> APIRouter:
 router.include_router(_load_router("question-generation-endpoints.py"))
 router.include_router(_load_router("matrix-generation-handler.py"))
 router.include_router(_load_router("export-to-file-endpoints.py"))
+router.include_router(_load_router("professional-exam-pdf-exporter.py"))
+router.include_router(_load_router("random-pick-from-bank-handler.py"))
 router.include_router(_load_router("sample-file-endpoints.py"))
