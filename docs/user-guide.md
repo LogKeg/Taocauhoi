@@ -6,16 +6,20 @@
 - [2. Cấu hình AI Engine](#2-cấu-hình-ai-engine)
 - [3. Tạo đề từ đề mẫu](#3-tạo-đề-từ-đề-mẫu)
 - [4. Tạo theo chủ đề (AI)](#4-tạo-theo-chủ-đề-ai)
-- [5. Ma trận đề thi](#5-ma-trận-đề-thi)
-- [6. Chuyển đổi Word → Excel](#6-chuyển-đổi-word--excel)
-- [7. Ngân hàng câu hỏi](#7-ngân-hàng-câu-hỏi)
-- [8. Import dữ liệu](#8-import-dữ-liệu)
-- [9. Kho lưu trữ](#9-kho-lưu-trữ)
-- [10. Khung chương trình](#10-khung-chương-trình)
-- [11. Chấm bài OMR Scanner](#11-chấm-bài-omr-scanner)
-- [12. Chấm bài viết tay](#12-chấm-bài-viết-tay)
-- [13. Lịch sử](#13-lịch-sử)
-- [14. Cài đặt](#14-cài-đặt)
+- [5. Ma trận đề thi (AI)](#5-ma-trận-đề-thi-ai)
+- [6. Lấy từ ngân hàng](#6-lấy-từ-ngân-hàng)
+- [7. Xuất đề chuyên nghiệp](#7-xuất-đề-chuyên-nghiệp)
+- [8. Chuyển đổi Word → Excel](#8-chuyển-đổi-word--excel)
+- [9. Ngân hàng câu hỏi](#9-ngân-hàng-câu-hỏi)
+- [10. Bổ sung đáp án bằng AI](#10-bổ-sung-đáp-án-bằng-ai)
+- [11. Import dữ liệu](#11-import-dữ-liệu)
+- [12. Kho lưu trữ](#12-kho-lưu-trữ)
+- [13. Khung chương trình](#13-khung-chương-trình)
+- [14. Dashboard thống kê](#14-dashboard-thống-kê)
+- [15. Chấm bài OMR Scanner](#15-chấm-bài-omr-scanner)
+- [16. Chấm bài viết tay](#16-chấm-bài-viết-tay)
+- [17. Lịch sử](#17-lịch-sử)
+- [18. Cài đặt](#18-cài-đặt)
 
 ---
 
@@ -148,9 +152,9 @@ Vào tab **Cài đặt** (biểu tượng bánh răng) để cấu hình AI:
 
 ---
 
-## 5. Ma trận đề thi
+## 5. Ma trận đề thi (AI)
 
-**Mục đích:** Tạo đề thi phân phối câu hỏi theo nhiều chủ đề và mức độ khó, phù hợp với chuẩn ma trận đề thi Việt Nam.
+**Mục đích:** Tạo đề thi phân phối câu hỏi theo nhiều chủ đề và mức độ khó bằng AI, phù hợp với chuẩn ma trận đề thi Việt Nam.
 
 ### Ví dụ ma trận:
 
@@ -170,13 +174,13 @@ Vào tab **Cài đặt** (biểu tượng bánh răng) để cấu hình AI:
    - Nhập số câu cho cột **Dễ**, **Trung bình**, **Khó**
 4. Bảng tự tính **Tổng** theo dòng và cột
 5. **Bấm "Tạo đề theo ma trận"**
-6. AI sẽ tạo từng ô tuần tự (có hiển thị tiến trình)
+6. AI tạo từng ô tuần tự (có skeleton loading + progress)
 
 ### Kết quả:
 - Câu hỏi nhóm theo chủ đề + mức độ khó
 - Badge màu hiển thị mức độ (xanh = Dễ, vàng = TB, đỏ = Khó)
 - Đáp án + Lời giải
-- Xuất DOCX, PDF
+- Xuất DOCX, PDF, hoặc **Xuất đề chuyên nghiệp**
 
 ### Giới hạn:
 - Tối đa **50 câu** mỗi đề
@@ -184,7 +188,72 @@ Vào tab **Cài đặt** (biểu tượng bánh răng) để cấu hình AI:
 
 ---
 
-## 6. Chuyển đổi Word → Excel
+## 6. Lấy từ ngân hàng
+
+**Mục đích:** Tạo đề thi bằng cách chọn ngẫu nhiên câu hỏi từ ngân hàng theo ma trận. Không cần AI, nhanh và chính xác.
+
+### Đặc điểm:
+- **Ưu tiên câu ít dùng nhất** (times_used thấp) → phân phối đều
+- **Theo dõi số lần sử dụng** cho mỗi câu hỏi
+- **Lọc theo Lớp** ngoài môn học và độ khó
+- **Xáo trộn** câu hỏi và/hoặc đáp án
+
+### Các bước:
+
+1. **Chọn Môn học, Lớp, Dạng câu hỏi**
+2. Xem **thông tin có sẵn** (số câu Dễ/TB/Khó trong ngân hàng)
+3. **Bấm "+ Thêm chủ đề"**, chọn chủ đề, nhập số câu
+   - Mỗi ô hiển thị hint `/N` (số câu có sẵn)
+4. Bật/tắt **Xáo trộn câu hỏi** và **Xáo trộn đáp án**
+5. **Bấm "Tạo đề từ ngân hàng"**
+
+### Kết quả:
+- Câu hỏi nhóm theo chủ đề + mức độ
+- Mỗi câu hiển thị: badge **"Chưa dùng"** (xanh) hoặc **"Đã dùng N lần"** (vàng)
+- Đáp án đúng highlight xanh
+- ID câu hỏi để truy xuất
+- Nút **"Xuất đề chuyên nghiệp"** → PDF/DOCX hoàn chỉnh
+
+### Lưu ý:
+- Chỉ chọn câu hỏi **đã có đáp án** từ ngân hàng
+- Nếu thiếu câu, hệ thống cảnh báo và chọn tối đa có thể
+
+---
+
+## 7. Xuất đề chuyên nghiệp
+
+**Mục đích:** Xuất file PDF/DOCX đề thi hoàn chỉnh, sẵn sàng in.
+
+### Nội dung file xuất:
+- **Header:** Tên trường + Tổ bộ môn
+- **Mã đề:** Góc phải
+- **Tiêu đề:** VD: "ĐỀ KIỂM TRA GIỮA KỲ 1"
+- **Thông tin:** Môn | Lớp | Thời gian
+- **Năm học / Ngày thi**
+- **Họ tên / Lớp / SBD:** Dòng kẻ chấm
+- **Phiếu trả lời:** Bảng bubble A B C D (5 cột, tùy chọn)
+- **Câu hỏi:** Đánh số, có options
+- **Trang đáp án:** Cuối file (tùy chọn)
+
+### Các bước:
+1. Tạo câu hỏi (từ tab Chủ đề, Ma trận, hoặc Ngân hàng)
+2. Bấm nút xanh **"Xuất đề chuyên nghiệp"**
+3. Điền thông tin trong modal:
+   - Tên trường, Tổ bộ môn
+   - Tiêu đề đề thi
+   - Môn học, Lớp, Thời gian, Mã đề
+   - Năm học / Ngày thi
+4. Bật/tắt **Phiếu trả lời** và **Đáp án trang cuối**
+5. Chọn **Xuất PDF** hoặc **Xuất DOCX**
+
+### Hỗ trợ:
+- Font Times New Roman (DOCX)
+- Font Vietnamese (PDF)
+- Section headers cho đề theo ma trận
+
+---
+
+## 8. Chuyển đổi Word → Excel
 
 **Mục đích:** Chuyển file Word chứa câu hỏi sang định dạng Excel.
 
@@ -197,7 +266,7 @@ Vào tab **Cài đặt** (biểu tượng bánh răng) để cấu hình AI:
 
 ---
 
-## 7. Ngân hàng câu hỏi
+## 9. Ngân hàng câu hỏi
 
 **Mục đích:** Quản lý kho câu hỏi, lọc, tìm kiếm, thêm/xóa.
 
@@ -209,17 +278,54 @@ Vào tab **Cài đặt** (biểu tượng bánh răng) để cấu hình AI:
 - **Thống kê:** Số lượng theo môn, theo mức độ khó
 - **Phân trang:** Duyệt qua danh sách câu hỏi
 
+### Mỗi câu hỏi hiển thị:
+- **#ID** + **Môn học** + **(Lớp X)** hoặc **(Quốc tế)**
+- Badge mức độ khó (Dễ/TB/Khó)
+- Badge **"Dùng Nx"** nếu đã sử dụng (theo dõi số lần dùng)
+- Icon 📷 nếu có hình ảnh
+
 ### Mỗi câu hỏi lưu trữ:
 - Nội dung, đáp án, lời giải
 - Môn học, chủ đề, lớp
 - Mức độ khó, loại câu hỏi
 - Hình ảnh minh họa (nếu có)
-- Nguồn gốc, tags
+- Nguồn gốc, tags, số lần sử dụng
 - Điểm chất lượng (AI đánh giá)
 
 ---
 
-## 8. Import dữ liệu
+## 10. Bổ sung đáp án bằng AI
+
+**Mục đích:** Tự động bổ sung đáp án cho các câu hỏi chưa có đáp án trong ngân hàng.
+
+**Vị trí:** Tab Ngân hàng câu hỏi → Panel vàng phía trên danh sách.
+
+### Hiển thị:
+- Số câu chưa có đáp án (phân tích theo môn)
+- Khi tất cả đã có đáp án → panel chuyển xanh
+
+### Các bước:
+1. Chọn **AI Engine** (Ollama/Gemini/OpenAI/Claude)
+2. Chọn **Môn học** (hoặc tất cả)
+3. Chọn **Batch size** (10/25/50/100 câu)
+4. Bấm **"Bổ sung đáp án (AI)"**
+5. Thanh progress hiển thị tiến trình
+6. Toast notification khi hoàn tất
+
+### Cơ chế:
+- Chia thành batch nhỏ (10 câu/batch) gọi AI tuần tự
+- AI phân tích câu hỏi + options → trả về A/B/C/D
+- Cập nhật trực tiếp vào database
+- Refresh thống kê sau khi xong
+
+### Chạy bằng script (số lượng lớn):
+```bash
+python scripts/fill-missing-answers-with-ai.py --engine ollama --all --batch 20 --max 1000
+```
+
+---
+
+## 11. Import dữ liệu (Scrape)
 
 **Mục đích:** Tải câu hỏi từ các nguồn bên ngoài vào ngân hàng.
 
@@ -251,7 +357,7 @@ Ngoài scrape, có thể upload trực tiếp file .docx, .pdf, .txt chứa câu
 
 ---
 
-## 9. Kho lưu trữ
+## 12. Kho lưu trữ
 
 **Mục đích:** Quản lý file đề mẫu theo môn học và lớp.
 
@@ -264,7 +370,7 @@ Ngoài scrape, có thể upload trực tiếp file .docx, .pdf, .txt chứa câu
 
 ---
 
-## 10. Khung chương trình
+## 13. Khung chương trình
 
 **Mục đích:** Tra cứu khung chương trình giáo dục theo môn và lớp.
 
@@ -278,7 +384,36 @@ Toán, Ngữ văn, Tiếng Anh, KHTN, Vật lý, Hóa học, Sinh học, Lịch 
 
 ---
 
-## 11. Chấm bài OMR Scanner
+## 14. Dashboard thống kê
+
+**Mục đích:** Xem tổng quan ngân hàng câu hỏi qua biểu đồ trực quan.
+
+### 6 thẻ tổng quan:
+- **Tổng câu hỏi** - Số lượng trong ngân hàng
+- **Có đáp án** - Số câu đã có đáp án (và %)
+- **Chưa có đáp án** - Cần bổ sung
+- **Có lời giải** - Số câu có explanation
+- **Có hình ảnh** - Số câu có ảnh minh họa
+- **Đã sử dụng** - Số câu đã dùng trong đề thi
+
+### 6 biểu đồ (Chart.js):
+
+| Biểu đồ | Loại | Nội dung |
+|----------|------|----------|
+| **Phân bố theo môn** | Bar chart | Số câu mỗi môn |
+| **Độ khó** | Doughnut | Tỷ lệ Dễ/TB/Khó |
+| **Tỷ lệ có đáp án** | Stacked bar | Có/chưa có đáp án theo môn |
+| **Hoạt động 14 ngày** | Line chart | Câu hỏi thêm mới mỗi ngày |
+| **Phân bố theo lớp** | Horizontal bar | Lớp 1-12 + Quốc tế |
+| **Nguồn câu hỏi** | Horizontal bar | Top 10 nguồn |
+
+### Cách dùng:
+- Click tab **Dashboard** (biểu tượng bar chart) ở sidebar
+- Charts tự load khi chuyển sang tab (lazy loading)
+
+---
+
+## 15. Chấm bài OMR Scanner
 
 **Mục đích:** Chấm bài trắc nghiệm tự động từ ảnh phiếu trả lời (answer sheet).
 
@@ -307,7 +442,7 @@ Toán, Ngữ văn, Tiếng Anh, KHTN, Vật lý, Hóa học, Sinh học, Lịch 
 
 ---
 
-## 12. Chấm bài viết tay
+## 16. Chấm bài viết tay
 
 **Mục đích:** Nhận diện và chấm điểm đáp án viết tay từ ảnh.
 
@@ -328,7 +463,7 @@ Toán, Ngữ văn, Tiếng Anh, KHTN, Vật lý, Hóa học, Sinh học, Lịch 
 
 ---
 
-## 13. Lịch sử
+## 17. Lịch sử
 
 **Mục đích:** Xem lại các đề thi đã tạo trước đó.
 
@@ -341,7 +476,7 @@ Toán, Ngữ văn, Tiếng Anh, KHTN, Vật lý, Hóa học, Sinh học, Lịch 
 
 ---
 
-## 14. Cài đặt
+## 18. Cài đặt
 
 ### AI Engine:
 Xem [mục 2](#2-cấu-hình-ai-engine).
@@ -349,6 +484,13 @@ Xem [mục 2](#2-cấu-hình-ai-engine).
 ### Dark Mode:
 - Bấm biểu tượng **mặt trăng/mặt trời** ở header phải
 - Tự lưu preference, tự phát hiện system theme
+
+### Giao diện:
+- **Lucide SVG icons** - Nhất quán, sắc nét
+- **Toast notifications** - Thông báo góc phải (success/error/info/warning)
+- **Skeleton loading** - Khung xương khi đang tải
+- **Hamburger menu** - Sidebar trượt trên mobile (< 768px)
+- **Responsive** - Tự động chỉnh layout cho mobile
 
 ---
 

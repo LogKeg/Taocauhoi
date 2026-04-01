@@ -831,32 +831,33 @@ _tracnghiem_spec.loader.exec_module(_tracnghiem_net)
 
 
 TRACNGHIEM_NET_CATEGORIES = [
-    # THPT National Exam
-    {"name": "Tốt nghiệp THPT - Toán", "url": "https://tracnghiem.net/tnthpt/"},
-    # High school by grade
-    {"name": "Toán 12", "url": "https://tracnghiem.net/de-thi-thpt/toan-hoc-lop-12/"},
-    {"name": "Vật lý 12", "url": "https://tracnghiem.net/de-thi-thpt/vat-ly-lop-12/"},
-    {"name": "Hóa học 12", "url": "https://tracnghiem.net/de-thi-thpt/hoa-hoc-lop-12/"},
-    {"name": "Sinh học 12", "url": "https://tracnghiem.net/de-thi-thpt/sinh-hoc-lop-12/"},
-    {"name": "Tiếng Anh 12", "url": "https://tracnghiem.net/de-thi-thpt/tieng-anh-lop-12/"},
-    {"name": "Lịch sử 12", "url": "https://tracnghiem.net/de-thi-thpt/lich-su-lop-12/"},
-    {"name": "Địa lý 12", "url": "https://tracnghiem.net/de-thi-thpt/dia-ly-lop-12/"},
-    {"name": "Toán 11", "url": "https://tracnghiem.net/de-thi-thpt/toan-hoc-lop-11/"},
-    {"name": "Vật lý 11", "url": "https://tracnghiem.net/de-thi-thpt/vat-ly-lop-11/"},
-    {"name": "Hóa học 11", "url": "https://tracnghiem.net/de-thi-thpt/hoa-hoc-lop-11/"},
-    {"name": "Toán 10", "url": "https://tracnghiem.net/de-thi-thpt/toan-hoc-lop-10/"},
-    {"name": "Vật lý 10", "url": "https://tracnghiem.net/de-thi-thpt/vat-ly-lop-10/"},
-    {"name": "Hóa học 10", "url": "https://tracnghiem.net/de-thi-thpt/hoa-hoc-lop-10/"},
-    # THCS (Secondary school)
-    {"name": "Toán 9", "url": "https://tracnghiem.net/de-thi-thcs/toan-hoc-lop-9/"},
-    {"name": "Tiếng Anh 9", "url": "https://tracnghiem.net/de-thi-thcs/tieng-anh-lop-9/"},
-    {"name": "Toán 8", "url": "https://tracnghiem.net/de-thi-thcs/toan-hoc-lop-8/"},
-    {"name": "Toán 7", "url": "https://tracnghiem.net/de-thi-thcs/toan-hoc-lop-7/"},
-    {"name": "Toán 6", "url": "https://tracnghiem.net/de-thi-thcs/toan-hoc-lop-6/"},
-    # Elementary
-    {"name": "Toán 5", "url": "https://tracnghiem.net/de-thi-tieu-hoc/toan-hoc-lop-5/"},
-    {"name": "Toán 4", "url": "https://tracnghiem.net/de-thi-tieu-hoc/toan-hoc-lop-4/"},
-    {"name": "Toán 3", "url": "https://tracnghiem.net/de-thi-tieu-hoc/toan-hoc-lop-3/"},
+    # THPT National Exam (new URL structure)
+    {"name": "TN THPT - Toán", "url": "https://tracnghiem.net/tnthpt/toan-hoc/"},
+    {"name": "TN THPT - Ngữ văn", "url": "https://tracnghiem.net/tnthpt/ngu-van/"},
+    {"name": "TN THPT - Tiếng Anh", "url": "https://tracnghiem.net/tnthpt/tieng-anh/"},
+    {"name": "TN THPT - Vật lý", "url": "https://tracnghiem.net/tnthpt/vat-ly/"},
+    {"name": "TN THPT - Hóa học", "url": "https://tracnghiem.net/tnthpt/hoa-hoc/"},
+    {"name": "TN THPT - Sinh học", "url": "https://tracnghiem.net/tnthpt/sinh-hoc/"},
+    {"name": "TN THPT - Lịch sử", "url": "https://tracnghiem.net/tnthpt/lich-su/"},
+    {"name": "TN THPT - Địa lý", "url": "https://tracnghiem.net/tnthpt/dia-ly/"},
+    {"name": "TN THPT - Tin học", "url": "https://tracnghiem.net/tnthpt/tin-hoc/"},
+    {"name": "TN THPT - Công nghệ", "url": "https://tracnghiem.net/tnthpt/cong-nghe/"},
+    {"name": "TN THPT - GDKT & PL", "url": "https://tracnghiem.net/tnthpt/giao-duc-kinh-te-va-phap-luat/"},
+    # High school by grade (new URL structure)
+    {"name": "Toán 12", "url": "https://tracnghiem.net/de-thi/toan-hoc-lop-12/"},
+    {"name": "Tiếng Anh 12", "url": "https://tracnghiem.net/de-thi/tieng-anh-lop-12/"},
+    {"name": "Vật lý 12", "url": "https://tracnghiem.net/de-thi/vat-ly-lop-12/"},
+    {"name": "Hóa học 12", "url": "https://tracnghiem.net/de-thi/hoa-hoc-lop-12/"},
+    {"name": "Sinh học 12", "url": "https://tracnghiem.net/de-thi/sinh-hoc-lop-12/"},
+    {"name": "Lịch sử 12", "url": "https://tracnghiem.net/de-thi/lich-su-lop-12/"},
+    {"name": "Địa lý 12", "url": "https://tracnghiem.net/de-thi/dia-ly-lop-12/"},
+    {"name": "Toán 11", "url": "https://tracnghiem.net/de-thi/toan-hoc-lop-11/"},
+    {"name": "Tiếng Anh 11", "url": "https://tracnghiem.net/de-thi/tieng-anh-lop-11/"},
+    {"name": "Toán 10", "url": "https://tracnghiem.net/de-thi/toan-hoc-lop-10/"},
+    {"name": "Tiếng Anh 10", "url": "https://tracnghiem.net/de-thi/tieng-anh-lop-10/"},
+    # THCS
+    {"name": "Toán 9", "url": "https://tracnghiem.net/de-thi/toan-hoc-lop-9/"},
+    {"name": "Tiếng Anh 9", "url": "https://tracnghiem.net/de-thi/tieng-anh-lop-9/"},
 ]
 
 
