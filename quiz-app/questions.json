@@ -1,0 +1,3602 @@
+[
+  {
+    "id": 1,
+    "question": "Kỳ thi IKLC là viết tắt của gì?",
+    "options": [
+      {
+        "label": "A",
+        "text": "International Kangaroo Language Contest"
+      },
+      {
+        "label": "B",
+        "text": "International Kangaroo Linguistic Contest"
+      },
+      {
+        "label": "C",
+        "text": "International Knowledge Linguistic Contest"
+      },
+      {
+        "label": "D",
+        "text": "International Kangaroo Learning Contest"
+      }
+    ],
+    "section": "PHẦN 1: TỔNG QUAN KỲ THI & SƠ ĐỒ TỔ CHỨC (Câu 1-30)",
+    "answer": "B"
+  },
+  {
+    "id": 2,
+    "question": "Kỳ thi IKSC dành cho đối tượng nào?",
+    "options": [
+      {
+        "label": "A",
+        "text": "Học sinh lớp 1-12"
+      },
+      {
+        "label": "B",
+        "text": "Học sinh lớp 1-10"
+      },
+      {
+        "label": "C",
+        "text": "Học sinh lớp 3-12"
+      },
+      {
+        "label": "D",
+        "text": "Học sinh lớp 5-12"
+      }
+    ],
+    "section": "PHẦN 1: TỔNG QUAN KỲ THI & SƠ ĐỒ TỔ CHỨC (Câu 1-30)",
+    "answer": "B"
+  },
+  {
+    "id": 3,
+    "question": "Thời gian làm bài mỗi môn thi là bao nhiêu phút?",
+    "options": [
+      {
+        "label": "A",
+        "text": "60 phút"
+      },
+      {
+        "label": "B",
+        "text": "75 phút"
+      },
+      {
+        "label": "C",
+        "text": "90 phút"
+      },
+      {
+        "label": "D",
+        "text": "120 phút"
+      }
+    ],
+    "section": "PHẦN 1: TỔNG QUAN KỲ THI & SƠ ĐỒ TỔ CHỨC (Câu 1-30)",
+    "answer": "C"
+  },
+  {
+    "id": 4,
+    "question": "Ca 1 (IKLC - Tiếng Anh) bắt đầu tính giờ làm bài lúc mấy giờ?",
+    "options": [
+      {
+        "label": "A",
+        "text": "07:30"
+      },
+      {
+        "label": "B",
+        "text": "07:45"
+      },
+      {
+        "label": "C",
+        "text": "08:00"
+      },
+      {
+        "label": "D",
+        "text": "08:15"
+      }
+    ],
+    "section": "PHẦN 1: TỔNG QUAN KỲ THI & SƠ ĐỒ TỔ CHỨC (Câu 1-30)",
+    "answer": "C"
+  },
+  {
+    "id": 5,
+    "question": "Ca 2 (IKSC - Khoa học) kết thúc lúc mấy giờ?",
+    "options": [
+      {
+        "label": "A",
+        "text": "11:00"
+      },
+      {
+        "label": "B",
+        "text": "11:15"
+      },
+      {
+        "label": "C",
+        "text": "11:30"
+      },
+      {
+        "label": "D",
+        "text": "12:00"
+      }
+    ],
+    "section": "PHẦN 1: TỔNG QUAN KỲ THI & SƠ ĐỒ TỔ CHỨC (Câu 1-30)",
+    "answer": "C"
+  },
+  {
+    "id": 6,
+    "question": "Thí sinh cần có mặt trước giờ thi Ca 1 lúc mấy giờ?",
+    "options": [
+      {
+        "label": "A",
+        "text": "07:00"
+      },
+      {
+        "label": "B",
+        "text": "07:15"
+      },
+      {
+        "label": "C",
+        "text": "07:30"
+      },
+      {
+        "label": "D",
+        "text": "07:45"
+      }
+    ],
+    "section": "PHẦN 1: TỔNG QUAN KỲ THI & SƠ ĐỒ TỔ CHỨC (Câu 1-30)",
+    "answer": "C"
+  },
+  {
+    "id": 7,
+    "question": "Đề thi Level 1 (lớp 1-2) môn IKLC có bao nhiêu câu?",
+    "options": [
+      {
+        "label": "A",
+        "text": "20 câu"
+      },
+      {
+        "label": "B",
+        "text": "24 câu"
+      },
+      {
+        "label": "C",
+        "text": "25 câu"
+      },
+      {
+        "label": "D",
+        "text": "30 câu"
+      }
+    ],
+    "section": "PHẦN 1: TỔNG QUAN KỲ THI & SƠ ĐỒ TỔ CHỨC (Câu 1-30)",
+    "answer": "C"
+  },
+  {
+    "id": 8,
+    "question": "Đề thi Level 3 (lớp 5-6) môn IKSC có bao nhiêu câu?",
+    "options": [
+      {
+        "label": "A",
+        "text": "24 câu"
+      },
+      {
+        "label": "B",
+        "text": "25 câu"
+      },
+      {
+        "label": "C",
+        "text": "30 câu"
+      },
+      {
+        "label": "D",
+        "text": "50 câu"
+      }
+    ],
+    "section": "PHẦN 1: TỔNG QUAN KỲ THI & SƠ ĐỒ TỔ CHỨC (Câu 1-30)",
+    "answer": "C"
+  },
+  {
+    "id": 9,
+    "question": "Đề thi Level 6 (lớp 11-12) môn IKSC có bao nhiêu câu?",
+    "options": [
+      {
+        "label": "A",
+        "text": "30 câu"
+      },
+      {
+        "label": "B",
+        "text": "50 câu"
+      },
+      {
+        "label": "C",
+        "text": "Không tổ chức cho Level 6"
+      },
+      {
+        "label": "D",
+        "text": "25 câu"
+      }
+    ],
+    "section": "PHẦN 1: TỔNG QUAN KỲ THI & SƠ ĐỒ TỔ CHỨC (Câu 1-30)",
+    "answer": "C"
+  },
+  {
+    "id": 10,
+    "question": "Trưởng Điểm thi đeo thẻ màu gì?",
+    "options": [
+      {
+        "label": "A",
+        "text": "Đỏ"
+      },
+      {
+        "label": "B",
+        "text": "Xanh"
+      },
+      {
+        "label": "C",
+        "text": "Tím"
+      },
+      {
+        "label": "D",
+        "text": "Vàng"
+      }
+    ],
+    "section": "PHẦN 1: TỔNG QUAN KỲ THI & SƠ ĐỒ TỔ CHỨC (Câu 1-30)",
+    "answer": "C"
+  },
+  {
+    "id": 11,
+    "question": "Cán bộ Coi thi (CBCT) đeo thẻ màu gì?",
+    "options": [
+      {
+        "label": "A",
+        "text": "Tím"
+      },
+      {
+        "label": "B",
+        "text": "Đỏ"
+      },
+      {
+        "label": "C",
+        "text": "Xanh"
+      },
+      {
+        "label": "D",
+        "text": "Vàng"
+      }
+    ],
+    "section": "PHẦN 1: TỔNG QUAN KỲ THI & SƠ ĐỒ TỔ CHỨC (Câu 1-30)",
+    "answer": "C"
+  },
+  {
+    "id": 12,
+    "question": "Thư ký / Ủy viên Ban coi thi đeo thẻ màu gì?",
+    "options": [
+      {
+        "label": "A",
+        "text": "Xanh"
+      },
+      {
+        "label": "B",
+        "text": "Tím"
+      },
+      {
+        "label": "C",
+        "text": "Đỏ"
+      },
+      {
+        "label": "D",
+        "text": "Trắng"
+      }
+    ],
+    "section": "PHẦN 1: TỔNG QUAN KỲ THI & SƠ ĐỒ TỔ CHỨC (Câu 1-30)",
+    "answer": "C"
+  },
+  {
+    "id": 13,
+    "question": "Ai là đầu mối liên lạc duy nhất với BTC?",
+    "options": [
+      {
+        "label": "A",
+        "text": "Thư ký"
+      },
+      {
+        "label": "B",
+        "text": "CBCT 1"
+      },
+      {
+        "label": "C",
+        "text": "Trưởng Điểm thi"
+      },
+      {
+        "label": "D",
+        "text": "Cán bộ Giám sát"
+      }
+    ],
+    "section": "PHẦN 1: TỔNG QUAN KỲ THI & SƠ ĐỒ TỔ CHỨC (Câu 1-30)",
+    "answer": "C"
+  },
+  {
+    "id": 14,
+    "question": "Ai chịu trách nhiệm phân công CBCT bằng bốc thăm?",
+    "options": [
+      {
+        "label": "A",
+        "text": "Thư ký"
+      },
+      {
+        "label": "B",
+        "text": "Trưởng Điểm thi"
+      },
+      {
+        "label": "C",
+        "text": "BTC"
+      },
+      {
+        "label": "D",
+        "text": "Cán bộ Giám sát"
+      }
+    ],
+    "section": "PHẦN 1: TỔNG QUAN KỲ THI & SƠ ĐỒ TỔ CHỨC (Câu 1-30)",
+    "answer": "B"
+  },
+  {
+    "id": 15,
+    "question": "Mỗi phòng thi có bao nhiêu CBCT?",
+    "options": [
+      {
+        "label": "A",
+        "text": "1"
+      },
+      {
+        "label": "B",
+        "text": "2"
+      },
+      {
+        "label": "C",
+        "text": "3"
+      },
+      {
+        "label": "D",
+        "text": "4"
+      }
+    ],
+    "section": "PHẦN 1: TỔNG QUAN KỲ THI & SƠ ĐỒ TỔ CHỨC (Câu 1-30)",
+    "answer": "B"
+  },
+  {
+    "id": 16,
+    "question": "Ai chịu trách nhiệm kiểm tra cơ sở vật chất điểm thi?",
+    "options": [
+      {
+        "label": "A",
+        "text": "Trưởng Điểm thi"
+      },
+      {
+        "label": "B",
+        "text": "CBCT"
+      },
+      {
+        "label": "C",
+        "text": "Thư ký / Ủy viên Ban coi thi"
+      },
+      {
+        "label": "D",
+        "text": "Bảo vệ"
+      }
+    ],
+    "section": "PHẦN 1: TỔNG QUAN KỲ THI & SƠ ĐỒ TỔ CHỨC (Câu 1-30)",
+    "answer": "C"
+  },
+  {
+    "id": 17,
+    "question": "Trật tự viên / Bảo vệ KHÔNG cho thí sinh đến muộn quá bao nhiêu phút vào khu vực thi?",
+    "options": [
+      {
+        "label": "A",
+        "text": "5 phút"
+      },
+      {
+        "label": "B",
+        "text": "10 phút"
+      },
+      {
+        "label": "C",
+        "text": "15 phút"
+      },
+      {
+        "label": "D",
+        "text": "20 phút"
+      }
+    ],
+    "section": "PHẦN 1: TỔNG QUAN KỲ THI & SƠ ĐỒ TỔ CHỨC (Câu 1-30)",
+    "answer": "C"
+  },
+  {
+    "id": 18,
+    "question": "Ai có mặt thường xuyên suốt kỳ thi để xử lý y tế?",
+    "options": [
+      {
+        "label": "A",
+        "text": "Trưởng Điểm thi"
+      },
+      {
+        "label": "B",
+        "text": "Thư ký"
+      },
+      {
+        "label": "C",
+        "text": "Cán bộ Y tế"
+      },
+      {
+        "label": "D",
+        "text": "CBCT"
+      }
+    ],
+    "section": "PHẦN 1: TỔNG QUAN KỲ THI & SƠ ĐỒ TỔ CHỨC (Câu 1-30)",
+    "answer": "C"
+  },
+  {
+    "id": 19,
+    "question": "Hình thức thi của kỳ thi IKLC & IKSC 2026 là gì?",
+    "options": [
+      {
+        "label": "A",
+        "text": "Thi trực tuyến"
+      },
+      {
+        "label": "B",
+        "text": "Thi vấn đáp"
+      },
+      {
+        "label": "C",
+        "text": "Thi trực tiếp trên giấy, trắc nghiệm tô phiếu trả lời"
+      },
+      {
+        "label": "D",
+        "text": "Thi trên máy tính"
+      }
+    ],
+    "section": "PHẦN 1: TỔNG QUAN KỲ THI & SƠ ĐỒ TỔ CHỨC (Câu 1-30)",
+    "answer": "C"
+  },
+  {
+    "id": 20,
+    "question": "Ngày thi IKLC & IKSC 2026 là ngày nào?",
+    "options": [
+      {
+        "label": "A",
+        "text": "Thứ bảy, 14/03/2026"
+      },
+      {
+        "label": "B",
+        "text": "Chủ nhật, 15/03/2026"
+      },
+      {
+        "label": "C",
+        "text": "Thứ bảy, 22/03/2026"
+      },
+      {
+        "label": "D",
+        "text": "Chủ nhật, 29/03/2026"
+      }
+    ],
+    "section": "PHẦN 1: TỔNG QUAN KỲ THI & SƠ ĐỒ TỔ CHỨC (Câu 1-30)",
+    "answer": "B"
+  },
+  {
+    "id": 21,
+    "question": "Khi bóc đề, CBCT cần kiểm tra điều gì trên bìa túi đề?",
+    "options": [
+      {
+        "label": "A",
+        "text": "Tên trường"
+      },
+      {
+        "label": "B",
+        "text": "Cấp độ (Level) phải khớp với lớp thí sinh"
+      },
+      {
+        "label": "C",
+        "text": "Số lượng đề"
+      },
+      {
+        "label": "D",
+        "text": "Màu sắc phong bì"
+      }
+    ],
+    "section": "PHẦN 1: TỔNG QUAN KỲ THI & SƠ ĐỒ TỔ CHỨC (Câu 1-30)",
+    "answer": "B"
+  },
+  {
+    "id": 22,
+    "question": "Nếu phát hiện đề sai cấp độ, CBCT phải làm gì?",
+    "options": [
+      {
+        "label": "A",
+        "text": "Tự xử lý"
+      },
+      {
+        "label": "B",
+        "text": "Báo Trưởng Điểm thi ngay"
+      },
+      {
+        "label": "C",
+        "text": "Tiếp tục phát đề"
+      },
+      {
+        "label": "D",
+        "text": "Gọi phụ huynh"
+      }
+    ],
+    "section": "PHẦN 1: TỔNG QUAN KỲ THI & SƠ ĐỒ TỔ CHỨC (Câu 1-30)",
+    "answer": "B"
+  },
+  {
+    "id": 23,
+    "question": "Đề thi Level 5 (lớp 9-10) môn IKLC có bao nhiêu câu?",
+    "options": [
+      {
+        "label": "A",
+        "text": "25 câu"
+      },
+      {
+        "label": "B",
+        "text": "30 câu"
+      },
+      {
+        "label": "C",
+        "text": "50 câu"
+      },
+      {
+        "label": "D",
+        "text": "40 câu"
+      }
+    ],
+    "section": "PHẦN 1: TỔNG QUAN KỲ THI & SƠ ĐỒ TỔ CHỨC (Câu 1-30)",
+    "answer": "C"
+  },
+  {
+    "id": 24,
+    "question": "Đề thi Level 2 (lớp 3-4) môn IKSC có bao nhiêu câu?",
+    "options": [
+      {
+        "label": "A",
+        "text": "20 câu"
+      },
+      {
+        "label": "B",
+        "text": "24 câu"
+      },
+      {
+        "label": "C",
+        "text": "25 câu"
+      },
+      {
+        "label": "D",
+        "text": "30 câu"
+      }
+    ],
+    "section": "PHẦN 1: TỔNG QUAN KỲ THI & SƠ ĐỒ TỔ CHỨC (Câu 1-30)",
+    "answer": "B"
+  },
+  {
+    "id": 25,
+    "question": "Ai quyết định xử lý kỷ luật, đình chỉ thi?",
+    "options": [
+      {
+        "label": "A",
+        "text": "CBCT"
+      },
+      {
+        "label": "B",
+        "text": "Thư ký"
+      },
+      {
+        "label": "C",
+        "text": "Trưởng Điểm thi"
+      },
+      {
+        "label": "D",
+        "text": "Cán bộ Giám sát"
+      }
+    ],
+    "section": "PHẦN 1: TỔNG QUAN KỲ THI & SƠ ĐỒ TỔ CHỨC (Câu 1-30)",
+    "answer": "C"
+  },
+  {
+    "id": 26,
+    "question": "Ai chịu trách nhiệm niêm phong và bàn giao bài thi cho BTC?",
+    "options": [
+      {
+        "label": "A",
+        "text": "CBCT 1"
+      },
+      {
+        "label": "B",
+        "text": "Thư ký"
+      },
+      {
+        "label": "C",
+        "text": "Trưởng Điểm thi"
+      },
+      {
+        "label": "D",
+        "text": "Cán bộ Giám sát"
+      }
+    ],
+    "section": "PHẦN 1: TỔNG QUAN KỲ THI & SƠ ĐỒ TỔ CHỨC (Câu 1-30)",
+    "answer": "C"
+  },
+  {
+    "id": 27,
+    "question": "Ai phối hợp tổ chức tập huấn CBCT?",
+    "options": [
+      {
+        "label": "A",
+        "text": "Trưởng Điểm thi"
+      },
+      {
+        "label": "B",
+        "text": "Thư ký / Ủy viên Ban coi thi"
+      },
+      {
+        "label": "C",
+        "text": "BTC"
+      },
+      {
+        "label": "D",
+        "text": "Bảo vệ"
+      }
+    ],
+    "section": "PHẦN 1: TỔNG QUAN KỲ THI & SƠ ĐỒ TỔ CHỨC (Câu 1-30)",
+    "answer": "B"
+  },
+  {
+    "id": 28,
+    "question": "Cán bộ Giám sát phòng thi có nhiệm vụ chính là gì?",
+    "options": [
+      {
+        "label": "A",
+        "text": "Phát đề thi"
+      },
+      {
+        "label": "B",
+        "text": "Thu bài thi"
+      },
+      {
+        "label": "C",
+        "text": "Giám sát CBCT và thí sinh thực hiện quy chế"
+      },
+      {
+        "label": "D",
+        "text": "Gọi thí sinh vào phòng"
+      }
+    ],
+    "section": "PHẦN 1: TỔNG QUAN KỲ THI & SƠ ĐỒ TỔ CHỨC (Câu 1-30)",
+    "answer": "C"
+  },
+  {
+    "id": 29,
+    "question": "Trưởng Điểm thi cần điền đầy đủ bảng liên hệ khi nào?",
+    "options": [
+      {
+        "label": "A",
+        "text": "Ngày thi"
+      },
+      {
+        "label": "B",
+        "text": "Trước ngày thi"
+      },
+      {
+        "label": "C",
+        "text": "Sau ngày thi"
+      },
+      {
+        "label": "D",
+        "text": "Khi có sự cố"
+      }
+    ],
+    "section": "PHẦN 1: TỔNG QUAN KỲ THI & SƠ ĐỒ TỔ CHỨC (Câu 1-30)",
+    "answer": "B"
+  },
+  {
+    "id": 30,
+    "question": "Thẻ nhận dạng \"Examination Board\" thuộc vai trò nào?",
+    "options": [
+      {
+        "label": "A",
+        "text": "CBCT"
+      },
+      {
+        "label": "B",
+        "text": "Thư ký"
+      },
+      {
+        "label": "C",
+        "text": "Trưởng Điểm thi"
+      },
+      {
+        "label": "D",
+        "text": "Giám sát"
+      }
+    ],
+    "section": "PHẦN 1: TỔNG QUAN KỲ THI & SƠ ĐỒ TỔ CHỨC (Câu 1-30)",
+    "answer": "C"
+  },
+  {
+    "id": 31,
+    "question": "Thí sinh được mang vào phòng thi vật dụng nào?",
+    "options": [
+      {
+        "label": "A",
+        "text": "Máy tính cầm tay"
+      },
+      {
+        "label": "B",
+        "text": "Bút chì, tẩy, compa, thước kẻ"
+      },
+      {
+        "label": "C",
+        "text": "Từ điển"
+      },
+      {
+        "label": "D",
+        "text": "Điện thoại di động"
+      }
+    ],
+    "section": "PHẦN 2: QUY ĐỊNH CHUNG (Câu 31-55)",
+    "answer": "B"
+  },
+  {
+    "id": 32,
+    "question": "Vật dụng nào thí sinh KHÔNG được mang vào phòng thi?",
+    "options": [
+      {
+        "label": "A",
+        "text": "Bút chì"
+      },
+      {
+        "label": "B",
+        "text": "Tẩy"
+      },
+      {
+        "label": "C",
+        "text": "Điện thoại di động"
+      },
+      {
+        "label": "D",
+        "text": "Thước kẻ"
+      }
+    ],
+    "section": "PHẦN 2: QUY ĐỊNH CHUNG (Câu 31-55)",
+    "answer": "C"
+  },
+  {
+    "id": 33,
+    "question": "Thí sinh đến muộn quá bao nhiêu phút sau hiệu lệnh bắt đầu thì KHÔNG được dự thi?",
+    "options": [
+      {
+        "label": "A",
+        "text": "5 phút"
+      },
+      {
+        "label": "B",
+        "text": "10 phút"
+      },
+      {
+        "label": "C",
+        "text": "15 phút"
+      },
+      {
+        "label": "D",
+        "text": "20 phút"
+      }
+    ],
+    "section": "PHẦN 2: QUY ĐỊNH CHUNG (Câu 31-55)",
+    "answer": "C"
+  },
+  {
+    "id": 34,
+    "question": "Thí sinh có được rời phòng thi trước khi hết giờ không?",
+    "options": [
+      {
+        "label": "A",
+        "text": "Được, bất cứ lúc nào"
+      },
+      {
+        "label": "B",
+        "text": "Được, sau 30 phút đầu"
+      },
+      {
+        "label": "C",
+        "text": "Không được, trừ trường hợp ốm đau bất thường"
+      },
+      {
+        "label": "D",
+        "text": "Được, khi nộp bài xong"
+      }
+    ],
+    "section": "PHẦN 2: QUY ĐỊNH CHUNG (Câu 31-55)",
+    "answer": "C"
+  },
+  {
+    "id": 35,
+    "question": "Ngoại lệ nào cho phép thí sinh rời phòng thi trước giờ?",
+    "options": [
+      {
+        "label": "A",
+        "text": "Hoàn thành bài sớm"
+      },
+      {
+        "label": "B",
+        "text": "Muốn đi vệ sinh"
+      },
+      {
+        "label": "C",
+        "text": "Ốm đau bất thường, qua Giám sát, Trưởng ĐT quyết định"
+      },
+      {
+        "label": "D",
+        "text": "Phụ huynh yêu cầu"
+      }
+    ],
+    "section": "PHẦN 2: QUY ĐỊNH CHUNG (Câu 31-55)",
+    "answer": "C"
+  },
+  {
+    "id": 36,
+    "question": "Thí sinh nộp bài xong phải làm gì?",
+    "options": [
+      {
+        "label": "A",
+        "text": "Tự do ra về"
+      },
+      {
+        "label": "B",
+        "text": "Ngồi tại chỗ chờ CBCT cho phép rời phòng"
+      },
+      {
+        "label": "C",
+        "text": "Đến phòng hội đồng"
+      },
+      {
+        "label": "D",
+        "text": "Gặp phụ huynh ngay"
+      }
+    ],
+    "section": "PHẦN 2: QUY ĐỊNH CHUNG (Câu 31-55)",
+    "answer": "B"
+  },
+  {
+    "id": 37,
+    "question": "Bút xóa có được mang vào phòng thi không?",
+    "options": [
+      {
+        "label": "A",
+        "text": "Được"
+      },
+      {
+        "label": "B",
+        "text": "Không"
+      },
+      {
+        "label": "C",
+        "text": "Chỉ bút xóa trắng"
+      },
+      {
+        "label": "D",
+        "text": "Tùy CBCT quyết định"
+      }
+    ],
+    "section": "PHẦN 2: QUY ĐỊNH CHUNG (Câu 31-55)",
+    "answer": "B"
+  },
+  {
+    "id": 38,
+    "question": "Thẻ dự thi có bắt buộc mang theo không?",
+    "options": [
+      {
+        "label": "A",
+        "text": "Bắt buộc"
+      },
+      {
+        "label": "B",
+        "text": "Không bắt buộc nhưng khuyến khích"
+      },
+      {
+        "label": "C",
+        "text": "Chỉ Ca 1"
+      },
+      {
+        "label": "D",
+        "text": "Chỉ khi Trưởng ĐT yêu cầu"
+      }
+    ],
+    "section": "PHẦN 2: QUY ĐỊNH CHUNG (Câu 31-55)",
+    "answer": "B"
+  },
+  {
+    "id": 39,
+    "question": "Quy định không cho thí sinh rời phòng trước giờ nhằm mục đích gì?",
+    "options": [
+      {
+        "label": "A",
+        "text": "Giữ kỷ luật"
+      },
+      {
+        "label": "B",
+        "text": "Bảo đảm an ninh đề thi, tránh phát tán nội dung"
+      },
+      {
+        "label": "C",
+        "text": "Tiết kiệm thời gian"
+      },
+      {
+        "label": "D",
+        "text": "Thuận tiện cho CBCT"
+      }
+    ],
+    "section": "PHẦN 2: QUY ĐỊNH CHUNG (Câu 31-55)",
+    "answer": "B"
+  },
+  {
+    "id": 40,
+    "question": "Giấy than có được mang vào phòng thi không?",
+    "options": [
+      {
+        "label": "A",
+        "text": "Được"
+      },
+      {
+        "label": "B",
+        "text": "Không"
+      },
+      {
+        "label": "C",
+        "text": "Chỉ khi Trưởng ĐT cho phép"
+      },
+      {
+        "label": "D",
+        "text": "Chỉ cho CBCT"
+      }
+    ],
+    "section": "PHẦN 2: QUY ĐỊNH CHUNG (Câu 31-55)",
+    "answer": "B"
+  },
+  {
+    "id": 41,
+    "question": "Đáp án viết trên đề thi có được tính điểm không?",
+    "options": [
+      {
+        "label": "A",
+        "text": "Có"
+      },
+      {
+        "label": "B",
+        "text": "Không, chỉ tính đáp án tô trên phiếu trả lời"
+      },
+      {
+        "label": "C",
+        "text": "Tùy giám khảo"
+      },
+      {
+        "label": "D",
+        "text": "Có nếu phiếu trả lời bị lỗi"
+      }
+    ],
+    "section": "PHẦN 2: QUY ĐỊNH CHUNG (Câu 31-55)",
+    "answer": "B"
+  },
+  {
+    "id": 42,
+    "question": "Thí sinh có được tự ý mở đề trước khi CBCT cho phép không?",
+    "options": [
+      {
+        "label": "A",
+        "text": "Được"
+      },
+      {
+        "label": "B",
+        "text": "Không"
+      },
+      {
+        "label": "C",
+        "text": "Được nếu gần giờ thi"
+      },
+      {
+        "label": "D",
+        "text": "Tùy phòng thi"
+      }
+    ],
+    "section": "PHẦN 2: QUY ĐỊNH CHUNG (Câu 31-55)",
+    "answer": "B"
+  },
+  {
+    "id": 43,
+    "question": "Khi cần hỏi trong phòng thi, thí sinh phải làm gì?",
+    "options": [
+      {
+        "label": "A",
+        "text": "Hỏi nhỏ bạn bên cạnh"
+      },
+      {
+        "label": "B",
+        "text": "Giơ tay và hỏi công khai"
+      },
+      {
+        "label": "C",
+        "text": "Viết giấy gửi CBCT"
+      },
+      {
+        "label": "D",
+        "text": "Ra ngoài hỏi giám sát"
+      }
+    ],
+    "section": "PHẦN 2: QUY ĐỊNH CHUNG (Câu 31-55)",
+    "answer": "B"
+  },
+  {
+    "id": 44,
+    "question": "Tối đa bao nhiêu thí sinh được ra ngoài phòng thi cùng lúc?",
+    "options": [
+      {
+        "label": "A",
+        "text": "Không giới hạn"
+      },
+      {
+        "label": "B",
+        "text": "1 thí sinh"
+      },
+      {
+        "label": "C",
+        "text": "2 thí sinh"
+      },
+      {
+        "label": "D",
+        "text": "3 thí sinh"
+      }
+    ],
+    "section": "PHẦN 2: QUY ĐỊNH CHUNG (Câu 31-55)",
+    "answer": "B"
+  },
+  {
+    "id": 45,
+    "question": "Thời gian tối đa thí sinh được ra ngoài phòng thi là bao lâu?",
+    "options": [
+      {
+        "label": "A",
+        "text": "5 phút"
+      },
+      {
+        "label": "B",
+        "text": "10 phút"
+      },
+      {
+        "label": "C",
+        "text": "15 phút"
+      },
+      {
+        "label": "D",
+        "text": "Không giới hạn"
+      }
+    ],
+    "section": "PHẦN 2: QUY ĐỊNH CHUNG (Câu 31-55)",
+    "answer": "B"
+  },
+  {
+    "id": 46,
+    "question": "Ai đi cùng thí sinh khi ra ngoài phòng thi?",
+    "options": [
+      {
+        "label": "A",
+        "text": "CBCT 1"
+      },
+      {
+        "label": "B",
+        "text": "CBCT 2"
+      },
+      {
+        "label": "C",
+        "text": "Cán bộ giám sát"
+      },
+      {
+        "label": "D",
+        "text": "Bảo vệ"
+      }
+    ],
+    "section": "PHẦN 2: QUY ĐỊNH CHUNG (Câu 31-55)",
+    "answer": "C"
+  },
+  {
+    "id": 47,
+    "question": "Khi có hiệu lệnh hết giờ, thí sinh phải làm gì?",
+    "options": [
+      {
+        "label": "A",
+        "text": "Tiếp tục làm thêm 5 phút"
+      },
+      {
+        "label": "B",
+        "text": "Dừng bút ngay"
+      },
+      {
+        "label": "C",
+        "text": "Tự nộp bài"
+      },
+      {
+        "label": "D",
+        "text": "Chờ CBCT đến thu"
+      }
+    ],
+    "section": "PHẦN 2: QUY ĐỊNH CHUNG (Câu 31-55)",
+    "answer": "B"
+  },
+  {
+    "id": 48,
+    "question": "Thí sinh phải nộp những gì sau khi hết giờ?",
+    "options": [
+      {
+        "label": "A",
+        "text": "Chỉ phiếu trả lời"
+      },
+      {
+        "label": "B",
+        "text": "Phiếu trả lời và đề thi"
+      },
+      {
+        "label": "C",
+        "text": "Phiếu trả lời, đề thi và giấy nháp"
+      },
+      {
+        "label": "D",
+        "text": "Chỉ đề thi"
+      }
+    ],
+    "section": "PHẦN 2: QUY ĐỊNH CHUNG (Câu 31-55)",
+    "answer": "C"
+  },
+  {
+    "id": 49,
+    "question": "Thí sinh có được tiết lộ nội dung đề thi sau khi thi không?",
+    "options": [
+      {
+        "label": "A",
+        "text": "Được"
+      },
+      {
+        "label": "B",
+        "text": "Không, dưới bất kỳ hình thức nào"
+      },
+      {
+        "label": "C",
+        "text": "Được sau 24 giờ"
+      },
+      {
+        "label": "D",
+        "text": "Được nếu đã nộp bài"
+      }
+    ],
+    "section": "PHẦN 2: QUY ĐỊNH CHUNG (Câu 31-55)",
+    "answer": "B"
+  },
+  {
+    "id": 50,
+    "question": "Compa có được mang vào phòng thi không?",
+    "options": [
+      {
+        "label": "A",
+        "text": "Không"
+      },
+      {
+        "label": "B",
+        "text": "Có"
+      },
+      {
+        "label": "C",
+        "text": "Chỉ IKSC"
+      },
+      {
+        "label": "D",
+        "text": "Chỉ Level 5-6"
+      }
+    ],
+    "section": "PHẦN 2: QUY ĐỊNH CHUNG (Câu 31-55)",
+    "answer": "B"
+  },
+  {
+    "id": 51,
+    "question": "Bia, rượu có nằm trong danh sách cấm mang vào phòng thi không?",
+    "options": [
+      {
+        "label": "A",
+        "text": "Không đề cập"
+      },
+      {
+        "label": "B",
+        "text": "Có, bị cấm"
+      },
+      {
+        "label": "C",
+        "text": "Chỉ cấm rượu"
+      },
+      {
+        "label": "D",
+        "text": "Chỉ cấm bia"
+      }
+    ],
+    "section": "PHẦN 2: QUY ĐỊNH CHUNG (Câu 31-55)",
+    "answer": "B"
+  },
+  {
+    "id": 52,
+    "question": "Bút đỏ có được mang vào phòng thi không?",
+    "options": [
+      {
+        "label": "A",
+        "text": "Được"
+      },
+      {
+        "label": "B",
+        "text": "Không"
+      },
+      {
+        "label": "C",
+        "text": "Chỉ cho CBCT"
+      },
+      {
+        "label": "D",
+        "text": "Tùy quy định điểm thi"
+      }
+    ],
+    "section": "PHẦN 2: QUY ĐỊNH CHUNG (Câu 31-55)",
+    "answer": "B"
+  },
+  {
+    "id": 53,
+    "question": "Thiết bị điện tử nào bị cấm trong phòng thi?",
+    "options": [
+      {
+        "label": "A",
+        "text": "Chỉ điện thoại"
+      },
+      {
+        "label": "B",
+        "text": "Điện thoại và máy tính cầm tay"
+      },
+      {
+        "label": "C",
+        "text": "Mọi thiết bị điện tử"
+      },
+      {
+        "label": "D",
+        "text": "Chỉ smartwatch"
+      }
+    ],
+    "section": "PHẦN 2: QUY ĐỊNH CHUNG (Câu 31-55)",
+    "answer": "C"
+  },
+  {
+    "id": 54,
+    "question": "Vũ khí, chất gây nổ/cháy có trong danh sách cấm không?",
+    "options": [
+      {
+        "label": "A",
+        "text": "Không đề cập"
+      },
+      {
+        "label": "B",
+        "text": "Có"
+      },
+      {
+        "label": "C",
+        "text": "Chỉ vũ khí"
+      },
+      {
+        "label": "D",
+        "text": "Chỉ chất cháy"
+      }
+    ],
+    "section": "PHẦN 2: QUY ĐỊNH CHUNG (Câu 31-55)",
+    "answer": "B"
+  },
+  {
+    "id": 55,
+    "question": "Khi phát hiện vật dụng không được phép, thí sinh phải làm gì?",
+    "options": [
+      {
+        "label": "A",
+        "text": "Giấu dưới bàn"
+      },
+      {
+        "label": "B",
+        "text": "Gửi tại khu vực tiếp nhận trước khi vào phòng thi"
+      },
+      {
+        "label": "C",
+        "text": "Để tại bàn CBCT trong phòng thi"
+      },
+      {
+        "label": "D",
+        "text": "Mang về cho phụ huynh"
+      }
+    ],
+    "section": "PHẦN 2: QUY ĐỊNH CHUNG (Câu 31-55)",
+    "answer": "B"
+  },
+  {
+    "id": 56,
+    "question": "Giai đoạn chuẩn bị trước ngày thi bắt đầu từ khi nào?",
+    "options": [
+      {
+        "label": "A",
+        "text": "T-3"
+      },
+      {
+        "label": "B",
+        "text": "T-5"
+      },
+      {
+        "label": "C",
+        "text": "T-7"
+      },
+      {
+        "label": "D",
+        "text": "T-14"
+      }
+    ],
+    "section": "PHẦN 3: QUY TRÌNH VẬN HÀNH NGÀY THI (Câu 56-90)",
+    "answer": "C"
+  },
+  {
+    "id": 57,
+    "question": "Ngày T-1 là ngày gì?",
+    "options": [
+      {
+        "label": "A",
+        "text": "Ngày thi"
+      },
+      {
+        "label": "B",
+        "text": "Ngày trước ngày thi"
+      },
+      {
+        "label": "C",
+        "text": "Ngày sau ngày thi"
+      },
+      {
+        "label": "D",
+        "text": "1 tuần trước thi"
+      }
+    ],
+    "section": "PHẦN 3: QUY TRÌNH VẬN HÀNH NGÀY THI (Câu 56-90)",
+    "answer": "B"
+  },
+  {
+    "id": 58,
+    "question": "Buổi sáng ngày thi, chuẩn bị bắt đầu từ mấy giờ?",
+    "options": [
+      {
+        "label": "A",
+        "text": "05:00"
+      },
+      {
+        "label": "B",
+        "text": "06:00"
+      },
+      {
+        "label": "C",
+        "text": "07:00"
+      },
+      {
+        "label": "D",
+        "text": "07:30"
+      }
+    ],
+    "section": "PHẦN 3: QUY TRÌNH VẬN HÀNH NGÀY THI (Câu 56-90)",
+    "answer": "B"
+  },
+  {
+    "id": 59,
+    "question": "Lúc 07:45, CBCT 1 làm gì?",
+    "options": [
+      {
+        "label": "A",
+        "text": "Gọi thí sinh"
+      },
+      {
+        "label": "B",
+        "text": "Nhận đề thi"
+      },
+      {
+        "label": "C",
+        "text": "Phổ biến quy chế"
+      },
+      {
+        "label": "D",
+        "text": "Bóc đề"
+      }
+    ],
+    "section": "PHẦN 3: QUY TRÌNH VẬN HÀNH NGÀY THI (Câu 56-90)",
+    "answer": "B"
+  },
+  {
+    "id": 60,
+    "question": "Lúc 07:45, CBCT 2 làm gì?",
+    "options": [
+      {
+        "label": "A",
+        "text": "Nhận đề thi"
+      },
+      {
+        "label": "B",
+        "text": "Phổ biến quy chế cho thí sinh"
+      },
+      {
+        "label": "C",
+        "text": "Bóc đề"
+      },
+      {
+        "label": "D",
+        "text": "Thu bài"
+      }
+    ],
+    "section": "PHẦN 3: QUY TRÌNH VẬN HÀNH NGÀY THI (Câu 56-90)",
+    "answer": "B"
+  },
+  {
+    "id": 61,
+    "question": "Đề thi được bóc và phát lúc mấy giờ (Ca 1)?",
+    "options": [
+      {
+        "label": "A",
+        "text": "07:45"
+      },
+      {
+        "label": "B",
+        "text": "07:50"
+      },
+      {
+        "label": "C",
+        "text": "07:55"
+      },
+      {
+        "label": "D",
+        "text": "08:00"
+      }
+    ],
+    "section": "PHẦN 3: QUY TRÌNH VẬN HÀNH NGÀY THI (Câu 56-90)",
+    "answer": "C"
+  },
+  {
+    "id": 62,
+    "question": "CBCT ghi lên bảng những thông tin gì?",
+    "options": [
+      {
+        "label": "A",
+        "text": "Chỉ giờ bắt đầu"
+      },
+      {
+        "label": "B",
+        "text": "Tên kỳ thi, môn thi, Level, giờ bắt đầu, giờ kết thúc, nhắc còn 15 phút"
+      },
+      {
+        "label": "C",
+        "text": "Chỉ tên kỳ thi"
+      },
+      {
+        "label": "D",
+        "text": "Danh sách thí sinh"
+      }
+    ],
+    "section": "PHẦN 3: QUY TRÌNH VẬN HÀNH NGÀY THI (Câu 56-90)",
+    "answer": "B"
+  },
+  {
+    "id": 63,
+    "question": "Trong 90 phút làm bài, CBCT 1 bao quát từ đâu?",
+    "options": [
+      {
+        "label": "A",
+        "text": "Cuối phòng đến đầu phòng"
+      },
+      {
+        "label": "B",
+        "text": "Đầu phòng đến cuối phòng"
+      },
+      {
+        "label": "C",
+        "text": "Giữa phòng"
+      },
+      {
+        "label": "D",
+        "text": "Ngồi tại bàn CBCT"
+      }
+    ],
+    "section": "PHẦN 3: QUY TRÌNH VẬN HÀNH NGÀY THI (Câu 56-90)",
+    "answer": "B"
+  },
+  {
+    "id": 64,
+    "question": "Trong 90 phút làm bài, CBCT 2 bao quát từ đâu?",
+    "options": [
+      {
+        "label": "A",
+        "text": "Đầu phòng đến cuối phòng"
+      },
+      {
+        "label": "B",
+        "text": "Cuối phòng đến đầu phòng"
+      },
+      {
+        "label": "C",
+        "text": "Bên trái phòng"
+      },
+      {
+        "label": "D",
+        "text": "Ngồi tại bàn CBCT"
+      }
+    ],
+    "section": "PHẦN 3: QUY TRÌNH VẬN HÀNH NGÀY THI (Câu 56-90)",
+    "answer": "B"
+  },
+  {
+    "id": 65,
+    "question": "Khi thí sinh hỏi CBCT, CBCT phải trả lời như thế nào?",
+    "options": [
+      {
+        "label": "A",
+        "text": "Trả lời riêng, nhỏ giọng"
+      },
+      {
+        "label": "B",
+        "text": "Trả lời công khai, không giải thích đề"
+      },
+      {
+        "label": "C",
+        "text": "Không trả lời"
+      },
+      {
+        "label": "D",
+        "text": "Viết câu trả lời lên giấy"
+      }
+    ],
+    "section": "PHẦN 3: QUY TRÌNH VẬN HÀNH NGÀY THI (Câu 56-90)",
+    "answer": "B"
+  },
+  {
+    "id": 66,
+    "question": "Lúc 09:15 (Ca 1), CBCT nhắc thí sinh điều gì?",
+    "options": [
+      {
+        "label": "A",
+        "text": "Hết giờ"
+      },
+      {
+        "label": "B",
+        "text": "Còn 15 phút"
+      },
+      {
+        "label": "C",
+        "text": "Nộp bài ngay"
+      },
+      {
+        "label": "D",
+        "text": "Kiểm tra phiếu trả lời"
+      }
+    ],
+    "section": "PHẦN 3: QUY TRÌNH VẬN HÀNH NGÀY THI (Câu 56-90)",
+    "answer": "B"
+  },
+  {
+    "id": 67,
+    "question": "CBCT 1 đối chiếu Thẻ dự thi với gì?",
+    "options": [
+      {
+        "label": "A",
+        "text": "Đề thi"
+      },
+      {
+        "label": "B",
+        "text": "Danh sách để nhận diện thí sinh"
+      },
+      {
+        "label": "C",
+        "text": "Phiếu trả lời"
+      },
+      {
+        "label": "D",
+        "text": "Biên bản"
+      }
+    ],
+    "section": "PHẦN 3: QUY TRÌNH VẬN HÀNH NGÀY THI (Câu 56-90)",
+    "answer": "B"
+  },
+  {
+    "id": 68,
+    "question": "Sau khi thu bài Ca 1, bao nhiêu nhãn niêm phong được dán?",
+    "options": [
+      {
+        "label": "A",
+        "text": "1"
+      },
+      {
+        "label": "B",
+        "text": "2"
+      },
+      {
+        "label": "C",
+        "text": "3"
+      },
+      {
+        "label": "D",
+        "text": "4"
+      }
+    ],
+    "section": "PHẦN 3: QUY TRÌNH VẬN HÀNH NGÀY THI (Câu 56-90)",
+    "answer": "C"
+  },
+  {
+    "id": 69,
+    "question": "Mỗi nhãn niêm phong được đóng dấu như thế nào?",
+    "options": [
+      {
+        "label": "A",
+        "text": "Toàn bộ dấu trên nhãn"
+      },
+      {
+        "label": "B",
+        "text": "Toàn bộ dấu trên túi"
+      },
+      {
+        "label": "C",
+        "text": "1/2 dấu trên nhãn, 1/2 dấu trên túi"
+      },
+      {
+        "label": "D",
+        "text": "Không đóng dấu"
+      }
+    ],
+    "section": "PHẦN 3: QUY TRÌNH VẬN HÀNH NGÀY THI (Câu 56-90)",
+    "answer": "C"
+  },
+  {
+    "id": 70,
+    "question": "Bao nhiêu người ký vào Biên bản bàn giao bài thi?",
+    "options": [
+      {
+        "label": "A",
+        "text": "1 (Trưởng ĐT)"
+      },
+      {
+        "label": "B",
+        "text": "2 (Trưởng ĐT + CBCT 1)"
+      },
+      {
+        "label": "C",
+        "text": "3 (Trưởng ĐT + 2 CBCT)"
+      },
+      {
+        "label": "D",
+        "text": "4"
+      }
+    ],
+    "section": "PHẦN 3: QUY TRÌNH VẬN HÀNH NGÀY THI (Câu 56-90)",
+    "answer": "C"
+  },
+  {
+    "id": 71,
+    "question": "Thời gian chuyển ca giữa Ca 1 và Ca 2 là bao lâu?",
+    "options": [
+      {
+        "label": "A",
+        "text": "15 phút"
+      },
+      {
+        "label": "B",
+        "text": "30 phút (09:30 - 10:00)"
+      },
+      {
+        "label": "C",
+        "text": "45 phút"
+      },
+      {
+        "label": "D",
+        "text": "60 phút"
+      }
+    ],
+    "section": "PHẦN 3: QUY TRÌNH VẬN HÀNH NGÀY THI (Câu 56-90)",
+    "answer": "B"
+  },
+  {
+    "id": 72,
+    "question": "Thí sinh thi cả 2 ca nghỉ ở đâu giữa 2 ca?",
+    "options": [
+      {
+        "label": "A",
+        "text": "Ra ngoài tự do"
+      },
+      {
+        "label": "B",
+        "text": "Khu vực chờ theo sắp xếp của điểm thi"
+      },
+      {
+        "label": "C",
+        "text": "Phòng thi"
+      },
+      {
+        "label": "D",
+        "text": "Gặp phụ huynh"
+      }
+    ],
+    "section": "PHẦN 3: QUY TRÌNH VẬN HÀNH NGÀY THI (Câu 56-90)",
+    "answer": "B"
+  },
+  {
+    "id": 73,
+    "question": "Thí sinh thi cả 2 ca có được sử dụng điện thoại giữa 2 ca không?",
+    "options": [
+      {
+        "label": "A",
+        "text": "Được"
+      },
+      {
+        "label": "B",
+        "text": "Không"
+      },
+      {
+        "label": "C",
+        "text": "Chỉ gọi điện"
+      },
+      {
+        "label": "D",
+        "text": "Chỉ nhắn tin"
+      }
+    ],
+    "section": "PHẦN 3: QUY TRÌNH VẬN HÀNH NGÀY THI (Câu 56-90)",
+    "answer": "B"
+  },
+  {
+    "id": 74,
+    "question": "Ca 2 bắt đầu gọi thí sinh tập trung lúc mấy giờ?",
+    "options": [
+      {
+        "label": "A",
+        "text": "09:30"
+      },
+      {
+        "label": "B",
+        "text": "09:40"
+      },
+      {
+        "label": "C",
+        "text": "09:50"
+      },
+      {
+        "label": "D",
+        "text": "10:00"
+      }
+    ],
+    "section": "PHẦN 3: QUY TRÌNH VẬN HÀNH NGÀY THI (Câu 56-90)",
+    "answer": "B"
+  },
+  {
+    "id": 75,
+    "question": "Ca 2 bắt đầu tính giờ làm bài lúc mấy giờ?",
+    "options": [
+      {
+        "label": "A",
+        "text": "09:40"
+      },
+      {
+        "label": "B",
+        "text": "09:50"
+      },
+      {
+        "label": "C",
+        "text": "10:00"
+      },
+      {
+        "label": "D",
+        "text": "10:15"
+      }
+    ],
+    "section": "PHẦN 3: QUY TRÌNH VẬN HÀNH NGÀY THI (Câu 56-90)",
+    "answer": "C"
+  },
+  {
+    "id": 76,
+    "question": "Nhãn niêm phong dán vào bao nhiêu mép dán của túi bài thi?",
+    "options": [
+      {
+        "label": "A",
+        "text": "1 mép"
+      },
+      {
+        "label": "B",
+        "text": "2 mép"
+      },
+      {
+        "label": "C",
+        "text": "3 mép"
+      },
+      {
+        "label": "D",
+        "text": "4 mép"
+      }
+    ],
+    "section": "PHẦN 3: QUY TRÌNH VẬN HÀNH NGÀY THI (Câu 56-90)",
+    "answer": "C"
+  },
+  {
+    "id": 77,
+    "question": "CBCT có được đứng gần thí sinh khi họ làm bài không?",
+    "options": [
+      {
+        "label": "A",
+        "text": "Được"
+      },
+      {
+        "label": "B",
+        "text": "Không"
+      },
+      {
+        "label": "C",
+        "text": "Chỉ khi thí sinh hỏi"
+      },
+      {
+        "label": "D",
+        "text": "Chỉ CBCT 1"
+      }
+    ],
+    "section": "PHẦN 3: QUY TRÌNH VẬN HÀNH NGÀY THI (Câu 56-90)",
+    "answer": "B"
+  },
+  {
+    "id": 78,
+    "question": "Kiểm tra số phiếu trả lời thu được phải đối chiếu với gì?",
+    "options": [
+      {
+        "label": "A",
+        "text": "Đề thi"
+      },
+      {
+        "label": "B",
+        "text": "Danh sách nộp bài thi"
+      },
+      {
+        "label": "C",
+        "text": "Sĩ số lớp"
+      },
+      {
+        "label": "D",
+        "text": "Biên bản"
+      }
+    ],
+    "section": "PHẦN 3: QUY TRÌNH VẬN HÀNH NGÀY THI (Câu 56-90)",
+    "answer": "B"
+  },
+  {
+    "id": 79,
+    "question": "Việc kiểm tra đối chiếu số phiếu phải thực hiện như thế nào?",
+    "options": [
+      {
+        "label": "A",
+        "text": "Riêng tư"
+      },
+      {
+        "label": "B",
+        "text": "Công khai"
+      },
+      {
+        "label": "C",
+        "text": "Sau buổi thi"
+      },
+      {
+        "label": "D",
+        "text": "Qua điện thoại"
+      }
+    ],
+    "section": "PHẦN 3: QUY TRÌNH VẬN HÀNH NGÀY THI (Câu 56-90)",
+    "answer": "B"
+  },
+  {
+    "id": 80,
+    "question": "Sau khi niêm phong, túi bài thi được xếp theo thứ tự gì?",
+    "options": [
+      {
+        "label": "A",
+        "text": "Theo tên thí sinh"
+      },
+      {
+        "label": "B",
+        "text": "Theo phòng thi"
+      },
+      {
+        "label": "C",
+        "text": "Theo Level"
+      },
+      {
+        "label": "D",
+        "text": "Ngẫu nhiên"
+      }
+    ],
+    "section": "PHẦN 3: QUY TRÌNH VẬN HÀNH NGÀY THI (Câu 56-90)",
+    "answer": "B"
+  },
+  {
+    "id": 81,
+    "question": "CBCT 2 hướng dẫn thí sinh kiểm tra thông tin gì trên phiếu trả lời?",
+    "options": [
+      {
+        "label": "A",
+        "text": "Chỉ họ tên"
+      },
+      {
+        "label": "B",
+        "text": "Họ tên, ngày sinh, SBD, lớp/Level và thông tin liên quan"
+      },
+      {
+        "label": "C",
+        "text": "Chỉ số báo danh"
+      },
+      {
+        "label": "D",
+        "text": "Chỉ lớp"
+      }
+    ],
+    "section": "PHẦN 3: QUY TRÌNH VẬN HÀNH NGÀY THI (Câu 56-90)",
+    "answer": "B"
+  },
+  {
+    "id": 82,
+    "question": "Nếu phát nhầm phiếu trả lời, CBCT phải báo ai?",
+    "options": [
+      {
+        "label": "A",
+        "text": "Tự xử lý"
+      },
+      {
+        "label": "B",
+        "text": "Thư ký hoặc Trưởng Điểm thi"
+      },
+      {
+        "label": "C",
+        "text": "Phụ huynh"
+      },
+      {
+        "label": "D",
+        "text": "BTC"
+      }
+    ],
+    "section": "PHẦN 3: QUY TRÌNH VẬN HÀNH NGÀY THI (Câu 56-90)",
+    "answer": "B"
+  },
+  {
+    "id": 83,
+    "question": "Lưu ý gì trên bảng ngoài giờ thi?",
+    "options": [
+      {
+        "label": "A",
+        "text": "\"Không sử dụng điện thoại\""
+      },
+      {
+        "label": "B",
+        "text": "\"Tô đáp án vào phiếu trả lời\""
+      },
+      {
+        "label": "C",
+        "text": "\"Giữ trật tự\""
+      },
+      {
+        "label": "D",
+        "text": "\"Không mang tài liệu\""
+      }
+    ],
+    "section": "PHẦN 3: QUY TRÌNH VẬN HÀNH NGÀY THI (Câu 56-90)",
+    "answer": "B"
+  },
+  {
+    "id": 84,
+    "question": "Đối với thí sinh lớp 1-2, CBCT 2 cần hướng dẫn điều gì?",
+    "options": [
+      {
+        "label": "A",
+        "text": "Giải thích nội dung đề thi"
+      },
+      {
+        "label": "B",
+        "text": "Gợi ý đáp án"
+      },
+      {
+        "label": "C",
+        "text": "Hướng dẫn kỹ thuật: ổn định chỗ ngồi, kiểm tra thông tin, cách tô đáp án"
+      },
+      {
+        "label": "D",
+        "text": "Làm bài giúp"
+      }
+    ],
+    "section": "PHẦN 3: QUY TRÌNH VẬN HÀNH NGÀY THI (Câu 56-90)",
+    "answer": "C"
+  },
+  {
+    "id": 85,
+    "question": "Giới hạn hỗ trợ thí sinh lớp 1-2 của CBCT 2 là gì?",
+    "options": [
+      {
+        "label": "A",
+        "text": "Hỗ trợ mọi thứ"
+      },
+      {
+        "label": "B",
+        "text": "Chỉ hỗ trợ thao tác kỹ thuật, không đọc/giải thích/gợi ý đáp án"
+      },
+      {
+        "label": "C",
+        "text": "Đọc đề cho thí sinh"
+      },
+      {
+        "label": "D",
+        "text": "Chọn đáp án giúp"
+      }
+    ],
+    "section": "PHẦN 3: QUY TRÌNH VẬN HÀNH NGÀY THI (Câu 56-90)",
+    "answer": "B"
+  },
+  {
+    "id": 86,
+    "question": "Thí sinh chỉ thi Ca 1 được ra về khi nào?",
+    "options": [
+      {
+        "label": "A",
+        "text": "Ngay khi hết giờ"
+      },
+      {
+        "label": "B",
+        "text": "Sau khi hoàn tất nộp bài theo quy định"
+      },
+      {
+        "label": "C",
+        "text": "Khi phụ huynh đến đón"
+      },
+      {
+        "label": "D",
+        "text": "30 phút sau khi hết giờ"
+      }
+    ],
+    "section": "PHẦN 3: QUY TRÌNH VẬN HÀNH NGÀY THI (Câu 56-90)",
+    "answer": "B"
+  },
+  {
+    "id": 87,
+    "question": "Bảo vệ chịu trách nhiệm gì giữa 2 ca?",
+    "options": [
+      {
+        "label": "A",
+        "text": "Chấm bài"
+      },
+      {
+        "label": "B",
+        "text": "Quản lý thí sinh, bảo đảm khu vực chờ tách biệt"
+      },
+      {
+        "label": "C",
+        "text": "Phát đề"
+      },
+      {
+        "label": "D",
+        "text": "Niêm phong bài"
+      }
+    ],
+    "section": "PHẦN 3: QUY TRÌNH VẬN HÀNH NGÀY THI (Câu 56-90)",
+    "answer": "B"
+  },
+  {
+    "id": 88,
+    "question": "Thí sinh đã thi Ca 1 có được tiếp xúc thí sinh chưa thi không?",
+    "options": [
+      {
+        "label": "A",
+        "text": "Được"
+      },
+      {
+        "label": "B",
+        "text": "Không"
+      },
+      {
+        "label": "C",
+        "text": "Chỉ ngoài khu vực thi"
+      },
+      {
+        "label": "D",
+        "text": "Chỉ qua điện thoại"
+      }
+    ],
+    "section": "PHẦN 3: QUY TRÌNH VẬN HÀNH NGÀY THI (Câu 56-90)",
+    "answer": "B"
+  },
+  {
+    "id": 89,
+    "question": "Ca 2 bóc đề và phát đề lúc mấy giờ?",
+    "options": [
+      {
+        "label": "A",
+        "text": "09:45"
+      },
+      {
+        "label": "B",
+        "text": "09:50"
+      },
+      {
+        "label": "C",
+        "text": "09:55"
+      },
+      {
+        "label": "D",
+        "text": "10:00"
+      }
+    ],
+    "section": "PHẦN 3: QUY TRÌNH VẬN HÀNH NGÀY THI (Câu 56-90)",
+    "answer": "C"
+  },
+  {
+    "id": 90,
+    "question": "Ca 2 nhắc còn 15 phút lúc mấy giờ?",
+    "options": [
+      {
+        "label": "A",
+        "text": "11:00"
+      },
+      {
+        "label": "B",
+        "text": "11:10"
+      },
+      {
+        "label": "C",
+        "text": "11:15"
+      },
+      {
+        "label": "D",
+        "text": "11:20"
+      }
+    ],
+    "section": "PHẦN 3: QUY TRÌNH VẬN HÀNH NGÀY THI (Câu 56-90)",
+    "answer": "C"
+  },
+  {
+    "id": 91,
+    "question": "Có bao nhiêu mức xử lý sự cố?",
+    "options": [
+      {
+        "label": "A",
+        "text": "2"
+      },
+      {
+        "label": "B",
+        "text": "3"
+      },
+      {
+        "label": "C",
+        "text": "4"
+      },
+      {
+        "label": "D",
+        "text": "5"
+      }
+    ],
+    "section": "PHẦN 4: XỬ LÝ SỰ CỐ (Câu 91-120)",
+    "answer": "C"
+  },
+  {
+    "id": 92,
+    "question": "Mức 1 xử lý sự cố là gì?",
+    "options": [
+      {
+        "label": "A",
+        "text": "Báo BTC"
+      },
+      {
+        "label": "B",
+        "text": "CBCT tự xử lý, ghi nhận, báo cáo sau"
+      },
+      {
+        "label": "C",
+        "text": "Gọi công an"
+      },
+      {
+        "label": "D",
+        "text": "Trưởng ĐT quyết định"
+      }
+    ],
+    "section": "PHẦN 4: XỬ LÝ SỰ CỐ (Câu 91-120)",
+    "answer": "B"
+  },
+  {
+    "id": 93,
+    "question": "Mức 4 xử lý sự cố áp dụng khi nào?",
+    "options": [
+      {
+        "label": "A",
+        "text": "Sự cố nhỏ"
+      },
+      {
+        "label": "B",
+        "text": "CBCT tự xử lý"
+      },
+      {
+        "label": "C",
+        "text": "Khẩn cấp, liên quan an toàn (gọi cấp cứu 115, công an 113)"
+      },
+      {
+        "label": "D",
+        "text": "Hỏi ý kiến BTC"
+      }
+    ],
+    "section": "PHẦN 4: XỬ LÝ SỰ CỐ (Câu 91-120)",
+    "answer": "C"
+  },
+  {
+    "id": 94,
+    "question": "Theo \"Quy tắc vàng\", mọi sự cố phải làm gì?",
+    "options": [
+      {
+        "label": "A",
+        "text": "Báo cáo miệng"
+      },
+      {
+        "label": "B",
+        "text": "Lập biên bản dù nhỏ"
+      },
+      {
+        "label": "C",
+        "text": "Bỏ qua nếu nhỏ"
+      },
+      {
+        "label": "D",
+        "text": "Chỉ ghi nhớ"
+      }
+    ],
+    "section": "PHẦN 4: XỬ LÝ SỰ CỐ (Câu 91-120)",
+    "answer": "B"
+  },
+  {
+    "id": 95,
+    "question": "Ưu tiên hàng đầu khi xử lý sự cố là gì?",
+    "options": [
+      {
+        "label": "A",
+        "text": "Bảo vệ đề thi"
+      },
+      {
+        "label": "B",
+        "text": "An toàn thí sinh trên hết"
+      },
+      {
+        "label": "C",
+        "text": "Hoàn thành đúng giờ"
+      },
+      {
+        "label": "D",
+        "text": "Liên hệ BTC"
+      }
+    ],
+    "section": "PHẦN 4: XỬ LÝ SỰ CỐ (Câu 91-120)",
+    "answer": "B"
+  },
+  {
+    "id": 96,
+    "question": "Khi chỉ thị bằng lời nói khác quy định, phải làm gì trước khi thực hiện?",
+    "options": [
+      {
+        "label": "A",
+        "text": "Thực hiện ngay"
+      },
+      {
+        "label": "B",
+        "text": "Từ chối"
+      },
+      {
+        "label": "C",
+        "text": "Ghi ra giấy, cùng ký"
+      },
+      {
+        "label": "D",
+        "text": "Gọi BTC hỏi"
+      }
+    ],
+    "section": "PHẦN 4: XỬ LÝ SỰ CỐ (Câu 91-120)",
+    "answer": "C"
+  },
+  {
+    "id": 97,
+    "question": "Ai trực tiếp quản lý đề thi dự phòng?",
+    "options": [
+      {
+        "label": "A",
+        "text": "CBCT"
+      },
+      {
+        "label": "B",
+        "text": "Thư ký"
+      },
+      {
+        "label": "C",
+        "text": "Trưởng Điểm thi"
+      },
+      {
+        "label": "D",
+        "text": "BTC"
+      }
+    ],
+    "section": "PHẦN 4: XỬ LÝ SỰ CỐ (Câu 91-120)",
+    "answer": "C"
+  },
+  {
+    "id": 98,
+    "question": "Đề dự phòng bảo quản ở đâu?",
+    "options": [
+      {
+        "label": "A",
+        "text": "Phòng thi"
+      },
+      {
+        "label": "B",
+        "text": "Phòng Hội đồng/khu vực an toàn có khóa"
+      },
+      {
+        "label": "C",
+        "text": "Bàn CBCT"
+      },
+      {
+        "label": "D",
+        "text": "Xe vận chuyển"
+      }
+    ],
+    "section": "PHẦN 4: XỬ LÝ SỰ CỐ (Câu 91-120)",
+    "answer": "B"
+  },
+  {
+    "id": 99,
+    "question": "Ai có quyền quyết định bóc đề dự phòng?",
+    "options": [
+      {
+        "label": "A",
+        "text": "CBCT 1"
+      },
+      {
+        "label": "B",
+        "text": "CBCT 2"
+      },
+      {
+        "label": "C",
+        "text": "Chỉ Trưởng Điểm thi"
+      },
+      {
+        "label": "D",
+        "text": "Thư ký"
+      }
+    ],
+    "section": "PHẦN 4: XỬ LÝ SỰ CỐ (Câu 91-120)",
+    "answer": "C"
+  },
+  {
+    "id": 100,
+    "question": "Khi bóc đề dự phòng phải có ít nhất bao nhiêu người chứng kiến?",
+    "options": [
+      {
+        "label": "A",
+        "text": "Không cần"
+      },
+      {
+        "label": "B",
+        "text": "1 người (Thư ký hoặc Giám sát)"
+      },
+      {
+        "label": "C",
+        "text": "2 người"
+      },
+      {
+        "label": "D",
+        "text": "3 người"
+      }
+    ],
+    "section": "PHẦN 4: XỬ LÝ SỰ CỐ (Câu 91-120)",
+    "answer": "B"
+  },
+  {
+    "id": 101,
+    "question": "Đề sai, đề lỗi phải xử lý như thế nào?",
+    "options": [
+      {
+        "label": "A",
+        "text": "Bỏ đi"
+      },
+      {
+        "label": "B",
+        "text": "Thu hồi, niêm phong riêng, bàn giao theo quy định"
+      },
+      {
+        "label": "C",
+        "text": "Cho thí sinh giữ"
+      },
+      {
+        "label": "D",
+        "text": "Gửi cho BTC qua email"
+      }
+    ],
+    "section": "PHẦN 4: XỬ LÝ SỰ CỐ (Câu 91-120)",
+    "answer": "B"
+  },
+  {
+    "id": 102,
+    "question": "Sự cố liên quan thí sinh ốm thuộc sơ đồ liên lạc nào?",
+    "options": [
+      {
+        "label": "A",
+        "text": "CBCT → Trưởng ĐT"
+      },
+      {
+        "label": "B",
+        "text": "CBCT → Giám sát → Y tế + Trưởng ĐT"
+      },
+      {
+        "label": "C",
+        "text": "Bảo vệ → Trưởng ĐT"
+      },
+      {
+        "label": "D",
+        "text": "Y tế trực tiếp xử lý"
+      }
+    ],
+    "section": "PHẦN 4: XỬ LÝ SỰ CỐ (Câu 91-120)",
+    "answer": "B"
+  },
+  {
+    "id": 103,
+    "question": "Sự cố liên quan an ninh thuộc sơ đồ liên lạc nào?",
+    "options": [
+      {
+        "label": "A",
+        "text": "CBCT → Giám sát"
+      },
+      {
+        "label": "B",
+        "text": "Bảo vệ → Trưởng ĐT"
+      },
+      {
+        "label": "C",
+        "text": "Y tế → Trưởng ĐT"
+      },
+      {
+        "label": "D",
+        "text": "CBCT → BTC"
+      }
+    ],
+    "section": "PHẦN 4: XỬ LÝ SỰ CỐ (Câu 91-120)",
+    "answer": "B"
+  },
+  {
+    "id": 104,
+    "question": "Sự cố liên quan đề thi/bài thi thuộc sơ đồ liên lạc nào?",
+    "options": [
+      {
+        "label": "A",
+        "text": "CBCT → Giám sát"
+      },
+      {
+        "label": "B",
+        "text": "Bảo vệ → Trưởng ĐT"
+      },
+      {
+        "label": "C",
+        "text": "CBCT → Trưởng ĐT → BTC Hotline"
+      },
+      {
+        "label": "D",
+        "text": "Y tế → Trưởng ĐT"
+      }
+    ],
+    "section": "PHẦN 4: XỬ LÝ SỰ CỐ (Câu 91-120)",
+    "answer": "C"
+  },
+  {
+    "id": 105,
+    "question": "Biên bản sự cố phải ghi khi nào?",
+    "options": [
+      {
+        "label": "A",
+        "text": "Sau buổi thi"
+      },
+      {
+        "label": "B",
+        "text": "Cuối ngày"
+      },
+      {
+        "label": "C",
+        "text": "Ngay khi sự cố xảy ra"
+      },
+      {
+        "label": "D",
+        "text": "Khi BTC yêu cầu"
+      }
+    ],
+    "section": "PHẦN 4: XỬ LÝ SỰ CỐ (Câu 91-120)",
+    "answer": "C"
+  },
+  {
+    "id": 106,
+    "question": "Biên bản sự cố cần ghi rõ những gì?",
+    "options": [
+      {
+        "label": "A",
+        "text": "Chỉ thời gian"
+      },
+      {
+        "label": "B",
+        "text": "Thời gian, địa điểm, người liên quan, diễn biến, biện pháp xử lý"
+      },
+      {
+        "label": "C",
+        "text": "Chỉ tên người vi phạm"
+      },
+      {
+        "label": "D",
+        "text": "Chỉ biện pháp xử lý"
+      }
+    ],
+    "section": "PHẦN 4: XỬ LÝ SỰ CỐ (Câu 91-120)",
+    "answer": "B"
+  },
+  {
+    "id": 107,
+    "question": "Nếu người vi phạm không chịu ký biên bản, cần bao nhiêu CBCT ký?",
+    "options": [
+      {
+        "label": "A",
+        "text": "1"
+      },
+      {
+        "label": "B",
+        "text": "2 CBCT ký là đủ hiệu lực"
+      },
+      {
+        "label": "C",
+        "text": "3"
+      },
+      {
+        "label": "D",
+        "text": "Không cần ký"
+      }
+    ],
+    "section": "PHẦN 4: XỬ LÝ SỰ CỐ (Câu 91-120)",
+    "answer": "B"
+  },
+  {
+    "id": 108,
+    "question": "Biên bản kỷ luật thí sinh xếp ở đâu?",
+    "options": [
+      {
+        "label": "A",
+        "text": "Kẹp vào bài thi"
+      },
+      {
+        "label": "B",
+        "text": "Xếp riêng trong túi bài thi"
+      },
+      {
+        "label": "C",
+        "text": "Nộp cho phụ huynh"
+      },
+      {
+        "label": "D",
+        "text": "Gửi email cho BTC"
+      }
+    ],
+    "section": "PHẦN 4: XỬ LÝ SỰ CỐ (Câu 91-120)",
+    "answer": "B"
+  },
+  {
+    "id": 109,
+    "question": "Tang vật thu giữ xử lý như thế nào?",
+    "options": [
+      {
+        "label": "A",
+        "text": "Trả lại ngay"
+      },
+      {
+        "label": "B",
+        "text": "Ghi nhận trong BB, bảo quản riêng, nộp cùng BB cho Trưởng ĐT"
+      },
+      {
+        "label": "C",
+        "text": "Tiêu hủy"
+      },
+      {
+        "label": "D",
+        "text": "Gửi cho bảo vệ"
+      }
+    ],
+    "section": "PHẦN 4: XỬ LÝ SỰ CỐ (Câu 91-120)",
+    "answer": "B"
+  },
+  {
+    "id": 110,
+    "question": "Số điện thoại cấp cứu tại Việt Nam là gì?",
+    "options": [
+      {
+        "label": "A",
+        "text": "112"
+      },
+      {
+        "label": "B",
+        "text": "115"
+      },
+      {
+        "label": "C",
+        "text": "911"
+      },
+      {
+        "label": "D",
+        "text": "114"
+      }
+    ],
+    "section": "PHẦN 4: XỬ LÝ SỰ CỐ (Câu 91-120)",
+    "answer": "B"
+  },
+  {
+    "id": 111,
+    "question": "Số điện thoại công an tại Việt Nam là gì?",
+    "options": [
+      {
+        "label": "A",
+        "text": "112"
+      },
+      {
+        "label": "B",
+        "text": "115"
+      },
+      {
+        "label": "C",
+        "text": "113"
+      },
+      {
+        "label": "D",
+        "text": "911"
+      }
+    ],
+    "section": "PHẦN 4: XỬ LÝ SỰ CỐ (Câu 91-120)",
+    "answer": "C"
+  },
+  {
+    "id": 112,
+    "question": "Khi sự cố vượt thẩm quyền CBCT, phải báo ai?",
+    "options": [
+      {
+        "label": "A",
+        "text": "BTC trực tiếp"
+      },
+      {
+        "label": "B",
+        "text": "Cán bộ Giám sát → Trưởng ĐT"
+      },
+      {
+        "label": "C",
+        "text": "Phụ huynh"
+      },
+      {
+        "label": "D",
+        "text": "Tự xử lý tiếp"
+      }
+    ],
+    "section": "PHẦN 4: XỬ LÝ SỰ CỐ (Câu 91-120)",
+    "answer": "B"
+  },
+  {
+    "id": 113,
+    "question": "Nguyên tắc \"Không tự ý quyết định ngoài thẩm quyền\" nghĩa là gì?",
+    "options": [
+      {
+        "label": "A",
+        "text": "Không làm gì cả"
+      },
+      {
+        "label": "B",
+        "text": "Escalation lên cấp trên"
+      },
+      {
+        "label": "C",
+        "text": "Tự xử lý rồi báo sau"
+      },
+      {
+        "label": "D",
+        "text": "Hỏi thí sinh"
+      }
+    ],
+    "section": "PHẦN 4: XỬ LÝ SỰ CỐ (Câu 91-120)",
+    "answer": "B"
+  },
+  {
+    "id": 114,
+    "question": "Ai quyết định bù giờ thi?",
+    "options": [
+      {
+        "label": "A",
+        "text": "CBCT"
+      },
+      {
+        "label": "B",
+        "text": "Trưởng ĐT (sau khi xin ý kiến BTC)"
+      },
+      {
+        "label": "C",
+        "text": "Thư ký"
+      },
+      {
+        "label": "D",
+        "text": "Giám sát"
+      }
+    ],
+    "section": "PHẦN 4: XỬ LÝ SỰ CỐ (Câu 91-120)",
+    "answer": "B"
+  },
+  {
+    "id": 115,
+    "question": "Ai quyết định thay thế CBCT khi CBCT vắng/vi phạm?",
+    "options": [
+      {
+        "label": "A",
+        "text": "Thư ký"
+      },
+      {
+        "label": "B",
+        "text": "Trưởng Điểm thi"
+      },
+      {
+        "label": "C",
+        "text": "BTC"
+      },
+      {
+        "label": "D",
+        "text": "Giám sát"
+      }
+    ],
+    "section": "PHẦN 4: XỬ LÝ SỰ CỐ (Câu 91-120)",
+    "answer": "B"
+  },
+  {
+    "id": 116,
+    "question": "Khi thí sinh ốm nặng trong phòng thi, cần gọi số nào?",
+    "options": [
+      {
+        "label": "A",
+        "text": "113"
+      },
+      {
+        "label": "B",
+        "text": "114"
+      },
+      {
+        "label": "C",
+        "text": "115"
+      },
+      {
+        "label": "D",
+        "text": "112"
+      }
+    ],
+    "section": "PHẦN 4: XỬ LÝ SỰ CỐ (Câu 91-120)",
+    "answer": "C"
+  },
+  {
+    "id": 117,
+    "question": "Thí sinh ốm nặng cần nộp bài trước khi đi cấp cứu không?",
+    "options": [
+      {
+        "label": "A",
+        "text": "Không cần"
+      },
+      {
+        "label": "B",
+        "text": "Nộp bài trước nếu có thể"
+      },
+      {
+        "label": "C",
+        "text": "Bắt buộc"
+      },
+      {
+        "label": "D",
+        "text": "Để CBCT nộp thay"
+      }
+    ],
+    "section": "PHẦN 4: XỬ LÝ SỰ CỐ (Câu 91-120)",
+    "answer": "B"
+  },
+  {
+    "id": 118,
+    "question": "Việc sử dụng đề dự phòng phải được ghi nhận bằng gì?",
+    "options": [
+      {
+        "label": "A",
+        "text": "Báo cáo miệng"
+      },
+      {
+        "label": "B",
+        "text": "Biên bản"
+      },
+      {
+        "label": "C",
+        "text": "Tin nhắn"
+      },
+      {
+        "label": "D",
+        "text": "Email"
+      }
+    ],
+    "section": "PHẦN 4: XỬ LÝ SỰ CỐ (Câu 91-120)",
+    "answer": "B"
+  },
+  {
+    "id": 119,
+    "question": "Đề không sử dụng sau khi bóc phải xử lý thế nào?",
+    "options": [
+      {
+        "label": "A",
+        "text": "Để tại phòng thi"
+      },
+      {
+        "label": "B",
+        "text": "Thu hồi đầy đủ, niêm phong riêng, bàn giao"
+      },
+      {
+        "label": "C",
+        "text": "Cho thí sinh giữ"
+      },
+      {
+        "label": "D",
+        "text": "Tiêu hủy tại chỗ"
+      }
+    ],
+    "section": "PHẦN 4: XỬ LÝ SỰ CỐ (Câu 91-120)",
+    "answer": "B"
+  },
+  {
+    "id": 120,
+    "question": "Nếu CBCT vi phạm quy chế, Giám sát phải làm gì?",
+    "options": [
+      {
+        "label": "A",
+        "text": "Bỏ qua"
+      },
+      {
+        "label": "B",
+        "text": "Lập biên bản vi phạm cán bộ, báo Trưởng ĐT"
+      },
+      {
+        "label": "C",
+        "text": "Tự kỷ luật"
+      },
+      {
+        "label": "D",
+        "text": "Báo phụ huynh"
+      }
+    ],
+    "section": "PHẦN 4: XỬ LÝ SỰ CỐ (Câu 91-120)",
+    "answer": "B"
+  },
+  {
+    "id": 121,
+    "question": "CBCT KHÔNG được làm gì khi làm nhiệm vụ?",
+    "options": [
+      {
+        "label": "A",
+        "text": "Uống nước"
+      },
+      {
+        "label": "B",
+        "text": "Mang điện thoại di động"
+      },
+      {
+        "label": "C",
+        "text": "Đi lại trong phòng"
+      },
+      {
+        "label": "D",
+        "text": "Quan sát thí sinh"
+      }
+    ],
+    "section": "PHẦN 5: QUICK CARD & VAI TRÒ CỤ THỂ (Câu 121-150)",
+    "answer": "B"
+  },
+  {
+    "id": 122,
+    "question": "CBCT có được giúp thí sinh làm bài không?",
+    "options": [
+      {
+        "label": "A",
+        "text": "Được nếu thí sinh nhỏ tuổi"
+      },
+      {
+        "label": "B",
+        "text": "Không, dưới bất kỳ hình thức nào"
+      },
+      {
+        "label": "C",
+        "text": "Được nếu thí sinh hỏi"
+      },
+      {
+        "label": "D",
+        "text": "Chỉ giải thích từ khó"
+      }
+    ],
+    "section": "PHẦN 5: QUICK CARD & VAI TRÒ CỤ THỂ (Câu 121-150)",
+    "answer": "B"
+  },
+  {
+    "id": 123,
+    "question": "CBCT có được thảo luận, sao chép, giải đề không?",
+    "options": [
+      {
+        "label": "A",
+        "text": "Được, sau giờ thi"
+      },
+      {
+        "label": "B",
+        "text": "Không"
+      },
+      {
+        "label": "C",
+        "text": "Chỉ thảo luận"
+      },
+      {
+        "label": "D",
+        "text": "Chỉ sao chép"
+      }
+    ],
+    "section": "PHẦN 5: QUICK CARD & VAI TRÒ CỤ THỂ (Câu 121-150)",
+    "answer": "B"
+  },
+  {
+    "id": 124,
+    "question": "CBCT có được coi thi phòng có con em ruột dự thi không?",
+    "options": [
+      {
+        "label": "A",
+        "text": "Được"
+      },
+      {
+        "label": "B",
+        "text": "Không"
+      },
+      {
+        "label": "C",
+        "text": "Được nếu Trưởng ĐT cho phép"
+      },
+      {
+        "label": "D",
+        "text": "Chỉ CBCT 2"
+      }
+    ],
+    "section": "PHẦN 5: QUICK CARD & VAI TRÒ CỤ THỂ (Câu 121-150)",
+    "answer": "B"
+  },
+  {
+    "id": 125,
+    "question": "CBCT phải mang theo gì suốt buổi thi?",
+    "options": [
+      {
+        "label": "A",
+        "text": "Điện thoại"
+      },
+      {
+        "label": "B",
+        "text": "Tài liệu hướng dẫn coi thi"
+      },
+      {
+        "label": "C",
+        "text": "Đề thi dự phòng"
+      },
+      {
+        "label": "D",
+        "text": "Danh sách phụ huynh"
+      }
+    ],
+    "section": "PHẦN 5: QUICK CARD & VAI TRÒ CỤ THỂ (Câu 121-150)",
+    "answer": "B"
+  },
+  {
+    "id": 126,
+    "question": "Quick Card của Trưởng ĐT nên in mấy mặt?",
+    "options": [
+      {
+        "label": "A",
+        "text": "1 mặt"
+      },
+      {
+        "label": "B",
+        "text": "2 mặt"
+      },
+      {
+        "label": "C",
+        "text": "3 mặt"
+      },
+      {
+        "label": "D",
+        "text": "4 mặt"
+      }
+    ],
+    "section": "PHẦN 5: QUICK CARD & VAI TRÒ CỤ THỂ (Câu 121-150)",
+    "answer": "B"
+  },
+  {
+    "id": 127,
+    "question": "Trưởng ĐT có bao nhiêu quyết định chỉ mình mới được ra?",
+    "options": [
+      {
+        "label": "A",
+        "text": "3"
+      },
+      {
+        "label": "B",
+        "text": "4"
+      },
+      {
+        "label": "C",
+        "text": "5"
+      },
+      {
+        "label": "D",
+        "text": "6"
+      }
+    ],
+    "section": "PHẦN 5: QUICK CARD & VAI TRÒ CỤ THỂ (Câu 121-150)",
+    "answer": "C"
+  },
+  {
+    "id": 128,
+    "question": "Quyết định nào KHÔNG thuộc thẩm quyền riêng của Trưởng ĐT?",
+    "options": [
+      {
+        "label": "A",
+        "text": "Đình chỉ thi thí sinh vi phạm"
+      },
+      {
+        "label": "B",
+        "text": "Bóc túi đề dự phòng"
+      },
+      {
+        "label": "C",
+        "text": "Phân công CBCT vào phòng cụ thể bằng chỉ định"
+      },
+      {
+        "label": "D",
+        "text": "Ký niêm phong túi bài thi"
+      }
+    ],
+    "section": "PHẦN 5: QUICK CARD & VAI TRÒ CỤ THỂ (Câu 121-150)",
+    "answer": "C"
+  },
+  {
+    "id": 129,
+    "question": "Thư ký chịu trách nhiệm đảm bảo gì trước ngày thi?",
+    "options": [
+      {
+        "label": "A",
+        "text": "Đề thi"
+      },
+      {
+        "label": "B",
+        "text": "Đầy đủ bản in trắng của tất cả biểu mẫu"
+      },
+      {
+        "label": "C",
+        "text": "Phòng thi"
+      },
+      {
+        "label": "D",
+        "text": "Bảo vệ"
+      }
+    ],
+    "section": "PHẦN 5: QUICK CARD & VAI TRÒ CỤ THỂ (Câu 121-150)",
+    "answer": "B"
+  },
+  {
+    "id": 130,
+    "question": "Cán bộ Giám sát có được can thiệp vào việc phát đề, thu bài không?",
+    "options": [
+      {
+        "label": "A",
+        "text": "Được"
+      },
+      {
+        "label": "B",
+        "text": "Không"
+      },
+      {
+        "label": "C",
+        "text": "Chỉ phát đề"
+      },
+      {
+        "label": "D",
+        "text": "Chỉ thu bài"
+      }
+    ],
+    "section": "PHẦN 5: QUICK CARD & VAI TRÒ CỤ THỂ (Câu 121-150)",
+    "answer": "B"
+  },
+  {
+    "id": 131,
+    "question": "Nếu bất đồng giữa Giám sát và CBCT về xử lý kỷ luật, ai quyết định?",
+    "options": [
+      {
+        "label": "A",
+        "text": "CBCT"
+      },
+      {
+        "label": "B",
+        "text": "Giám sát"
+      },
+      {
+        "label": "C",
+        "text": "Trưởng ĐT"
+      },
+      {
+        "label": "D",
+        "text": "BTC"
+      }
+    ],
+    "section": "PHẦN 5: QUICK CARD & VAI TRÒ CỤ THỂ (Câu 121-150)",
+    "answer": "C"
+  },
+  {
+    "id": 132,
+    "question": "Bảo vệ chịu trách nhiệm vòng nào?",
+    "options": [
+      {
+        "label": "A",
+        "text": "Tất cả vòng"
+      },
+      {
+        "label": "B",
+        "text": "Vòng nào chịu trách nhiệm vòng đó"
+      },
+      {
+        "label": "C",
+        "text": "Chỉ vòng ngoài"
+      },
+      {
+        "label": "D",
+        "text": "Chỉ cổng chính"
+      }
+    ],
+    "section": "PHẦN 5: QUICK CARD & VAI TRÒ CỤ THỂ (Câu 121-150)",
+    "answer": "B"
+  },
+  {
+    "id": 133,
+    "question": "Cán bộ Y tế vị trí thường trực ở đâu?",
+    "options": [
+      {
+        "label": "A",
+        "text": "Phòng thi"
+      },
+      {
+        "label": "B",
+        "text": "Phòng Hội đồng hoặc phòng y tế riêng"
+      },
+      {
+        "label": "C",
+        "text": "Ngoài cổng"
+      },
+      {
+        "label": "D",
+        "text": "Phòng bảo vệ"
+      }
+    ],
+    "section": "PHẦN 5: QUICK CARD & VAI TRÒ CỤ THỂ (Câu 121-150)",
+    "answer": "B"
+  },
+  {
+    "id": 134,
+    "question": "Cán bộ Y tế cần chuẩn bị gì?",
+    "options": [
+      {
+        "label": "A",
+        "text": "Đề thi"
+      },
+      {
+        "label": "B",
+        "text": "Túi sơ cứu, thuốc hạ sốt, nước, khăn mát"
+      },
+      {
+        "label": "C",
+        "text": "Biên bản"
+      },
+      {
+        "label": "D",
+        "text": "Quick Card"
+      }
+    ],
+    "section": "PHẦN 5: QUICK CARD & VAI TRÒ CỤ THỂ (Câu 121-150)",
+    "answer": "B"
+  },
+  {
+    "id": 135,
+    "question": "Khi Y tế nhận tin thí sinh ốm, phải làm gì?",
+    "options": [
+      {
+        "label": "A",
+        "text": "Chờ hết giờ thi"
+      },
+      {
+        "label": "B",
+        "text": "Đến phòng thi ngay hoặc TS được đưa đến phòng y tế"
+      },
+      {
+        "label": "C",
+        "text": "Gọi phụ huynh trước"
+      },
+      {
+        "label": "D",
+        "text": "Báo BTC trước"
+      }
+    ],
+    "section": "PHẦN 5: QUICK CARD & VAI TRÒ CỤ THỂ (Câu 121-150)",
+    "answer": "B"
+  },
+  {
+    "id": 136,
+    "question": "Trường hợp TS ốm nhẹ, xử lý thế nào?",
+    "options": [
+      {
+        "label": "A",
+        "text": "Chuyển cấp cứu"
+      },
+      {
+        "label": "B",
+        "text": "Xử lý tại chỗ, TS tiếp tục thi nếu có thể"
+      },
+      {
+        "label": "C",
+        "text": "Đình chỉ thi"
+      },
+      {
+        "label": "D",
+        "text": "Cho về ngay"
+      }
+    ],
+    "section": "PHẦN 5: QUICK CARD & VAI TRÒ CỤ THỂ (Câu 121-150)",
+    "answer": "B"
+  },
+  {
+    "id": 137,
+    "question": "Trường hợp TS ốm nặng, cần làm gì?",
+    "options": [
+      {
+        "label": "A",
+        "text": "Xử lý tại chỗ"
+      },
+      {
+        "label": "B",
+        "text": "Gọi 115, báo Trưởng ĐT, nộp bài trước nếu có thể, lập BB"
+      },
+      {
+        "label": "C",
+        "text": "Cho về với phụ huynh"
+      },
+      {
+        "label": "D",
+        "text": "Chờ hết giờ"
+      }
+    ],
+    "section": "PHẦN 5: QUICK CARD & VAI TRÒ CỤ THỂ (Câu 121-150)",
+    "answer": "B"
+  },
+  {
+    "id": 138,
+    "question": "Y tế có được lợi dụng khám chữa bệnh để vi phạm quy chế không?",
+    "options": [
+      {
+        "label": "A",
+        "text": "Được"
+      },
+      {
+        "label": "B",
+        "text": "Nghiêm cấm"
+      },
+      {
+        "label": "C",
+        "text": "Tùy trường hợp"
+      },
+      {
+        "label": "D",
+        "text": "Không đề cập"
+      }
+    ],
+    "section": "PHẦN 5: QUICK CARD & VAI TRÒ CỤ THỂ (Câu 121-150)",
+    "answer": "B"
+  },
+  {
+    "id": 139,
+    "question": "CBCT có được hút thuốc khi làm nhiệm vụ không?",
+    "options": [
+      {
+        "label": "A",
+        "text": "Được ngoài hành lang"
+      },
+      {
+        "label": "B",
+        "text": "Không"
+      },
+      {
+        "label": "C",
+        "text": "Được khi giải lao"
+      },
+      {
+        "label": "D",
+        "text": "Chỉ ngoài khu vực thi"
+      }
+    ],
+    "section": "PHẦN 5: QUICK CARD & VAI TRÒ CỤ THỂ (Câu 121-150)",
+    "answer": "B"
+  },
+  {
+    "id": 140,
+    "question": "CBCT có được uống bia rượu khi làm nhiệm vụ không?",
+    "options": [
+      {
+        "label": "A",
+        "text": "Được"
+      },
+      {
+        "label": "B",
+        "text": "Không"
+      },
+      {
+        "label": "C",
+        "text": "Chỉ bia"
+      },
+      {
+        "label": "D",
+        "text": "Chỉ sau giờ thi"
+      }
+    ],
+    "section": "PHẦN 5: QUICK CARD & VAI TRÒ CỤ THỂ (Câu 121-150)",
+    "answer": "B"
+  },
+  {
+    "id": 141,
+    "question": "CBCT có được mang đề ra ngoài phòng thi không?",
+    "options": [
+      {
+        "label": "A",
+        "text": "Được"
+      },
+      {
+        "label": "B",
+        "text": "Không"
+      },
+      {
+        "label": "C",
+        "text": "Chỉ đề thừa"
+      },
+      {
+        "label": "D",
+        "text": "Chỉ sau khi thu bài"
+      }
+    ],
+    "section": "PHẦN 5: QUICK CARD & VAI TRÒ CỤ THỂ (Câu 121-150)",
+    "answer": "B"
+  },
+  {
+    "id": 142,
+    "question": "Bước đầu tiên mỗi ca thi của CBCT là gì?",
+    "options": [
+      {
+        "label": "A",
+        "text": "Nhận đề"
+      },
+      {
+        "label": "B",
+        "text": "Gọi thí sinh vào phòng"
+      },
+      {
+        "label": "C",
+        "text": "Phổ biến quy chế"
+      },
+      {
+        "label": "D",
+        "text": "Bóc đề"
+      }
+    ],
+    "section": "PHẦN 5: QUICK CARD & VAI TRÒ CỤ THỂ (Câu 121-150)",
+    "answer": "B"
+  },
+  {
+    "id": 143,
+    "question": "Quick Card CBCT có dạng checklist để làm gì?",
+    "options": [
+      {
+        "label": "A",
+        "text": "Ghi điểm"
+      },
+      {
+        "label": "B",
+        "text": "Đánh dấu ☑ khi hoàn thành từng bước"
+      },
+      {
+        "label": "C",
+        "text": "Ghi tên thí sinh"
+      },
+      {
+        "label": "D",
+        "text": "Ghi sự cố"
+      }
+    ],
+    "section": "PHẦN 5: QUICK CARD & VAI TRÒ CỤ THỂ (Câu 121-150)",
+    "answer": "B"
+  },
+  {
+    "id": 144,
+    "question": "Thư ký quản lý bao nhiêu loại biểu mẫu?",
+    "options": [
+      {
+        "label": "A",
+        "text": "3"
+      },
+      {
+        "label": "B",
+        "text": "5"
+      },
+      {
+        "label": "C",
+        "text": "Theo danh sách quy định"
+      },
+      {
+        "label": "D",
+        "text": "1"
+      }
+    ],
+    "section": "PHẦN 5: QUICK CARD & VAI TRÒ CỤ THỂ (Câu 121-150)",
+    "answer": "C"
+  },
+  {
+    "id": 145,
+    "question": "Sau khi kết thúc 2 ca thi, Trưởng ĐT cần tổng kết gì?",
+    "options": [
+      {
+        "label": "A",
+        "text": "Chỉ bàn giao bài thi"
+      },
+      {
+        "label": "B",
+        "text": "Tổng kết tại điểm thi + Checklist bàn giao cho BTC"
+      },
+      {
+        "label": "C",
+        "text": "Chỉ báo cáo BTC"
+      },
+      {
+        "label": "D",
+        "text": "Không cần tổng kết"
+      }
+    ],
+    "section": "PHẦN 5: QUICK CARD & VAI TRÒ CỤ THỂ (Câu 121-150)",
+    "answer": "B"
+  },
+  {
+    "id": 146,
+    "question": "Trước ngày thi, tất cả nhân sự phải đọc phần nào?",
+    "options": [
+      {
+        "label": "A",
+        "text": "Chỉ Quick Card"
+      },
+      {
+        "label": "B",
+        "text": "01-Tổng quan và 02-Lịch trình & Quy trình Vận hành"
+      },
+      {
+        "label": "C",
+        "text": "Chỉ phần Xử lý Sự cố"
+      },
+      {
+        "label": "D",
+        "text": "Chỉ phần Quy định chung"
+      }
+    ],
+    "section": "PHẦN 5: QUICK CARD & VAI TRÒ CỤ THỂ (Câu 121-150)",
+    "answer": "B"
+  },
+  {
+    "id": 147,
+    "question": "Trưởng ĐT cần đọc thêm phần nào ngoài Tổng quan và Lịch trình?",
+    "options": [
+      {
+        "label": "A",
+        "text": "Không cần đọc thêm"
+      },
+      {
+        "label": "B",
+        "text": "03-Xử lý Sự cố"
+      },
+      {
+        "label": "C",
+        "text": "Quick Card CBCT"
+      },
+      {
+        "label": "D",
+        "text": "Biểu mẫu"
+      }
+    ],
+    "section": "PHẦN 5: QUICK CARD & VAI TRÒ CỤ THỂ (Câu 121-150)",
+    "answer": "B"
+  },
+  {
+    "id": 148,
+    "question": "Ngày thi, mỗi người giữ gì?",
+    "options": [
+      {
+        "label": "A",
+        "text": "Toàn bộ tài liệu"
+      },
+      {
+        "label": "B",
+        "text": "Quick Card tương ứng với vai trò"
+      },
+      {
+        "label": "C",
+        "text": "Chỉ danh sách thí sinh"
+      },
+      {
+        "label": "D",
+        "text": "Chỉ đề thi"
+      }
+    ],
+    "section": "PHẦN 5: QUICK CARD & VAI TRÒ CỤ THỂ (Câu 121-150)",
+    "answer": "B"
+  },
+  {
+    "id": 149,
+    "question": "Sau ngày thi, cần tham khảo phần nào?",
+    "options": [
+      {
+        "label": "A",
+        "text": "Quick Card"
+      },
+      {
+        "label": "B",
+        "text": "Phần \"Sau ngày thi\" trong 02-Lịch trình & Quy trình Vận hành"
+      },
+      {
+        "label": "C",
+        "text": "Phần Xử lý Sự cố"
+      },
+      {
+        "label": "D",
+        "text": "Phần Tổng quan"
+      }
+    ],
+    "section": "PHẦN 5: QUICK CARD & VAI TRÒ CỤ THỂ (Câu 121-150)",
+    "answer": "B"
+  },
+  {
+    "id": 150,
+    "question": "Khi bất đồng giữa Giám sát và CBCT, ý kiến 2 bên được ghi vào đâu?",
+    "options": [
+      {
+        "label": "A",
+        "text": "Sổ tay cá nhân"
+      },
+      {
+        "label": "B",
+        "text": "Biên bản"
+      },
+      {
+        "label": "C",
+        "text": "Báo cáo miệng"
+      },
+      {
+        "label": "D",
+        "text": "Email"
+      }
+    ],
+    "section": "PHẦN 5: QUICK CARD & VAI TRÒ CỤ THỂ (Câu 121-150)",
+    "answer": "B"
+  }
+]

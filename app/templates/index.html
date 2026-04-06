@@ -6,7 +6,7 @@
     <title>Tạo đề online</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Source+Sans+3:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/static/styles.css" />
     <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
@@ -77,7 +77,7 @@
         </div>
         <div style="display:flex;gap:10px;margin-top:20px;">
           <button id="examExportPdfBtn" type="button" style="flex:1;">Xuất PDF</button>
-          <button id="examExportDocxBtn" type="button" style="flex:1;background:linear-gradient(135deg,#0ea5e9,#0284c7);box-shadow:0 2px 8px rgba(14,165,233,0.3);">Xuất DOCX</button>
+          <button id="examExportDocxBtn" type="button" style="flex:1;background:linear-gradient(135deg,#78350f,#92400e);box-shadow:0 2px 8px rgba(120,53,15,0.3);">Xuất DOCX</button>
         </div>
       </div>
     </div>
@@ -303,7 +303,7 @@
                     <button data-export="csv">Xuất CSV</button>
                     <button data-export="docx">Xuất DOCX</button>
                     <button data-export="pdf">Xuất PDF</button>
-                    <button id="topicExportPro" style="background:linear-gradient(135deg,#059669,#10b981);box-shadow:0 2px 8px rgba(16,185,129,0.3);">Xuất đề chuyên nghiệp</button>
+                    <button id="topicExportPro" style="background:linear-gradient(135deg,#92400e,#b45309);box-shadow:0 2px 8px rgba(146,64,14,0.3);">Xuất đề chuyên nghiệp</button>
                   </div>
                 </div>
                 <div class="gen-status" id="topicStatus"></div>
@@ -408,7 +408,7 @@
                   <div class="actions">
                     <button data-matrix-export="docx">Xuất DOCX</button>
                     <button data-matrix-export="pdf">Xuất PDF</button>
-                    <button id="matrixExportPro" style="background:linear-gradient(135deg,#059669,#10b981);box-shadow:0 2px 8px rgba(16,185,129,0.3);">Xuất đề chuyên nghiệp</button>
+                    <button id="matrixExportPro" style="background:linear-gradient(135deg,#92400e,#b45309);box-shadow:0 2px 8px rgba(146,64,14,0.3);">Xuất đề chuyên nghiệp</button>
                   </div>
                 </div>
                 <div id="matrixOutput"></div>
@@ -525,7 +525,7 @@
                 <div class="output-header">
                   <h2>Đề thi (<span id="bankExamCount">0</span> câu)</h2>
                   <div class="actions">
-                    <button id="bankExamExportPro" style="background:linear-gradient(135deg,#059669,#10b981);box-shadow:0 2px 8px rgba(16,185,129,0.3);">Xuất đề chuyên nghiệp</button>
+                    <button id="bankExamExportPro" style="background:linear-gradient(135deg,#92400e,#b45309);box-shadow:0 2px 8px rgba(146,64,14,0.3);">Xuất đề chuyên nghiệp</button>
                   </div>
                 </div>
                 <div id="bankExamOutput"></div>
@@ -2730,7 +2730,7 @@
                 ${q.grade ? `<span style="color:#6b7280;font-size:0.85em;margin-left:2px;">${q.grade === 'international' ? '(Quốc tế)' : '(Lớp ' + q.grade + ')'}</span>` : ''}
                 <span class="difficulty-${q.difficulty || 'medium'}">${q.difficulty || 'medium'}</span>
                 ${q.times_used > 0 ? `<span style="font-size:10px;padding:1px 6px;border-radius:8px;background:#fef3c7;color:#92400e;">Dùng ${q.times_used}x</span>` : ''}
-                ${q.image_url ? '<span style="color:#6366f1;font-size:0.75em;margin-left:4px;">📷</span>' : ''}
+                ${q.image_url ? '<span style="color:#b45309;font-size:0.75em;margin-left:4px;">📷</span>' : ''}
                 <p>${escapeHtml((q.content || '').substring(0, 150))}${(q.content||'').length > 150 ? '...' : ''}</p>
               </div>
               <div class="bank-item-actions">
@@ -3973,9 +3973,9 @@
       /* ---- Dashboard ---- */
       (function() {
         const COLORS = [
-          '#6366f1','#8b5cf6','#ec4899','#ef4444','#f59e0b',
-          '#10b981','#06b6d4','#3b82f6','#f97316','#84cc16',
-          '#14b8a6','#a855f7','#e11d48',
+          '#b45309','#92400e','#d97706','#15803d','#0369a1',
+          '#dc2626','#ca8a04','#7c2d12','#065f46','#1e40af',
+          '#9a3412','#166534','#854d0e',
         ];
 
         let dashboardLoaded = false;
@@ -3993,10 +3993,10 @@
 
             // Overview cards
             const cards = [
-              { label: 'Tổng câu hỏi', value: ov.total.toLocaleString(), color: '#6366f1', icon: 'library' },
+              { label: 'Tổng câu hỏi', value: ov.total.toLocaleString(), color: '#b45309', icon: 'library' },
               { label: 'Có đáp án', value: `${ov.with_answer.toLocaleString()} (${ov.answer_rate}%)`, color: '#10b981', icon: 'check-circle' },
               { label: 'Chưa có đáp án', value: ov.without_answer.toLocaleString(), color: '#ef4444', icon: 'alert-circle' },
-              { label: 'Có lời giải', value: ov.with_explanation.toLocaleString(), color: '#8b5cf6', icon: 'book-open' },
+              { label: 'Có lời giải', value: ov.with_explanation.toLocaleString(), color: '#92400e', icon: 'book-open' },
               { label: 'Có hình ảnh', value: ov.with_image.toLocaleString(), color: '#06b6d4', icon: 'image' },
               { label: 'Đã sử dụng', value: ov.total_used.toLocaleString(), color: '#f59e0b', icon: 'refresh-cw' },
             ];
@@ -4073,12 +4073,12 @@
                 datasets: [{
                   label: 'Câu hỏi mới',
                   data: daily.map(d => d.count),
-                  borderColor: '#6366f1',
-                  backgroundColor: 'rgba(99,102,241,0.1)',
+                  borderColor: '#b45309',
+                  backgroundColor: 'rgba(180,83,9,0.1)',
                   fill: true,
                   tension: 0.4,
                   pointRadius: 4,
-                  pointBackgroundColor: '#6366f1',
+                  pointBackgroundColor: '#b45309',
                 }],
               },
               options: { ...defaultOpts, scales: { y: { beginAtZero: true } } },
@@ -4115,7 +4115,7 @@
                 datasets: [{
                   label: 'Số câu',
                   data: sources.map(s => s.count),
-                  backgroundColor: '#8b5cf6',
+                  backgroundColor: '#92400e',
                   borderRadius: 6,
                 }],
               },

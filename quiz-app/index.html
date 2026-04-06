@@ -1,0 +1,638 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Test Online - Hướng dẫn Vận hành IKLC & IKSC 2026</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Lora:wght@500;600;700&family=Source+Sans+3:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #faf8f5;
+      --surface: #ffffff;
+      --ink: #1c1917;
+      --ink-light: #78716c;
+      --amber: #b45309;
+      --amber-dark: #92400e;
+      --amber-light: #fef3c7;
+      --amber-glow: rgba(180,83,9,0.12);
+      --green: #15803d;
+      --green-light: #dcfce7;
+      --red: #dc2626;
+      --red-light: #fef2f2;
+      --border: #e7e5e4;
+      --radius: 12px;
+      --font-heading: 'Lora', Georgia, serif;
+      --font-body: 'Source Sans 3', system-ui, sans-serif;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: var(--font-body);
+      background: var(--bg);
+      color: var(--ink);
+      min-height: 100vh;
+      line-height: 1.6;
+    }
+
+    /* Header */
+    .header {
+      background: linear-gradient(135deg, #1c1917 0%, #292524 50%, #3c2415 100%);
+      color: #fef3c7;
+      padding: 20px 24px;
+      text-align: center;
+      border-bottom: 3px solid var(--amber);
+    }
+    .header h1 { font-family: var(--font-heading); font-size: 22px; font-weight: 600; }
+    .header p { font-size: 13px; opacity: 0.7; margin-top: 4px; }
+
+    /* Container */
+    .container { max-width: 800px; margin: 0 auto; padding: 20px; }
+
+    /* Screens */
+    .screen { display: none; }
+    .screen.active { display: block; animation: fadeIn 0.3s ease; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+    /* Start Screen */
+    .start-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 32px;
+      text-align: center;
+      margin-top: 40px;
+    }
+    .start-card h2 { font-family: var(--font-heading); font-size: 24px; margin-bottom: 8px; }
+    .start-card p { color: var(--ink-light); margin-bottom: 20px; }
+
+    .mode-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-bottom: 24px;
+    }
+    .mode-card {
+      border: 2px solid var(--border);
+      border-radius: 10px;
+      padding: 16px;
+      cursor: pointer;
+      transition: all 0.2s;
+      text-align: left;
+    }
+    .mode-card:hover { border-color: var(--amber); background: var(--amber-light); }
+    .mode-card.selected { border-color: var(--amber); background: var(--amber-light); }
+    .mode-card h3 { font-size: 15px; font-weight: 600; margin-bottom: 4px; }
+    .mode-card p { font-size: 12px; color: var(--ink-light); margin: 0; }
+
+    .section-select {
+      width: 100%;
+      padding: 10px 14px;
+      border: 1.5px solid var(--border);
+      border-radius: 10px;
+      font-size: 14px;
+      font-family: var(--font-body);
+      margin-bottom: 16px;
+      appearance: none;
+      background: var(--surface) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2378716c' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") no-repeat right 12px center;
+      padding-right: 36px;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 12px 28px;
+      border: none;
+      border-radius: 10px;
+      font-size: 15px;
+      font-weight: 600;
+      font-family: var(--font-body);
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .btn-primary {
+      background: linear-gradient(135deg, var(--amber-dark), var(--amber));
+      color: #fef3c7;
+      box-shadow: 0 3px 10px rgba(146,64,14,0.25);
+    }
+    .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 5px 16px rgba(146,64,14,0.3); }
+    .btn-outline {
+      background: var(--surface);
+      color: var(--amber-dark);
+      border: 2px solid var(--amber);
+    }
+    .btn-outline:hover { background: var(--amber-light); }
+
+    /* Quiz Screen */
+    .progress-bar {
+      background: var(--border);
+      height: 6px;
+      border-radius: 3px;
+      margin-bottom: 20px;
+      overflow: hidden;
+    }
+    .progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--amber-dark), var(--amber));
+      border-radius: 3px;
+      transition: width 0.4s ease;
+    }
+
+    .quiz-info {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+      font-size: 13px;
+      color: var(--ink-light);
+    }
+    .quiz-info .q-num {
+      background: var(--amber-light);
+      color: var(--amber-dark);
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-weight: 600;
+      font-size: 12px;
+    }
+    .quiz-info .timer { font-weight: 600; font-size: 14px; color: var(--ink); }
+
+    .question-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 28px;
+      margin-bottom: 16px;
+    }
+    .question-card .section-tag {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--amber);
+      font-weight: 600;
+      margin-bottom: 10px;
+    }
+    .question-card h3 {
+      font-family: var(--font-heading);
+      font-size: 18px;
+      font-weight: 600;
+      line-height: 1.5;
+      margin-bottom: 20px;
+    }
+
+    .options { display: flex; flex-direction: column; gap: 10px; }
+    .option {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 14px 18px;
+      border: 2px solid var(--border);
+      border-radius: 10px;
+      cursor: pointer;
+      transition: all 0.2s;
+      font-size: 14px;
+    }
+    .option:hover { border-color: var(--amber); background: var(--amber-glow); }
+    .option.selected { border-color: var(--amber); background: var(--amber-light); font-weight: 600; }
+    .option.correct { border-color: var(--green); background: var(--green-light); }
+    .option.wrong { border-color: var(--red); background: var(--red-light); }
+    .option .label {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      background: var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 13px;
+      flex-shrink: 0;
+    }
+    .option.selected .label { background: var(--amber); color: #fff; }
+    .option.correct .label { background: var(--green); color: #fff; }
+    .option.wrong .label { background: var(--red); color: #fff; }
+
+    .quiz-nav {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      margin-top: 20px;
+    }
+
+    /* Result Screen */
+    .result-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 32px;
+      text-align: center;
+      margin-top: 20px;
+    }
+    .score-circle {
+      width: 140px;
+      height: 140px;
+      border-radius: 50%;
+      margin: 0 auto 20px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      font-family: var(--font-heading);
+    }
+    .score-circle.pass { background: var(--green-light); border: 4px solid var(--green); color: var(--green); }
+    .score-circle.fail { background: var(--red-light); border: 4px solid var(--red); color: var(--red); }
+    .score-circle .score-num { font-size: 36px; font-weight: 700; line-height: 1; }
+    .score-circle .score-label { font-size: 12px; font-weight: 500; }
+
+    .stats-row {
+      display: flex;
+      justify-content: center;
+      gap: 24px;
+      margin: 20px 0;
+      flex-wrap: wrap;
+    }
+    .stat { text-align: center; }
+    .stat .num { font-size: 24px; font-weight: 700; font-family: var(--font-heading); }
+    .stat .lbl { font-size: 12px; color: var(--ink-light); }
+    .stat.correct .num { color: var(--green); }
+    .stat.wrong .num { color: var(--red); }
+    .stat.skip .num { color: var(--ink-light); }
+
+    /* Review list */
+    .review-list { margin-top: 24px; text-align: left; }
+    .review-item {
+      padding: 14px 18px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      margin-bottom: 10px;
+      border-left: 4px solid var(--border);
+    }
+    .review-item.correct { border-left-color: var(--green); }
+    .review-item.wrong { border-left-color: var(--red); }
+    .review-item .ri-q { font-weight: 600; margin-bottom: 4px; font-size: 13px; }
+    .review-item .ri-detail { font-size: 12px; color: var(--ink-light); }
+    .review-item .ri-detail .right { color: var(--green); font-weight: 600; }
+    .review-item .ri-detail .yours { color: var(--red); }
+
+    /* Question grid */
+    .q-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(36px, 1fr));
+      gap: 6px;
+      margin: 16px 0;
+    }
+    .q-dot {
+      width: 36px;
+      height: 36px;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      transition: all 0.15s;
+    }
+    .q-dot:hover { border-color: var(--amber); }
+    .q-dot.answered { background: var(--amber-light); border-color: var(--amber); color: var(--amber-dark); }
+    .q-dot.current { background: var(--amber); color: #fff; border-color: var(--amber-dark); }
+
+    .actions { display: flex; gap: 10px; justify-content: center; margin-top: 20px; flex-wrap: wrap; }
+
+    @media (max-width: 600px) {
+      .container { padding: 12px; }
+      .mode-grid { grid-template-columns: 1fr; }
+      .question-card { padding: 20px; }
+      .start-card { padding: 20px; }
+      .header h1 { font-size: 18px; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="header">
+  <h1>Test Online - Vận hành Coi thi IKLC & IKSC 2026</h1>
+  <p>150 Câu hỏi trắc nghiệm</p>
+</div>
+
+<div class="container">
+  <!-- Start Screen -->
+  <div class="screen active" id="startScreen">
+    <div class="start-card">
+      <h2>Chọn chế độ thi</h2>
+      <p>Kiểm tra kiến thức Bộ hướng dẫn vận hành coi thi IKLC & IKSC 2026</p>
+
+      <div class="mode-grid">
+        <div class="mode-card selected" data-mode="all" onclick="selectMode(this)">
+          <h3>Thi toàn bộ</h3>
+          <p>150 câu, đầy đủ 5 phần</p>
+        </div>
+        <div class="mode-card" data-mode="random" onclick="selectMode(this)">
+          <h3>Ngẫu nhiên</h3>
+          <p>Chọn số câu, xáo trộn</p>
+        </div>
+        <div class="mode-card" data-mode="section" onclick="selectMode(this)">
+          <h3>Theo phần</h3>
+          <p>Chọn phần muốn ôn tập</p>
+        </div>
+        <div class="mode-card" data-mode="practice" onclick="selectMode(this)">
+          <h3>Luyện tập</h3>
+          <p>Xem đáp án ngay sau mỗi câu</p>
+        </div>
+      </div>
+
+      <div id="sectionConfig" style="display:none;">
+        <select class="section-select" id="sectionSelect">
+          <option value="">-- Chọn phần --</option>
+        </select>
+      </div>
+
+      <div id="randomConfig" style="display:none;">
+        <select class="section-select" id="randomCount">
+          <option value="10">10 câu</option>
+          <option value="20">20 câu</option>
+          <option value="30" selected>30 câu</option>
+          <option value="50">50 câu</option>
+          <option value="100">100 câu</option>
+        </select>
+      </div>
+
+      <button class="btn btn-primary" onclick="startQuiz()">Bắt đầu thi</button>
+    </div>
+  </div>
+
+  <!-- Quiz Screen -->
+  <div class="screen" id="quizScreen">
+    <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+    <div class="quiz-info">
+      <span class="q-num" id="qNum">Câu 1/150</span>
+      <span id="sectionLabel"></span>
+      <span class="timer" id="timer">00:00</span>
+    </div>
+
+    <div class="question-card">
+      <div class="section-tag" id="qSection"></div>
+      <h3 id="qText"></h3>
+      <div class="options" id="qOptions"></div>
+    </div>
+
+    <div id="feedback" style="display:none; padding:12px 16px; border-radius:10px; margin-bottom:12px; font-size:14px; font-weight:500;"></div>
+
+    <div class="quiz-nav">
+      <button class="btn btn-outline" id="prevBtn" onclick="prevQuestion()">Quay lại</button>
+      <button class="btn btn-primary" id="nextBtn" onclick="nextQuestion()">Tiếp theo</button>
+    </div>
+
+    <details style="margin-top:16px;">
+      <summary style="cursor:pointer; font-size:13px; color:var(--ink-light);">Tổng quan câu hỏi</summary>
+      <div class="q-grid" id="qGrid"></div>
+    </details>
+  </div>
+
+  <!-- Result Screen -->
+  <div class="screen" id="resultScreen">
+    <div class="result-card">
+      <div class="score-circle" id="scoreCircle">
+        <div class="score-num" id="scoreNum">0%</div>
+        <div class="score-label">Điểm số</div>
+      </div>
+
+      <div class="stats-row">
+        <div class="stat correct"><div class="num" id="statCorrect">0</div><div class="lbl">Đúng</div></div>
+        <div class="stat wrong"><div class="num" id="statWrong">0</div><div class="lbl">Sai</div></div>
+        <div class="stat skip"><div class="num" id="statSkip">0</div><div class="lbl">Bỏ qua</div></div>
+        <div class="stat"><div class="num" id="statTime">00:00</div><div class="lbl">Thời gian</div></div>
+      </div>
+
+      <div class="actions">
+        <button class="btn btn-primary" onclick="showReview()">Xem chi tiết</button>
+        <button class="btn btn-outline" onclick="restart()">Thi lại</button>
+      </div>
+    </div>
+
+    <div class="review-list" id="reviewList" style="display:none;"></div>
+  </div>
+</div>
+
+<script>
+let allQuestions = [];
+let quizQuestions = [];
+let currentIndex = 0;
+let answers = {};
+let mode = 'all';
+let isPractice = false;
+let timerInterval;
+let startTime;
+
+// Load questions
+fetch('questions.json')
+  .then(r => r.json())
+  .then(data => {
+    allQuestions = data;
+    // Populate section select
+    const sections = [...new Set(data.map(q => q.section))];
+    const sel = document.getElementById('sectionSelect');
+    sections.forEach(s => {
+      const opt = document.createElement('option');
+      opt.value = s;
+      opt.textContent = s;
+      sel.appendChild(opt);
+    });
+  });
+
+function selectMode(el) {
+  document.querySelectorAll('.mode-card').forEach(c => c.classList.remove('selected'));
+  el.classList.add('selected');
+  mode = el.dataset.mode;
+  document.getElementById('sectionConfig').style.display = mode === 'section' ? 'block' : 'none';
+  document.getElementById('randomConfig').style.display = mode === 'random' ? 'block' : 'none';
+}
+
+function startQuiz() {
+  isPractice = mode === 'practice';
+
+  if (mode === 'section') {
+    const sec = document.getElementById('sectionSelect').value;
+    if (!sec) { alert('Vui lòng chọn phần'); return; }
+    quizQuestions = allQuestions.filter(q => q.section === sec);
+  } else if (mode === 'random' || mode === 'practice') {
+    const count = mode === 'random' ? parseInt(document.getElementById('randomCount').value) : 30;
+    quizQuestions = [...allQuestions].sort(() => Math.random() - 0.5).slice(0, count);
+  } else {
+    quizQuestions = [...allQuestions];
+  }
+
+  currentIndex = 0;
+  answers = {};
+  startTime = Date.now();
+
+  // Start timer
+  clearInterval(timerInterval);
+  timerInterval = setInterval(updateTimer, 1000);
+
+  showScreen('quizScreen');
+  renderQuestion();
+  renderGrid();
+}
+
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  window.scrollTo(0, 0);
+}
+
+function updateTimer() {
+  const elapsed = Math.floor((Date.now() - startTime) / 1000);
+  const m = String(Math.floor(elapsed / 60)).padStart(2, '0');
+  const s = String(elapsed % 60).padStart(2, '0');
+  document.getElementById('timer').textContent = `${m}:${s}`;
+}
+
+function renderQuestion() {
+  const q = quizQuestions[currentIndex];
+  document.getElementById('qNum').textContent = `Câu ${currentIndex + 1}/${quizQuestions.length}`;
+  document.getElementById('qSection').textContent = q.section.replace(/\(Câu \d+-\d+\)/, '').trim();
+  document.getElementById('qText').textContent = q.question;
+  document.getElementById('progressFill').style.width = `${((currentIndex + 1) / quizQuestions.length) * 100}%`;
+
+  const optionsEl = document.getElementById('qOptions');
+  const selected = answers[q.id];
+  const feedbackEl = document.getElementById('feedback');
+  feedbackEl.style.display = 'none';
+
+  optionsEl.innerHTML = q.options.map(o => {
+    let cls = 'option';
+    if (selected === o.label) cls += ' selected';
+    if (isPractice && selected) {
+      if (o.label === q.answer) cls += ' correct';
+      else if (o.label === selected && selected !== q.answer) cls += ' wrong';
+    }
+    return `<div class="${cls}" onclick="selectAnswer('${o.label}')">
+      <div class="label">${o.label}</div>
+      <div>${o.text}</div>
+    </div>`;
+  }).join('');
+
+  // Show feedback in practice mode
+  if (isPractice && selected) {
+    feedbackEl.style.display = 'block';
+    if (selected === q.answer) {
+      feedbackEl.style.background = 'var(--green-light)';
+      feedbackEl.style.color = 'var(--green)';
+      feedbackEl.textContent = 'Chính xác!';
+    } else {
+      feedbackEl.style.background = 'var(--red-light)';
+      feedbackEl.style.color = 'var(--red)';
+      feedbackEl.textContent = `Sai. Đáp án đúng: ${q.answer}`;
+    }
+  }
+
+  // Nav buttons
+  document.getElementById('prevBtn').style.visibility = currentIndex > 0 ? 'visible' : 'hidden';
+  document.getElementById('nextBtn').textContent = currentIndex === quizQuestions.length - 1 ? 'Nộp bài' : 'Tiếp theo';
+
+  updateGrid();
+}
+
+function selectAnswer(label) {
+  const q = quizQuestions[currentIndex];
+  if (isPractice && answers[q.id]) return; // Already answered in practice
+  answers[q.id] = label;
+  renderQuestion();
+}
+
+function prevQuestion() {
+  if (currentIndex > 0) { currentIndex--; renderQuestion(); }
+}
+
+function nextQuestion() {
+  if (currentIndex < quizQuestions.length - 1) {
+    currentIndex++;
+    renderQuestion();
+    window.scrollTo(0, 0);
+  } else {
+    finishQuiz();
+  }
+}
+
+function renderGrid() {
+  const grid = document.getElementById('qGrid');
+  grid.innerHTML = quizQuestions.map((q, i) => {
+    let cls = 'q-dot';
+    if (i === currentIndex) cls += ' current';
+    else if (answers[q.id]) cls += ' answered';
+    return `<div class="${cls}" onclick="goToQuestion(${i})">${i + 1}</div>`;
+  }).join('');
+}
+
+function updateGrid() {
+  document.querySelectorAll('.q-dot').forEach((dot, i) => {
+    dot.className = 'q-dot';
+    if (i === currentIndex) dot.classList.add('current');
+    else if (answers[quizQuestions[i].id]) dot.classList.add('answered');
+  });
+}
+
+function goToQuestion(i) {
+  currentIndex = i;
+  renderQuestion();
+}
+
+function finishQuiz() {
+  clearInterval(timerInterval);
+  const elapsed = Math.floor((Date.now() - startTime) / 1000);
+  const m = String(Math.floor(elapsed / 60)).padStart(2, '0');
+  const s = String(elapsed % 60).padStart(2, '0');
+
+  let correct = 0, wrong = 0, skip = 0;
+  quizQuestions.forEach(q => {
+    const a = answers[q.id];
+    if (!a) skip++;
+    else if (a === q.answer) correct++;
+    else wrong++;
+  });
+
+  const pct = Math.round((correct / quizQuestions.length) * 100);
+  const circle = document.getElementById('scoreCircle');
+  circle.className = 'score-circle ' + (pct >= 50 ? 'pass' : 'fail');
+  document.getElementById('scoreNum').textContent = pct + '%';
+  document.getElementById('statCorrect').textContent = correct;
+  document.getElementById('statWrong').textContent = wrong;
+  document.getElementById('statSkip').textContent = skip;
+  document.getElementById('statTime').textContent = `${m}:${s}`;
+
+  // Build review
+  const reviewEl = document.getElementById('reviewList');
+  reviewEl.innerHTML = quizQuestions.map(q => {
+    const a = answers[q.id];
+    const isCorrect = a === q.answer;
+    const cls = !a ? '' : (isCorrect ? 'correct' : 'wrong');
+    let detail = `<span class="right">Đáp án: ${q.answer}</span>`;
+    if (a && !isCorrect) detail += ` | <span class="yours">Bạn chọn: ${a}</span>`;
+    if (!a) detail = `<span class="yours">Bỏ qua</span> | <span class="right">Đáp án: ${q.answer}</span>`;
+    return `<div class="review-item ${cls}">
+      <div class="ri-q">Câu ${q.id}: ${q.question}</div>
+      <div class="ri-detail">${detail}</div>
+    </div>`;
+  }).join('');
+
+  showScreen('resultScreen');
+  document.getElementById('reviewList').style.display = 'none';
+}
+
+function showReview() {
+  const el = document.getElementById('reviewList');
+  el.style.display = el.style.display === 'none' ? 'block' : 'none';
+}
+
+function restart() {
+  showScreen('startScreen');
+  clearInterval(timerInterval);
+}
+</script>
+</body>
+</html>
